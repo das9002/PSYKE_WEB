@@ -17,9 +17,9 @@ html.dark-mode {
 html.dark-mode,
 html.dark-mode body,
 body.dark-mode {
-    background-color: #0b0f19 !important;
-    background: #0b0f19 !important;
-    color: #f3f4f6 !important;
+    background-color: #0f172a !important;
+    background: #0f172a !important;
+    color: #f8fafc !important;
 }
 
 html.dark-mode .sidebar {
@@ -334,9 +334,13 @@ html.dark-mode .psicologo-avatar-badge {
 }
 
 html.dark-mode .ai-summary-box {
-    background-color: #1f2937 !important;
-    border-color: #374151 !important;
-    color: #e5e7eb !important;
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%) !important;
+    border-color: #334155 !important;
+    color: #f1f5f9 !important;
+}
+
+html.dark-mode .ai-summary-box::before {
+    background: linear-gradient(180deg, #3b82f6, #60a5fa);
 }
 
 html.dark-mode .appointment {
