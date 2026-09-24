@@ -1,0 +1,519 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+
+:root {
+    --primary: #2F6DF6;
+    --primary-hover: #1e56d4;
+    --danger: #E95A5A;
+    --warning: #F5C451;
+    --success: #22c55e;
+    --sidebar-bg: #141C4D;
+    --sidebar-hover: #424cbd;
+    --bg: #F4F5FA;
+    --font-base: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+* {
+    font-family: var(--font-base);
+    box-sizing: border-box;
+}
+
+body {
+    background: var(--bg);
+    font-family: var(--font-base);
+    color: #1e293b;
+    margin: 0;
+    padding: 0;
+    -webkit-font-smoothing: antialiased;
+}
+
+.sidebar {
+    background-color: var(--sidebar-bg);
+    width: 280px;
+    height: 100vh;
+    position: sticky;
+    top: 0;
+    overflow-y: auto;
+    color: #ffffff;
+    flex-shrink: 0;
+    transition: all 0.3s ease;
+}
+
+.sidebar .nav-link {
+    color: rgba(255, 255, 255, 0.85);
+    text-decoration: none;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    padding: 12px 20px;
+    border-radius: 12px;
+    font-weight: 500;
+    font-size: 0.95rem;
+    transition: all 0.25s ease;
+    margin-bottom: 4px;
+}
+
+.sidebar .nav-link i {
+    font-size: 1.15rem;
+}
+
+.sidebar .nav-link:hover, 
+.sidebar .nav-link.active {
+    color: #ffffff;
+    background-color: var(--sidebar-hover);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.main {
+    padding: 25px 30px;
+    min-height: 100vh;
+}
+
+.topbar {
+    background: #ffffff;
+    padding: 16px 24px;
+    border-radius: 16px;
+    margin-bottom: 24px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+    border: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+.topbar h4 {
+    color: #0f172a;
+    font-size: 1.25rem;
+}
+
+.clickable-icon {
+    cursor: pointer;
+    color: #64748b;
+    transition: color 0.2s ease;
+}
+
+.clickable-icon:hover {
+    color: var(--primary);
+}
+
+.btn-user-profile {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 8px 14px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: #1e293b;
+    transition: all 0.2s ease;
+}
+
+.btn-user-profile:hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+}
+
+.card-dashboard {
+    border: none;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+    background: #ffffff;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    border: 1px solid rgba(226, 232, 240, 0.7);
+    height: 100%;
+}
+
+.card-dashboard:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+}
+
+.stat-header {
+    color: #ffffff;
+    padding: 12px 18px;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.stat-header.blue {
+    background: linear-gradient(135deg, #2F6DF6, #1d4ed8);
+}
+
+.stat-header.yellow {
+    background: linear-gradient(135deg, #F5C451, #eab308);
+}
+
+.stat-header.green {
+    background: linear-gradient(135deg, #22c55e, #16a34a);
+}
+
+.card-dashboard h2 {
+    font-size: 2rem;
+    font-weight: 800;
+    color: #0f172a;
+    letter-spacing: -0.5px;
+    margin: 0;
+}
+
+.citas-filter-nav {
+    display: flex;
+    gap: 12px;
+    border-bottom: 2px solid #e2e8f0;
+    padding-bottom: 2px;
+    overflow-x: auto;
+}
+
+.nav-link-custom {
+    text-decoration: none;
+    color: #64748b;
+    font-weight: 600;
+    font-size: 0.95rem;
+    padding: 10px 18px;
+    border-radius: 10px 10px 0 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: transparent;
+    border: none;
+    border-bottom: 3px solid transparent;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.nav-link-custom:hover {
+    color: var(--primary);
+    background: rgba(47, 109, 246, 0.05);
+}
+
+.nav-link-custom.active {
+    color: var(--primary);
+    border-bottom: 3px solid var(--primary);
+    font-weight: 700;
+}
+
+.search-box-container {
+    position: relative;
+    max-width: 420px;
+    width: 100%;
+}
+
+.search-box-container .form-control {
+    border-radius: 10px;
+    border: 1px solid #cbd5e1;
+    padding: 10px 14px 10px 42px;
+    font-size: 0.92rem;
+    transition: all 0.2s ease;
+}
+
+.search-box-container .form-control:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(47, 109, 246, 0.15);
+}
+
+.search-box-container .search-icon {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #94a3b8;
+    pointer-events: none;
+    font-size: 1rem;
+}
+
+.card-transferido {
+    background: #ffffff;
+    border-radius: 16px;
+    border: 1px solid rgba(226, 232, 240, 0.8);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: 100%;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card-transferido:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.07);
+}
+
+.card-transferido.aceptado {
+    border-left: 5px solid var(--success);
+}
+
+.card-transferido.pendiente {
+    border-left: 5px solid var(--warning);
+}
+
+.card-transferido.rechazado {
+    border-left: 5px solid var(--danger);
+    opacity: 0.75;
+}
+
+.transfer-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: rgba(47, 109, 246, 0.12);
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+}
+
+.motivo-box {
+    background-color: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 12px 16px;
+    font-size: 0.88rem;
+    color: #334155;
+    line-height: 1.5;
+}
+
+.badge-estado {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.badge-estado.prioritario {
+    background-color: #fef3c7;
+    color: #b45309;
+}
+
+.badge-estado.seguimiento {
+    background-color: #dbeafe;
+    color: #1d4ed8;
+}
+
+.badge-estado.estable {
+    background-color: #dcfce7;
+    color: #15803d;
+}
+
+.badge-transfer-status {
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 8px;
+    text-transform: uppercase;
+}
+
+.badge-transfer-status.pendiente {
+    background: #fef3c7;
+    color: #b45309;
+}
+
+.badge-transfer-status.aceptado {
+    background: #dcfce7;
+    color: #15803d;
+}
+
+.badge-transfer-status.rechazado {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+.btn-aceptar {
+    background: linear-gradient(135deg, #22c55e, #16a34a);
+    color: #ffffff;
+    border: none;
+    border-radius: 10px;
+    padding: 9px 18px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+}
+
+.btn-aceptar:hover {
+    background: linear-gradient(135deg, #16a34a, #15803d);
+    color: #ffffff;
+    transform: translateY(-1px);
+}
+
+.btn-rechazar {
+    background: #fee2e2;
+    color: #dc2626;
+    border: 1px solid #fecaca;
+    border-radius: 10px;
+    padding: 9px 18px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+}
+
+.btn-rechazar:hover {
+    background: #dc2626;
+    color: #ffffff;
+}
+
+.btn-ver-caso {
+    background: linear-gradient(135deg, #2F6DF6, #1d4ed8);
+    color: #ffffff;
+    border: none;
+    border-radius: 10px;
+    padding: 9px 20px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    box-shadow: 0 3px 10px rgba(47, 109, 246, 0.25);
+    transition: all 0.2s ease;
+}
+
+.btn-ver-caso:hover {
+    background: linear-gradient(135deg, #1e56d4, #173db3);
+    color: #ffffff;
+    transform: translateY(-1px);
+}
+
+.modal-content {
+    border-radius: 18px;
+    border: none;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+    overflow: hidden;
+}
+
+.modal-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.modal-body {
+    padding: 24px;
+}
+
+.modal-footer {
+    padding: 16px 24px;
+    border-top: 1px solid #f1f5f9;
+}
+
+html.dark-mode .card-transferido {
+    background: #111827 !important;
+    border-color: #1f2937 !important;
+    color: #f3f4f6 !important;
+}
+
+html.dark-mode .card-dashboard {
+    background: #111827 !important;
+    border-color: #1f2937 !important;
+}
+
+html.dark-mode .card-dashboard h2 {
+    color: #f3f4f6 !important;
+}
+
+html.dark-mode .citas-filter-nav {
+    border-bottom-color: #1f2937 !important;
+}
+
+html.dark-mode .nav-link-custom {
+    background: transparent !important;
+    color: #9ca3af !important;
+    border-color: transparent !important;
+}
+
+html.dark-mode .nav-link-custom:hover {
+    color: #60a5fa !important;
+    background: rgba(47, 109, 246, 0.15) !important;
+}
+
+html.dark-mode .nav-link-custom.active {
+    color: #60a5fa !important;
+    border-bottom: 3px solid #3b82f6 !important;
+    background: rgba(47, 109, 246, 0.1) !important;
+}
+
+html.dark-mode .motivo-box {
+    background-color: #182235 !important;
+    border-color: #1f2937 !important;
+    color: #e5e7eb !important;
+}
+
+html.dark-mode .transfer-avatar {
+    background-color: #1f2937 !important;
+    border: 1px solid #374151 !important;
+    color: #60a5fa !important;
+}
+
+html.dark-mode .modal-content {
+    background: #111827 !important;
+    border-color: #1f2937 !important;
+}
+
+.hamburger-btn {
+    display: none;
+    position: fixed;
+    top: 15px;
+    left: 15px;
+    z-index: 1100;
+    background: #141C4D;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    width: 45px;
+    height: 45px;
+    font-size: 1.5rem;
+    cursor: pointer;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+}
+
+.sidebar-overlay.active {
+    display: block;
+}
+
+@media (max-width: 992px) {
+    .hamburger-btn {
+        display: flex;
+    }
+
+    .sidebar {
+        position: fixed;
+        top: 0;
+        left: -280px;
+        height: 100vh;
+        width: 280px;
+        z-index: 1000;
+        transition: left 0.3s ease;
+        overflow-y: auto;
+        padding-top: 60px;
+    }
+
+    .sidebar.open {
+        left: 0;
+    }
+
+    .main {
+        padding: 80px 16px 20px 16px;
+        width: 100%;
+    }
+
+    .topbar {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+}

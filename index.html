@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link rel="stylesheet" href="css/styleindex.css">
+    <link rel="stylesheet" href="css/styleTemaoscuro.css">
+    <link rel="icon" href="img/Logo0.png">
+    <title>Psyke</title>
+    <script>
+        (function() {
+            if (localStorage.getItem('psyke_dark_mode') === 'enabled') {
+                document.documentElement.classList.add('dark-mode');
+            }
+        })();
+    </script>
+</head>
+<body>
+
+    <div class="bg-decor" aria-hidden="true">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+        <div class="blob blob-3"></div>
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+        <div class="orb orb-4"></div>
+        <div class="orb orb-5"></div>
+        <div class="orb orb-6"></div>
+        <div class="orb orb-7"></div>
+        <div class="orb orb-8"></div>
+    </div>
+
+    <div class="container" id="container">
+
+        <div class="form-container sign-in">
+            <form id="loginForm">
+                <h1>Inicia Sesión</h1>
+                <div class="social-icons">
+                    <a href="#" class="icon"><i class="fa-brands fa-google-plus-g" style="color:rgb(30,26,26)"></i></a>
+                </div>
+                <span>o usa tu correo</span>
+                <input type="email" id="loginEmail" placeholder="Correo" required />
+                <span class="error-msg">El correo es requerido</span>
+                <input type="password" id="loginPassword" placeholder="Contraseña" required />
+                <span class="error-msg">La contraseña es requerida</span>
+                <a href="#">¿Olvidaste tu contraseña?</a>
+                <button type="submit">Inicia Sesión</button>
+            </form>
+        </div>
+
+        <div class="form-container sign-up">
+            <form>
+                <h1>Registrate</h1>
+                <div class="social-icons">
+                    <a href="#" class="icon"><i class="fa-brands fa-google-plus-g" style="color:rgb(30,26,26)"></i></a>
+                </div>
+                <span>o usa tu email para registrarte</span>
+                <input type="text" placeholder="Nombre" required />
+                <span class="error-msg">El nombre es requerido</span>
+                <input type="email" id="emailLogin" placeholder="Correo" required />
+                <span class="error-msg">El correo es requerido</span>
+                <input type="password" placeholder="Contraseña" required />
+                <span class="error-msg">La contraseña es requerida</span>
+                <button type="submit">Registrate</button>
+            </form>
+        </div>
+
+        
+        <div class="toggle-container">
+            <div class="toggle">
+                <div class="toggle-panel toggle-left">
+                    <h1>Bienvenido!</h1>
+                    <p>Ingresa tus datos personales</p>
+                    <button class="hidden" id="login">Inicia Sesión</button>
+                </div>
+                <div class="toggle-panel toggle-right">
+                    <h1>Hola!</h1>
+                    <p>Ingresa tus datos para iniciar sesión</p>
+                    
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.js"></script>
+    <script src="JS/services/config.js"></script>
+    <script src="JS/services/notificacionesService.js"></script>
+    <script src="JS/validaciones/loginValidaciones.js"></script>
+    <script src="JS/services/authService.js"></script>
+    <script src="JS/services/loginService.js"></script>
+    <script src="JS/controllers/loginController.js"></script>
+</body>
+</html>

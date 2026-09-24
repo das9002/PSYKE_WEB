@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Psyke - Casos Transferidos</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+    <link rel="stylesheet" href="../css/styleCasosTransferidos.css">
+    <link rel="stylesheet" href="../css/styleNavbar.css">
+    <link rel="stylesheet" href="../css/styleTemaoscuro.css">
+    <link rel="stylesheet" href="../css/stylenotificacionChat.css">
+    <link rel="icon" href="../img/Logo0.png" crossorigin>
+    <script>
+        (function () {
+            if (localStorage.getItem('psyke_dark_mode') === 'enabled') {
+                document.documentElement.classList.add('dark-mode');
+            }
+        })();
+    </script>
+</head>
+
+<body>
+
+    <button class="hamburger-btn d-lg-none" id="hamburgerBtn" aria-label="Abrir menú">
+        <i class="bi bi-list"></i>
+    </button>
+
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <div class="d-flex">
+
+        <aside class="sidebar d-flex flex-column p-3">
+            <div class="d-flex align-items-center gap-3 px-3 py-4 mb-2">
+                <div class="bg-primary rounded d-flex align-items-center justify-content-center p-2">
+                    <i class="bi bi-brain text-white fs-4"></i>
+                </div>
+                <img src="../img/Logo0.png" alt="Psyke Logo" style="width: 75px;">
+                <span class="fs-4 fw-bold tracking-wide">Psyke</span>
+            </div>
+
+            <nav class="nav flex-column flex-grow-1">
+                <a class="nav-link" href="inicio.html"><i class="bi bi-house-door-fill"></i> Inicio</a>
+                <a class="nav-link" href="citas.html"><i class="bi bi-calendar3-event-fill"></i> Citas</a>
+                <a class="nav-link" href="estudiante.html"><i class="bi bi-people-fill"></i> Estudiantes</a>
+                <a class="nav-link" href="psicologos.html"><i class="bi bi-person-badge-fill"></i> Psicólogos</a>
+                <a class="nav-link active" href="casosTransferidos.html"><i class="bi bi-arrow-left-right"></i> Casos Transferidos</a>
+                <a class="nav-link" href="seguimientos.html"><i class="bi bi-graph-up-arrow"></i> Seguimientos</a>
+                <a class="nav-link" href="tests.html"><i class="bi bi-clipboard-check-fill"></i> Tests Personalizados</a>
+                <a class="nav-link" href="config.html"><i class="bi bi-gear-fill"></i> Configuración</a>
+            </nav>
+        </aside>
+
+        <div class="flex-grow-1 main">
+
+            <div class="topbar d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center gap-2">
+                    <div>
+                        <h4 class="mb-0 fw-bold d-flex align-items-center gap-2">
+                            <i class="bi bi-arrow-left-right text-primary"></i>
+                            <span>Casos Transferidos</span>
+                        </h4>
+                        <span class="text-muted small">Gestión, recepción y aceptación de expedientes derivados entre profesionales</span>
+                    </div>
+                </div>
+                <div class="d-flex align-items-center">
+                    <i class="bi bi-chat fs-4 me-3 clickable-icon" title="Mensajes"></i>
+                    <i class="bi bi-bell fs-4 me-3 clickable-icon" title="Notificaciones"></i>
+                    <button class="btn btn-user-profile d-flex align-items-center gap-2 shadow-sm position-relative">
+                        <i class="bi bi-person-circle fs-5 text-primary"></i>
+                        <span class="user-name"></span>
+                        <i class="bi bi-chevron-down small chevron-icon"></i>
+                    </button>
+
+                    <div class="profile-dropdown-menu" id="profileDropdownMenu" role="menu" aria-label="Menú de usuario">
+                        <div class="profile-dropdown-header">
+                            <i class="bi bi-person-circle"></i>
+                            <div>
+                                <span class="profile-dropdown-name"></span>
+                                <span class="profile-dropdown-email"></span>
+                            </div>
+                        </div>
+                        <div class="profile-dropdown-divider"></div>
+                        <a class="profile-dropdown-item" href="perfilConfig.html" data-action="profile" role="menuitem">
+                            <i class="bi bi-person-fill"></i> Mi Perfil
+                        </a>
+                        <a class="profile-dropdown-item" href="config.html" data-action="settings" role="menuitem">
+                            <i class="bi bi-gear-fill"></i> Configuración
+                        </a>
+                        <div class="profile-dropdown-divider"></div>
+                        <button type="button" class="profile-dropdown-item danger" data-action="logout" role="menuitem">
+                            <i class="bi bi-box-arrow-right"></i> Cerrar sesión
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-3 mb-4">
+                <div class="col-12 col-md-4">
+                    <div class="card card-dashboard">
+                        <div class="stat-header blue d-flex align-items-center justify-content-between">
+                            <span>Total Casos Recibidos</span>
+                            <i class="bi bi-inbox-fill fs-5"></i>
+                        </div>
+                        <div class="p-3 text-center">
+                            <h2 id="metricTotalRecibidos">3</h2>
+                            <small class="text-muted">Expedientes derivados</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-12 col-md-4">
+                    <div class="card card-dashboard">
+                        <div class="stat-header yellow d-flex align-items-center justify-content-between">
+                            <span>Pendientes de Aceptación</span>
+                            <i class="bi bi-hourglass-split fs-5"></i>
+                        </div>
+                        <div class="p-3 text-center">
+                            <h2 id="metricPendientes">2</h2>
+                            <small class="text-muted">Requieren tu aprobación</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-12 col-md-4">
+                    <div class="card card-dashboard">
+                        <div class="stat-header green d-flex align-items-center justify-content-between">
+                            <span>Casos Aceptados</span>
+                            <i class="bi bi-check-circle-fill fs-5"></i>
+                        </div>
+                        <div class="p-3 text-center">
+                            <h2 id="metricAceptados">1</h2>
+                            <small class="text-muted">En seguimiento activo</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="citas-filter-nav mb-4">
+                <button class="nav-link-custom active" data-filtro="todos" type="button">
+                    <i class="bi bi-collection"></i> Todos los Casos
+                </button>
+                <button class="nav-link-custom" data-filtro="pendientes" type="button">
+                    <i class="bi bi-hourglass-split"></i> Pendientes de Aceptación
+                </button>
+                <button class="nav-link-custom" data-filtro="aceptados" type="button">
+                    <i class="bi bi-check2-circle"></i> Casos Aceptados
+                </button>
+                <button class="nav-link-custom" data-filtro="rechazados" type="button">
+                    <i class="bi bi-x-circle"></i> Rechazados
+                </button>
+            </div>
+
+            <div class="search-box-container mb-4">
+                <i class="bi bi-search search-icon"></i>
+                <input type="text" id="buscarTransferidoInput" class="form-control" placeholder="Buscar por estudiante, carnet o psicólogo que deriva...">
+            </div>
+
+            <div class="row g-3" id="contenedorCasosTransferidos">
+            </div>
+
+            <div id="noResultsTransferidos" class="text-center py-5 d-none text-muted">
+                <i class="bi bi-inbox fs-1 mb-2 d-block opacity-50"></i>
+                <p class="mb-0 fw-semibold">No se encontraron casos transferidos en esta categoría.</p>
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="modal fade" id="modalDetalleCaso" tabindex="-1" aria-labelledby="modalCasoTitle" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold d-flex align-items-center gap-2" id="modalCasoTitle">
+                        <i class="bi bi-folder2-open text-primary"></i>
+                        <span>Detalle del Expediente Transferido</span>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body" id="modalCasoBody">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
+        crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.js"></script>
+    <script src="../JS/services/config.js"></script>
+    <script src="../JS/services/chatService.js"></script>
+    <script src="../JS/services/notificacionesService.js"></script>
+    <script src="../JS/services/navbarService.js"></script>
+    <script src="../JS/services/estudiantesService.js"></script>
+    <script src="../JS/services/psicologosService.js"></script>
+    <script src="../JS/services/casosTransferidosService.js"></script>
+    <script src="../JS/validaciones/casosTransferidosValidaciones.js"></script>
+    <script src="../JS/controllers/casosTransferidosController.js"></script>
+</body>
+
+</html>

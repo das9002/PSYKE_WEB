@@ -1,0 +1,516 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+
+html.dark-mode {
+    --sidebar-bg: #090d26;
+    --main-bg: #0b0f19;
+    --card-bg: #111827;
+    --card-border: #1f2937;
+    --text-color: #f3f4f6;
+    --text-muted: #9ca3af;
+    --hover-bg: #1f2937;
+    --border-color: #1f2937;
+    --switch-active-bg: #2F6DF6;
+    --input-bg: #1f2937;
+    --input-border: #374151;
+}
+
+html.dark-mode,
+html.dark-mode body,
+body.dark-mode {
+    background-color: #0b0f19 !important;
+    background: #0b0f19 !important;
+    color: #f3f4f6 !important;
+}
+
+html.dark-mode .sidebar {
+    background-color: #090d26 !important;
+    background: #090d26 !important;
+    border-right: 1px solid #1f2937 !important;
+}
+html.dark-mode .sidebar .nav-link {
+    color: rgba(255, 255, 255, 0.7) !important;
+}
+html.dark-mode .sidebar .nav-link:hover,
+html.dark-mode .sidebar .nav-link.active {
+    color: #ffffff !important;
+    background-color: #3b45a9 !important;
+}
+html.dark-mode .sidebar .section-initial {
+    color: #6b7280 !important;
+}
+
+html.dark-mode .topbar,
+html.dark-mode .card,
+html.dark-mode .card-dashboard,
+html.dark-mode .card-section,
+html.dark-mode .card-custom,
+html.dark-mode .card-test-section,
+html.dark-mode .card-estudiante-item,
+html.dark-mode .table-card,
+html.dark-mode .table-container,
+html.dark-mode .settings-group,
+html.dark-mode .custom-form-group,
+html.dark-mode .total-card,
+html.dark-mode .form-center-box,
+html.dark-mode .split-card,
+html.dark-mode .modal-content {
+    background: #111827 !important;
+    background-color: #111827 !important;
+    border-color: #1f2937 !important;
+    color: #f3f4f6 !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+}
+
+html.dark-mode .citas-filter-nav {
+    border-bottom-color: #1f2937 !important;
+}
+
+html.dark-mode .nav-link-custom {
+    background: transparent !important;
+    color: #9ca3af !important;
+    border-color: transparent !important;
+}
+
+html.dark-mode .nav-link-custom:hover {
+    color: #60a5fa !important;
+    background: rgba(47, 109, 246, 0.15) !important;
+}
+
+html.dark-mode .nav-link-custom.active {
+    color: #60a5fa !important;
+    border-bottom: 3px solid #3b82f6 !important;
+    background: rgba(47, 109, 246, 0.1) !important;
+    font-weight: 700 !important;
+}
+
+html.dark-mode h1,
+html.dark-mode h2,
+html.dark-mode h3,
+html.dark-mode h4,
+html.dark-mode h5,
+html.dark-mode h6,
+html.dark-mode .card h4,
+html.dark-mode .card h5,
+html.dark-mode .card h6,
+html.dark-mode .card-dashboard h2,
+html.dark-mode .form-header-title,
+html.dark-mode label,
+html.dark-mode .custom-form-label,
+html.dark-mode .item-label,
+html.dark-mode .settings-item,
+html.dark-mode .text-dark,
+html.dark-mode .student-name,
+html.dark-mode .modal-title,
+html.dark-mode .validation-item.valid {
+    color: #f3f4f6 !important;
+}
+
+html.dark-mode p,
+html.dark-mode .text-muted,
+html.dark-mode .settings-category,
+html.dark-mode .section-label,
+html.dark-mode .validation-item,
+html.dark-mode .custom-modal-message {
+    color: #9ca3af !important;
+}
+
+html.dark-mode .table,
+html.dark-mode table,
+html.dark-mode th,
+html.dark-mode td {
+    background-color: #111827 !important;
+    background: #111827 !important;
+    color: #e5e7eb !important;
+    border-color: #1f2937 !important;
+}
+html.dark-mode .table thead,
+html.dark-mode table thead,
+html.dark-mode .table thead th,
+html.dark-mode table thead th {
+    background-color: #182235 !important;
+    background: #182235 !important;
+    color: #ffffff !important;
+    border-color: #374151 !important;
+}
+html.dark-mode .table-striped tbody tr:nth-of-type(odd) {
+    background-color: #141d2e !important;
+}
+html.dark-mode .table-hover tbody tr:hover,
+html.dark-mode .table tbody tr:hover {
+    background-color: #1a2436 !important;
+    color: #ffffff !important;
+}
+
+html.dark-mode input:not([type="checkbox"]):not([type="radio"]),
+html.dark-mode select,
+html.dark-mode textarea,
+html.dark-mode .form-control,
+html.dark-mode .form-select,
+html.dark-mode .input-wrapper,
+html.dark-mode .custom-form-field,
+html.dark-mode .custom-textarea-resumen,
+html.dark-mode .custom-modal-input,
+html.dark-mode .txtPregunta {
+    background-color: #1f2937 !important;
+    background: #1f2937 !important;
+    color: #f3f4f6 !important;
+    border-color: #374151 !important;
+}
+html.dark-mode input:not([type="checkbox"]):not([type="radio"]):focus,
+html.dark-mode select:focus,
+html.dark-mode textarea:focus,
+html.dark-mode .form-control:focus,
+html.dark-mode .form-select:focus,
+html.dark-mode .input-wrapper:focus-within,
+html.dark-mode .custom-textarea-resumen:focus,
+html.dark-mode .txtPregunta:focus {
+    background-color: #1f2937 !important;
+    border-color: #3b82f6 !important;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25) !important;
+}
+html.dark-mode input::placeholder,
+html.dark-mode textarea::placeholder {
+    color: #6b7280 !important;
+}
+html.dark-mode input[readonly] {
+    background-color: #111827 !important;
+    opacity: 0.85;
+}
+html.dark-mode .input-group-text {
+    background-color: #182235 !important;
+    border-color: #374151 !important;
+    color: #9ca3af !important;
+}
+
+html.dark-mode .form-check-input,
+html.dark-mode .form-switch .form-check-input {
+    background-color: #374151 !important;
+    border-color: #4b5563 !important;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23ffffff'/%3e%3c/svg%3e") !important;
+    background-position: left center !important;
+    background-repeat: no-repeat !important;
+    opacity: 1 !important;
+    display: inline-block !important;
+    visibility: visible !important;
+    width: 3.2em !important;
+    height: 1.7em !important;
+    cursor: pointer !important;
+}
+
+html.dark-mode .form-check-input:checked,
+html.dark-mode .form-switch .form-check-input:checked {
+    background-color: #2F6DF6 !important;
+    border-color: #2F6DF6 !important;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23ffffff'/%3e%3c/svg%3e") !important;
+    background-position: right center !important;
+}
+
+html.dark-mode .form-check-input[type="radio"] {
+    width: 1.25em !important;
+    height: 1.25em !important;
+    border-radius: 50% !important;
+}
+
+html.dark-mode .field-icon,
+html.dark-mode .item-label i,
+html.dark-mode .input-wrapper i.field-icon,
+html.dark-mode .search-icon {
+    color: #9ca3af !important;
+}
+
+html.dark-mode .btn-light {
+    background-color: #1f2937 !important;
+    border-color: #374151 !important;
+    color: #f3f4f6 !important;
+}
+html.dark-mode .btn-light:hover {
+    background-color: #374151 !important;
+    color: #ffffff !important;
+}
+html.dark-mode .btn-user-profile {
+    background-color: #1f2937 !important;
+    border-color: #374151 !important;
+    color: #f3f4f6 !important;
+}
+html.dark-mode .btn-volver {
+    background-color: #1f2937 !important;
+    border-color: #374151 !important;
+    color: #f3f4f6 !important;
+}
+html.dark-mode .btn-volver:hover {
+    background-color: #374151 !important;
+}
+html.dark-mode .btn-outline-secondary {
+    border-color: #4b5563 !important;
+    color: #d1d5db !important;
+}
+html.dark-mode .btn-outline-secondary:hover {
+    background-color: #374151 !important;
+    color: #ffffff !important;
+}
+html.dark-mode .btn-outline-primary {
+    color: #60a5fa !important;
+    border-color: #60a5fa !important;
+}
+html.dark-mode .btn-outline-primary:hover {
+    background-color: #3b82f6 !important;
+    color: #ffffff !important;
+}
+
+html.dark-mode .btn-tipo-respuesta {
+    background: #1f2937 !important;
+    border-color: #374151 !important;
+    color: #e5e7eb !important;
+}
+html.dark-mode .btn-tipo-respuesta:hover,
+html.dark-mode .btn-tipo-respuesta.active {
+    background: rgba(47, 109, 246, 0.25) !important;
+    border-color: #3b82f6 !important;
+    color: #60a5fa !important;
+}
+html.dark-mode .question-badge {
+    background: rgba(47, 109, 246, 0.25) !important;
+    color: #60a5fa !important;
+    border: 1px solid rgba(47, 109, 246, 0.4) !important;
+}
+html.dark-mode .preview-respuestas {
+    background-color: #182235 !important;
+    border: 1px solid #1f2937 !important;
+    color: #f3f4f6 !important;
+}
+html.dark-mode .preview-respuestas label,
+html.dark-mode .preview-respuestas .text-dark {
+    color: #e5e7eb !important;
+}
+
+html.dark-mode .badge-cita-estado.confirmada {
+    background-color: #064e3b !important;
+    color: #34d399 !important;
+    border: 1px solid #059669 !important;
+}
+html.dark-mode .badge-cita-estado.pendiente {
+    background-color: #451a03 !important;
+    color: #fbbf24 !important;
+    border: 1px solid #d97706 !important;
+}
+html.dark-mode .badge-cita-estado.cancelada {
+    background-color: #450a0a !important;
+    color: #f87171 !important;
+    border: 1px solid #dc2626 !important;
+}
+
+html.dark-mode .badge-estado.prioritario {
+    background-color: #451a03 !important;
+    color: #fbbf24 !important;
+    border: 1px solid #d97706 !important;
+}
+html.dark-mode .badge-estado.normal,
+html.dark-mode .badge-estado.seguimiento {
+    background-color: #0c4a6e !important;
+    color: #38bdf8 !important;
+    border: 1px solid #0284c7 !important;
+}
+html.dark-mode .badge-estado.estable {
+    background-color: #064e3b !important;
+    color: #34d399 !important;
+    border: 1px solid #059669 !important;
+}
+html.dark-mode .badge.bg-light {
+    background-color: #1f2937 !important;
+    color: #cbd5e1 !important;
+    border-color: #374151 !important;
+}
+
+html.dark-mode .profile-avatar,
+html.dark-mode .profile-avatar-box,
+html.dark-mode .student-avatar-large,
+html.dark-mode .appointment-avatar,
+html.dark-mode .modal-avatar-preview,
+html.dark-mode .student-avatar-badge,
+html.dark-mode .psicologo-avatar-badge {
+    background-color: #1f2937 !important;
+    border: 1px solid #374151 !important;
+    color: #60a5fa !important;
+}
+
+html.dark-mode .ai-summary-box {
+    background-color: #1f2937 !important;
+    border-color: #374151 !important;
+    color: #e5e7eb !important;
+}
+
+html.dark-mode .appointment {
+    background: #1f2937 !important;
+    border-color: #374151 !important;
+}
+html.dark-mode .appointment:hover {
+    background: #283548 !important;
+}
+
+html.dark-mode .btn-close {
+    filter: invert(1) grayscale(100%) brightness(200%);
+}
+
+html.dark-mode .modal-header {
+    border-bottom-color: #1f2937 !important;
+}
+html.dark-mode .modal-footer {
+    border-top-color: #1f2937 !important;
+}
+html.dark-mode .modal-body .card.bg-light {
+    background-color: #182235 !important;
+    border-color: #1f2937 !important;
+}
+
+html.dark-mode .settings-group {
+    background-color: #111827 !important;
+    border-color: #1f2937 !important;
+}
+
+html.dark-mode .settings-item {
+    color: #f3f4f6 !important;
+    border-bottom-color: #1f2937 !important;
+}
+
+html.dark-mode .settings-item:hover {
+    background-color: #1a2436 !important;
+    color: #ffffff !important;
+}
+
+html.dark-mode .settings-item.text-danger {
+    color: #f87171 !important;
+}
+
+html.dark-mode .settings-item.text-danger:hover {
+    background-color: #1a2436 !important;
+    color: #f87171 !important;
+}
+
+html.dark-mode .settings-category {
+    color: #6b7280 !important;
+}
+
+html.dark-mode .item-label {
+    color: #f3f4f6 !important;
+}
+
+html.dark-mode .item-label.text-danger {
+    color: #f87171 !important;
+}
+
+html.dark-mode .badge-critico {
+    background-color: #450a0a !important;
+    color: #f87171 !important;
+    border: 1px solid #dc2626 !important;
+}
+
+html.dark-mode .badge-critico-no {
+    background-color: #1f2937 !important;
+    color: #9ca3af !important;
+    border: 1px solid #374151 !important;
+}
+
+html.dark-mode .psicologo-name {
+    color: #f3f4f6 !important;
+}
+
+html.dark-mode .badge-estado.activo {
+    background-color: #064e3b !important;
+    color: #34d399 !important;
+    border: 1px solid #059669 !important;
+}
+
+html.dark-mode .badge-estado.inactivo {
+    background-color: #1f2937 !important;
+    color: #9ca3af !important;
+    border: 1px solid #374151 !important;
+}
+
+html.dark-mode .badge-count {
+    background: rgba(47, 109, 246, 0.25) !important;
+    color: #60a5fa !important;
+}
+
+html.dark-mode .badge-respondidos {
+    background-color: #064e3b !important;
+    color: #34d399 !important;
+}
+
+html.dark-mode .badge-sin-responder {
+    background-color: #451a03 !important;
+    color: #fbbf24 !important;
+}
+
+html.dark-mode .test-nombre {
+    color: #f3f4f6 !important;
+}
+
+html.dark-mode .btn-respondidos {
+    background-color: #064e3b !important;
+    color: #34d399 !important;
+}
+
+html.dark-mode .btn-sin-responder {
+    background-color: #451a03 !important;
+    color: #fbbf24 !important;
+}
+
+html.dark-mode .badge-tipo-respuesta {
+    background: rgba(47, 109, 246, 0.25) !important;
+    color: #60a5fa !important;
+}
+
+html.dark-mode .pregunta-item {
+    border-bottom-color: #1f2937 !important;
+}
+
+html.dark-mode .card-transferido {
+    background-color: #111827 !important;
+    border-color: #1f2937 !important;
+    color: #f3f4f6 !important;
+}
+
+html.dark-mode .motivo-box {
+    background-color: #182235 !important;
+    border-color: #1f2937 !important;
+    color: #e5e7eb !important;
+}
+
+html.dark-mode .transfer-avatar {
+    background-color: #1f2937 !important;
+    border: 1px solid #374151 !important;
+    color: #60a5fa !important;
+}
+
+html.dark-mode .badge-transfer-status.pendiente {
+    background-color: #451a03 !important;
+    color: #fbbf24 !important;
+}
+
+html.dark-mode .badge-transfer-status.aceptado {
+    background-color: #064e3b !important;
+    color: #34d399 !important;
+}
+
+html.dark-mode .badge-transfer-status.rechazado {
+    background-color: #450a0a !important;
+    color: #f87171 !important;
+}
+
+html.dark-mode .swal2-popup {
+    background-color: #111827 !important;
+    border: 1px solid #1f2937 !important;
+}
+html.dark-mode .swal2-title {
+    color: #f3f4f6 !important;
+}
+html.dark-mode .swal2-html-container {
+    color: #9ca3af !important;
+}
+html.dark-mode .swal2-cancel {
+    background-color: #1f2937 !important;
+    color: #d1d5db !important;
+}
+html.dark-mode .swal2-cancel:hover {
+    background-color: #374151 !important;
+}
