@@ -7,8 +7,25 @@ document.addEventListener('DOMContentLoaded', () => {
         psicologos: [],
         apiDisponible: false,
         filtroActual: 'todos',
-        enEdicion: null
+        enEdicion: null,
+        usuarioSesion: null,
+        psicologoLogueado: null
     };
+
+    async function obtenerUsuarioSesion() {
+        if (typeof verificarSesion === 'function') {
+            return await verificarSesion();
+        }
+        try {
+            const respuesta = await fetch((window.AUTH_API_URL || 'http://localhost:8081/api/auth') + '/me', {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include'
+            });
+            if (respuesta.ok) return await respuesta.json();
+        } catch (e) { }
+        return null;
+    }
 
     const MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
     const ESTADOS_VALIDOS = ['PENDIENTE', 'APROBADA', 'RECHAZADA'];
@@ -75,6 +92,7 @@ document.addEventListener('DOMContentLoaded', () => {
             idPsicologoEmisor: emisor.idPsicologo ?? t.idPsicologoEmisor,
             psicologoEmisor: nombrePsicologo(emisor) || 'Sin asignar',
             idPsicologoDestino: destino?.idPsicologo ?? t.idPsicologoDestino,
+            psicologoDestinoCorreo: destino?.usuario?.correo ?? destino?.correo,
             psicologoDestino: nombrePsicologo(destino) || '',
             institucionDestino: t.institucionDestino ?? '',
             fechaTransferencia: String(t.fechaTransferencia ?? '').slice(0, 10),
@@ -164,6 +182,20 @@ document.addEventListener('DOMContentLoaded', () => {
         const texto = buscador ? buscador.value.toLowerCase().trim() : '';
 
         let lista = estado.transferencias.slice();
+
+        if (estado.usuarioSesion?.tipoUsuario === 'PSICOLOGO') {
+            const psiLog = estado.psicologoLogueado;
+            lista = lista.filter(c => {
+                let esDestino = false;
+                if (psiLog && c.idPsicologoDestino) {
+                    esDestino = Number(c.idPsicologoDestino) === Number(psiLog.idPsicologo ?? psiLog.id);
+                }
+                if (!esDestino && c.psicologoDestinoCorreo && estado.usuarioSesion?.correo) {
+                    esDestino = c.psicologoDestinoCorreo.toLowerCase() === estado.usuarioSesion.correo.toLowerCase();
+                }
+                return esDestino;
+            });
+        }
 
         if (estado.filtroActual === 'pendientes') {
             lista = lista.filter(c => c.estadoTransferencia === 'PENDIENTE');
@@ -706,6 +738,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     async function cargarDatos() {
+        estado.usuarioSesion = await obtenerUsuarioSesion();
+
         try {
             const [transferencias, estudiantes, psicologos] = await Promise.all([
                 CasosTransferidosService.listar(),
@@ -716,6 +750,17 @@ document.addEventListener('DOMContentLoaded', () => {
             estado.estudiantes = Array.isArray(estudiantes) ? estudiantes : [];
             estado.psicologos = Array.isArray(psicologos) ? psicologos : [];
             estado.apiDisponible = true;
+
+            if (estado.usuarioSesion) {
+                const u = estado.usuarioSesion;
+                estado.psicologoLogueado = estado.psicologos.find(p => {
+                    const correoP = p.usuario?.correo ?? p.correo;
+                    const idU = p.usuario?.idUsuario;
+                    if (u.correo && correoP && correoP.toLowerCase() === u.correo.toLowerCase()) return true;
+                    if (u.idUsuario && idU && Number(idU) === Number(u.idUsuario)) return true;
+                    return false;
+                });
+            }
         } catch (error) {
             const status = error?.status;
             if (status === 401) {
