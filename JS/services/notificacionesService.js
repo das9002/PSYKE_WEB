@@ -21,6 +21,14 @@ const Notif = {
     },
 
     error(mensaje, titulo = 'Error') {
+        return Toast.fire({
+            icon: 'error',
+            title: titulo,
+            text: mensaje
+        });
+    },
+
+    errorModal(mensaje, titulo = 'Error') {
         return Swal.fire({
             icon: 'error',
             title: titulo,
