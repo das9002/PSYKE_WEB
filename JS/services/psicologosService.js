@@ -2,7 +2,7 @@
 
 const PsicologosService = {
     listar() {
-        return peticionApi('/psicologos');
+        return peticionApi('/psicologos').then(res => typeof normalizarListado === 'function' ? normalizarListado(res) : (Array.isArray(res) ? res : (res?.content || [])));
     },
 
     obtenerPorId(id) {
@@ -42,6 +42,6 @@ const PsicologosService = {
     },
 
     listarCitas() {
-        return peticionApi('/citas');
+        return peticionApi('/citas').then(res => typeof normalizarListado === 'function' ? normalizarListado(res) : (Array.isArray(res) ? res : (res?.content || [])));
     }
 };

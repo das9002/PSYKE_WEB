@@ -2,7 +2,7 @@
 
 const SeguimientosService = {
     listar() {
-        return peticionApi('/sesiones');
+        return peticionApi('/sesiones').then(res => typeof normalizarListado === 'function' ? normalizarListado(res) : (Array.isArray(res) ? res : (res?.content || [])));
     },
 
     obtenerPorId(id) {
@@ -28,19 +28,19 @@ const SeguimientosService = {
     },
 
     listarExpedientes() {
-        return peticionApi('/expedientes');
+        return peticionApi('/expedientes').then(res => typeof normalizarListado === 'function' ? normalizarListado(res) : (Array.isArray(res) ? res : (res?.content || [])));
     },
 
     listarEstudiantes() {
-        return peticionApi('/estudiantes');
+        return peticionApi('/estudiantes').then(res => typeof normalizarListado === 'function' ? normalizarListado(res) : (Array.isArray(res) ? res : (res?.content || [])));
     },
 
     listarPsicologos() {
-        return peticionApi('/psicologos');
+        return peticionApi('/psicologos').then(res => typeof normalizarListado === 'function' ? normalizarListado(res) : (Array.isArray(res) ? res : (res?.content || [])));
     },
 
     listarCitas() {
-        return peticionApi('/citas');
+        return peticionApi('/citas').then(res => typeof normalizarListado === 'function' ? normalizarListado(res) : (Array.isArray(res) ? res : (res?.content || [])));
     },
 
     actualizarExpediente(id, expediente) {

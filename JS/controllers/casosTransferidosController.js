@@ -181,7 +181,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const texto = buscador ? buscador.value.toLowerCase().trim() : '';
 
-        let lista = estado.transferencias.slice();
+        let lista = typeof normalizarListado === 'function' ? normalizarListado(estado.transferencias) : (Array.isArray(estado.transferencias) ? estado.transferencias.slice() : (estado.transferencias?.content?.slice() || []));
 
         if (estado.usuarioSesion?.tipoUsuario === 'PSICOLOGO') {
             const psiLog = estado.psicologoLogueado;

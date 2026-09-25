@@ -161,7 +161,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const texto = buscador ? buscador.value.toLowerCase().trim() : '';
 
-        let lista = estado.expedientes.filter(exp => exp.estudiante);
+        const exps = typeof normalizarListado === 'function' ? normalizarListado(estado.expedientes) : (Array.isArray(estado.expedientes) ? estado.expedientes : (estado.expedientes?.content || []));
+        let lista = exps.filter(exp => exp.estudiante);
 
         if (texto) {
             lista = lista.filter(exp => {

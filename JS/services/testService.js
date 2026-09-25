@@ -4,7 +4,7 @@ const TestService = {
     async listarCuestionarios() {
         try {
             const lista = await peticionApi('/cuestionarios');
-            return Array.isArray(lista) ? lista : [];
+            return typeof normalizarListado === 'function' ? normalizarListado(lista) : (Array.isArray(lista) ? lista : (lista?.content || []));
         } catch (error) {
             const mensaje = error?.status === 500
                 ? 'Ocurrió un error interno en el servidor al cargar los cuestionarios. Inténtelo de nuevo más tarde.'
@@ -21,7 +21,7 @@ const TestService = {
     },
 
     buscarCuestionarios(termino) {
-        return peticionApi(`/cuestionarios?search=${encodeURIComponent(termino)}`);
+        return peticionApi(`/cuestionarios?search=${encodeURIComponent(termino)}`).then(res => typeof normalizarListado === 'function' ? normalizarListado(res) : (Array.isArray(res) ? res : (res?.content || [])));
     },
 
     crearCuestionario(cuestionario) {
@@ -43,7 +43,7 @@ const TestService = {
     },
 
     listarPreguntas() {
-        return peticionApi('/preguntas');
+        return peticionApi('/preguntas').then(res => typeof normalizarListado === 'function' ? normalizarListado(res) : (Array.isArray(res) ? res : (res?.content || [])));
     },
 
     crearPregunta(pregunta) {
@@ -58,7 +58,7 @@ const TestService = {
     },
 
     listarTestsRespondidos() {
-        return peticionApi('/tests-respondidos');
+        return peticionApi('/tests-respondidos').then(res => typeof normalizarListado === 'function' ? normalizarListado(res) : (Array.isArray(res) ? res : (res?.content || [])));
     },
 
     obtenerTestRespondidoPorId(id) {
@@ -66,7 +66,7 @@ const TestService = {
     },
 
     listarPorCuestionario(idCuestionario) {
-        return peticionApi(`/tests-respondidos?cuestionarioId=${idCuestionario}`);
+        return peticionApi(`/tests-respondidos?cuestionarioId=${idCuestionario}`).then(res => typeof normalizarListado === 'function' ? normalizarListado(res) : (Array.isArray(res) ? res : (res?.content || [])));
     },
 
     crearTestRespondido(testRespondido) {
@@ -88,6 +88,6 @@ const TestService = {
     },
 
     listarEstudiantes() {
-        return peticionApi('/estudiantes');
+        return peticionApi('/estudiantes').then(res => typeof normalizarListado === 'function' ? normalizarListado(res) : (Array.isArray(res) ? res : (res?.content || [])));
     }
 };
