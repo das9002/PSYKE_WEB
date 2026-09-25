@@ -5,8 +5,24 @@ document.addEventListener('DOMContentLoaded', () => {
         psicologos: [],
         citas: [],
         modoEdicion: false,
-        idEnEdicion: null
+        idEnEdicion: null,
+        usuarioSesion: null
     };
+
+    async function obtenerUsuarioSesion() {
+        if (typeof verificarSesion === 'function') {
+            return await verificarSesion();
+        }
+        try {
+            const respuesta = await fetch((window.AUTH_API_URL || 'http://localhost:8081/api/auth') + '/me', {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include'
+            });
+            if (respuesta.ok) return await respuesta.json();
+        } catch (e) { }
+        return null;
+    }
 
     function el(id) {
         return document.getElementById(id);
@@ -129,12 +145,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         <button class="btn-accion btn-ver" onclick="abrirModalVer(${id})" title="Ver Ficha">
                             <i class="bi bi-eye"></i>
                         </button>
+                        ${estado.usuarioSesion?.tipoUsuario !== 'PSICOLOGO' ? `
                         <button class="btn-accion btn-editar" onclick="abrirModalEditar(${id})" title="Editar Psicólogo">
                             <i class="bi bi-pencil-square"></i>
                         </button>
                         <button class="btn-accion btn-eliminar" onclick="eliminarPsicologo(${id})" title="Eliminar Psicólogo">
                             <i class="bi bi-trash3"></i>
                         </button>
+                        ` : ''}
                     </div>
                 </td>
             `;
@@ -283,6 +301,11 @@ document.addEventListener('DOMContentLoaded', () => {
     async function guardarFormulario() {
         limpiarErrores();
 
+        if (estado.usuarioSesion?.tipoUsuario === 'PSICOLOGO') {
+            Notif.error('Los psicólogos no tienen permiso para modificar la información de psicólogos.', 'Acceso denegado');
+            return;
+        }
+
         const datos = {
             nombresCompletos: el('psiNombres').value.trim(),
             apellidosCompletos: el('psiApellidos').value.trim(),
@@ -349,6 +372,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     window.eliminarPsicologo = async function (id) {
+        if (estado.usuarioSesion?.tipoUsuario === 'PSICOLOGO') {
+            Notif.error('Los psicólogos no tienen permiso para eliminar psicólogos.', 'Acceso denegado');
+            return;
+        }
+
         const psi = estado.psicologos.find(p => idPsicologo(p) === id);
         if (!psi) return;
 
@@ -398,6 +426,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function inicializar() {
+        estado.usuarioSesion = await obtenerUsuarioSesion();
+
+        if (estado.usuarioSesion?.tipoUsuario === 'PSICOLOGO') {
+            const btnAgregar = el('btnAbrirModalPsicologo');
+            if (btnAgregar) btnAgregar.style.display = 'none';
+        }
+
         const buscar = el('buscarPsicologo');
 
         try {

@@ -8,8 +8,24 @@ document.addEventListener('DOMContentLoaded', () => {
         especialidades: [],
         modoEdicion: false,
         idEnEdicion: null,
-        credencial: null
+        credencial: null,
+        usuarioSesion: null
     };
+
+    async function obtenerUsuarioSesion() {
+        if (typeof verificarSesion === 'function') {
+            return await verificarSesion();
+        }
+        try {
+            const respuesta = await fetch((window.AUTH_API_URL || 'http://localhost:8081/api/auth') + '/me', {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include'
+            });
+            if (respuesta.ok) return await respuesta.json();
+        } catch (e) { }
+        return null;
+    }
 
     const NIVEL_ID = { 'Bachillerato': 2, 'Tercer Ciclo': 1 };
 
@@ -511,6 +527,11 @@ document.addEventListener('DOMContentLoaded', () => {
     async function guardarFormulario() {
         limpiarErrores();
 
+        if (!estado.modoEdicion && estado.usuarioSesion?.tipoUsuario === 'PSICOLOGO') {
+            Notif.error('Los psicólogos no tienen permiso para registrar estudiantes.', 'Acceso denegado');
+            return;
+        }
+
         const estudianteSeleccionado = estado.modoEdicion
             ? estado.estudiantes.find(e => idEstudiante(e) === estado.idEnEdicion)
             : null;
@@ -660,6 +681,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function inicializar() {
+        estado.usuarioSesion = await obtenerUsuarioSesion();
+
+        if (estado.usuarioSesion?.tipoUsuario === 'PSICOLOGO') {
+            const btnAgregar = el('btnAbrirModalAgregar');
+            if (btnAgregar) btnAgregar.style.display = 'none';
+        }
+
         const buscar = el('buscarEstudianteInput');
         if (buscar) buscar.value = '';
 

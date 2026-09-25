@@ -34,6 +34,21 @@ async function loginUsuario(credentials) {
     }
 
     const datos = await respuesta.json();
+
+    const rol = datos?.tipoUsuario || datos?.usuario?.tipoUsuario || datos?.rol;
+    if (rol === 'ESTUDIANTE') {
+        try {
+            await fetch(`${AUTH_API_URL}/logout`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include'
+            });
+        } catch (e) { }
+        const error = new Error('Acceso denegado: Los estudiantes no tienen permiso para ingresar a la plataforma web.');
+        error.status = 403;
+        throw error;
+    }
+
     return { datos };
 }
 

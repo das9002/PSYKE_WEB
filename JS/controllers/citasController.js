@@ -9,8 +9,25 @@ document.addEventListener('DOMContentLoaded', () => {
         filtro: 'todas',
         textoBusqueda: '',
         modoEdicion: false,
-        idEnEdicion: null
+        idEnEdicion: null,
+        usuarioSesion: null,
+        psicologoLogueado: null
     };
+
+    async function obtenerUsuarioSesion() {
+        if (typeof verificarSesion === 'function') {
+            return await verificarSesion();
+        }
+        try {
+            const respuesta = await fetch((window.AUTH_API_URL || 'http://localhost:8081/api/auth') + '/me', {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include'
+            });
+            if (respuesta.ok) return await respuesta.json();
+        } catch (e) { }
+        return null;
+    }
 
     const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
         "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
@@ -131,6 +148,21 @@ document.addEventListener('DOMContentLoaded', () => {
         const texto = estado.textoBusqueda.toLowerCase();
 
         return (Array.isArray(lista) ? lista : []).filter(cita => {
+            if (estado.usuarioSesion?.tipoUsuario === 'PSICOLOGO') {
+                const psiLog = estado.psicologoLogueado;
+                const idPsiCita = cita.psicologo?.idPsicologo ?? cita.psicologo?.id ?? cita.idPsicologo;
+                const correoPsiCita = cita.psicologo?.usuario?.correo ?? cita.psicologo?.correo;
+
+                let esPropietario = false;
+                if (psiLog && idPsiCita) {
+                    esPropietario = Number(idPsiCita) === Number(psiLog.idPsicologo ?? psiLog.id);
+                }
+                if (!esPropietario && correoPsiCita && estado.usuarioSesion?.correo) {
+                    esPropietario = correoPsiCita.toLowerCase() === estado.usuarioSesion.correo.toLowerCase();
+                }
+                if (!esPropietario) return false;
+            }
+
             const coincidePestana =
                 estado.filtro === 'todas' ||
                 (estado.filtro === 'pendientes' && estadoCita(cita) === 'PENDIENTE') ||
@@ -372,6 +404,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
         el('citaId').value = '';
         el('estadoCita').value = 'PENDIENTE';
+
+        const psiSel = el('psicologoSelect');
+        if (psiSel) {
+            if (estado.usuarioSesion?.tipoUsuario === 'PSICOLOGO' && estado.psicologoLogueado) {
+                const idPsi = estado.psicologoLogueado.idPsicologo ?? estado.psicologoLogueado.id;
+                psiSel.value = idPsi;
+                psiSel.disabled = true;
+            } else {
+                psiSel.disabled = false;
+            }
+        }
+
         el('modalCrearCitaLabel').innerHTML =
             '<i class="bi bi-calendar-plus-fill text-primary"></i> <span>Programar Nueva Cita</span>';
         el('btnGuardarCita').innerHTML = '<i class="bi bi-check-lg"></i> Guardar Cita';
@@ -799,7 +843,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     async function inicializar() {
+        estado.usuarioSesion = await obtenerUsuarioSesion();
         await cargarSelectores();
+
+        if (estado.usuarioSesion) {
+            const u = estado.usuarioSesion;
+            estado.psicologoLogueado = estado.psicologos.find(p => {
+                const correoP = p.usuario?.correo ?? p.correo;
+                const idU = p.usuario?.idUsuario;
+                if (u.correo && correoP && correoP.toLowerCase() === u.correo.toLowerCase()) return true;
+                if (u.idUsuario && idU && Number(idU) === Number(u.idUsuario)) return true;
+                return false;
+            });
+        }
+
         await recargarCitas();
     }
 
