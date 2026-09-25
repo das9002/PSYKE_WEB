@@ -2,7 +2,7 @@
 
 const EstudiantesService = {
     listar() {
-        return peticionApi('/estudiantes');
+        return peticionApi('/estudiantes').then(res => typeof normalizarListado === 'function' ? normalizarListado(res) : (Array.isArray(res) ? res : (res?.content || [])));
     },
 
     obtenerPorId(id) {
@@ -28,15 +28,15 @@ const EstudiantesService = {
     },
 
     listarGrados() {
-        return peticionApi('/grados');
+        return peticionApi('/grados').then(res => typeof normalizarListado === 'function' ? normalizarListado(res) : (Array.isArray(res) ? res : (res?.content || [])));
     },
 
     listarSecciones() {
-        return peticionApi('/secciones');
+        return peticionApi('/secciones').then(res => typeof normalizarListado === 'function' ? normalizarListado(res) : (Array.isArray(res) ? res : (res?.content || [])));
     },
 
     listarEspecialidades() {
-        return peticionApi('/especialidades');
+        return peticionApi('/especialidades').then(res => typeof normalizarListado === 'function' ? normalizarListado(res) : (Array.isArray(res) ? res : (res?.content || [])));
     },
 
     actualizarUsuario(idUsuario, datos) {

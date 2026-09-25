@@ -15,6 +15,26 @@
         return partes.length > 1 ? limpia + '?' + partes.slice(1).join('?') : limpia;
     }
 
+    function normalizarListado(respuesta) {
+        if (respuesta === null || respuesta === undefined) return [];
+        if (Array.isArray(respuesta)) return respuesta;
+        if (respuesta && typeof respuesta === 'object') {
+            var contenedores = ['content', 'data', 'citas', 'estudiantes', 'psicologos', 'lista', 'listado', 'resultado', 'result', 'records'];
+            for (var i = 0; i < contenedores.length; i++) {
+                var clave = contenedores[i];
+                if (Array.isArray(respuesta[clave])) return respuesta[clave];
+            }
+            if (Array.isArray(respuesta._embedded)) return respuesta._embedded;
+            if (respuesta._embedded && typeof respuesta._embedded === 'object') {
+                var claves = Object.keys(respuesta._embedded);
+                if (claves.length > 0 && Array.isArray(respuesta._embedded[claves[0]])) {
+                    return respuesta._embedded[claves[0]];
+                }
+            }
+        }
+        return [];
+    }
+
     function resolverLogin() {
         var path = window.location.pathname;
         var carpeta = path.substring(0, path.lastIndexOf('/'));
@@ -143,4 +163,5 @@
     global.apiFetch = apiFetch;
     global.peticionApi = peticionApi;
     global.verificarSesion = verificarSesion;
+    global.normalizarListado = normalizarListado;
 })(window);

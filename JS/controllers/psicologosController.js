@@ -95,9 +95,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const tbody = el('tablaPsicologosCuerpo');
         if (!tbody) return;
 
+        const psicologos = typeof normalizarListado === 'function' ? normalizarListado(lista) : (Array.isArray(lista) ? lista : (lista?.content || []));
+
         tbody.innerHTML = '';
 
-        if (lista.length === 0) {
+        if (psicologos.length === 0) {
             tbody.innerHTML = `
                 <tr>
                     <td colspan="7" class="text-center py-5 text-muted">
@@ -110,7 +112,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        lista.forEach((psi) => {
+        psicologos.forEach((psi) => {
             const id = idPsicologo(psi);
             const tr = document.createElement('tr');
             const casos = casosDe(psi);

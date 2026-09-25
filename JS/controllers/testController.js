@@ -283,13 +283,15 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!tablaTestsBody) return;
         tablaTestsBody.innerHTML = '';
 
-        if (estado.cuestionarios.length === 0) {
+        const cuestionarios = typeof normalizarListado === 'function' ? normalizarListado(estado.cuestionarios) : (Array.isArray(estado.cuestionarios) ? estado.cuestionarios : (estado.cuestionarios?.content || []));
+
+        if (cuestionarios.length === 0) {
             if (noResultsTests) noResultsTests.classList.remove('d-none');
             return;
         }
         if (noResultsTests) noResultsTests.classList.add('d-none');
 
-        estado.cuestionarios.forEach(c => {
+        cuestionarios.forEach(c => {
             const idC = idCuestionario(c);
             const preguntas = preguntasCuestionario(c);
             const cantResp = estado.respondidosCargados
@@ -810,7 +812,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!tbody) return;
         tbody.innerHTML = '';
 
-        let lista = estado.testsRespondidos;
+        let lista = typeof normalizarListado === 'function' ? normalizarListado(estado.testsRespondidos) : (Array.isArray(estado.testsRespondidos) ? estado.testsRespondidos : (estado.testsRespondidos?.content || []));
         if (filtroCuestionarioId !== null) {
             lista = lista.filter(r => Number(r?.cuestionario?.idCuestionario ?? r?.cuestionarioId) === Number(filtroCuestionarioId));
         }

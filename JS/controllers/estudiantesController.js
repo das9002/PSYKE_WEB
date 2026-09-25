@@ -115,15 +115,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const noResults = el('noResultsEstudiantes');
         if (!tbody) return;
 
+        const estudiantes = typeof normalizarListado === 'function' ? normalizarListado(lista) : (Array.isArray(lista) ? lista : (lista?.content || []));
+
         tbody.innerHTML = '';
 
-        if (lista.length === 0) {
+        if (estudiantes.length === 0) {
             if (noResults) noResults.classList.remove('d-none');
             return;
         }
         if (noResults) noResults.classList.add('d-none');
 
-        lista.forEach((est) => {
+        estudiantes.forEach((est) => {
             const id = idEstudiante(est);
             const tr = document.createElement('tr');
 

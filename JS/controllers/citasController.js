@@ -146,8 +146,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function aplicarFiltro(lista) {
         const texto = estado.textoBusqueda.toLowerCase();
+        const arrayLista = typeof normalizarListado === 'function' ? normalizarListado(lista) : (Array.isArray(lista) ? lista : (lista?.content || []));
 
-        return (Array.isArray(lista) ? lista : []).filter(cita => {
+        return arrayLista.filter(cita => {
             if (estado.usuarioSesion?.tipoUsuario === 'PSICOLOGO') {
                 const psiLog = estado.psicologoLogueado;
                 const idPsiCita = cita.psicologo?.idPsicologo ?? cita.psicologo?.id ?? cita.idPsicologo;
