@@ -28,15 +28,15 @@
     };
 
     function renderCloudeeAvatar(expressionName = 'neutral') {
-        const bodyGroup = document.getElementById('cloudeeBodyGroup');
-        const eyesGroup = document.getElementById('cloudeeEyesGroup');
-        if (!bodyGroup || !eyesGroup) return;
+        const targets = [
+            { body: document.getElementById('cloudeeBodyGroupHeader'), eyes: document.getElementById('cloudeeEyesGroupHeader') },
+            { body: document.getElementById('cloudeeBodyGroupFloat'), eyes: document.getElementById('cloudeeEyesGroupFloat') }
+        ];
 
         let bodyHtml = `<circle cx="0" cy="0" r="${cloudeeConfig.primarySphere.width / 2}" fill="${cloudeeConfig.bodyColor}" />`;
         cloudeeConfig.nodes.forEach(node => {
             bodyHtml += `<ellipse cx="${node.pos[0]}" cy="${node.pos[1]}" rx="${node.size[0] / 2}" ry="${node.size[1] / 2}" fill="${cloudeeConfig.bodyColor}" />`;
         });
-        bodyGroup.innerHTML = bodyHtml;
 
         const expr = cloudeeConfig.expressions[expressionName] || cloudeeConfig.expressions.neutral;
         let eyesHtml = '';
@@ -46,7 +46,10 @@
             eyesHtml += `<ellipse cx="${eye.x}" cy="${eye.y}" rx="${eye.w / 2}" ry="${eye.h / 2}" fill="${cloudeeConfig.eyeColor}" transform="rotate(${eye.angle} ${eye.x} ${eye.y})" />`;
         });
 
-        eyesGroup.innerHTML = eyesHtml;
+        targets.forEach(target => {
+            if (target.body) target.body.innerHTML = bodyHtml;
+            if (target.eyes) target.eyes.innerHTML = eyesHtml;
+        });
     }
 
     function crearPanelAsistente() {
@@ -62,9 +65,9 @@
             <div class="ai-assistant-header">
                 <div class="ai-assistant-title">
                     <div class="ai-avatar" id="cloudeeAvatarHeader" style="background:#241b6b; padding:2px; border-radius:50%; width:44px; height:44px; display:flex; align-items:center; justify-content:center;">
-                        <svg id="cloudeeSvg" viewBox="-120 -120 240 240" width="38" height="38">
-                            <g id="cloudeeBodyGroup"></g>
-                            <g id="cloudeeEyesGroup"></g>
+                        <svg id="cloudeeSvgHeader" viewBox="-120 -120 240 240" width="38" height="38">
+                            <g id="cloudeeBodyGroupHeader"></g>
+                            <g id="cloudeeEyesGroupHeader"></g>
                         </svg>
                     </div>
                     <div>
@@ -79,7 +82,7 @@
             <div class="ai-conversation-area" id="aiConversationArea">
                 <div class="ai-welcome-message">
                     <div class="ai-msg-bubble received">
-                        <i class="bi bi-robot me-2"></i>¡Hola! Soy tu Asistente PSYKE. ¿En qué puedo ayudarte hoy?
+                        ¡Hola! Soy Cloudee, tu Asistente PSYKE. ¿En qué puedo ayudarte hoy?
                     </div>
                 </div>
             </div>
@@ -93,6 +96,46 @@
             </form>
         `;
         document.body.appendChild(panel);
+
+        const floatBtn = document.createElement('button');
+        floatBtn.type = 'button';
+        floatBtn.id = 'btnAIAssistant';
+        floatBtn.title = 'Asistente IA - Cloudee';
+        floatBtn.setAttribute('aria-label', 'Abrir Asistente PSYKE');
+        floatBtn.style.cssText = `
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 75px;
+            height: 75px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 32% 28%, #8a3fd6, #241b6b 78%);
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 8px 25px rgba(138, 63, 214, 0.5);
+            cursor: pointer;
+            z-index: 9990;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.25s ease, box-shadow 0.25s ease;
+            padding: 0;
+            overflow: hidden;
+        `;
+        floatBtn.innerHTML = `
+            <svg id="cloudeeSvgFloat" viewBox="-120 -120 240 240" width="65" height="65">
+                <g id="cloudeeBodyGroupFloat"></g>
+                <g id="cloudeeEyesGroupFloat"></g>
+            </svg>
+        `;
+        floatBtn.addEventListener('mouseenter', () => {
+            floatBtn.style.transform = 'scale(1.1)';
+            floatBtn.style.boxShadow = '0 12px 30px rgba(138, 63, 214, 0.7)';
+        });
+        floatBtn.addEventListener('mouseleave', () => {
+            floatBtn.style.transform = 'scale(1)';
+            floatBtn.style.boxShadow = '0 8px 25px rgba(138, 63, 214, 0.5)';
+        });
+        document.body.appendChild(floatBtn);
     }
 
     function obtenerOverlay() {
