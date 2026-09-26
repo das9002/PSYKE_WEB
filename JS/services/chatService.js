@@ -1,121 +1,43 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const patientsData = [
-        {
-            id: 'sofia_torres',
-            name: 'Sofía Torres',
-            avatar: '../img/Logo0.png',
-            status: 'online',
-            lastMsg: '¡Sí, excelente! Muchas gracias.',
-            time: '15:20',
-            messages: [
-                { sender: 'patient', text: 'Hola Dr., ¿podríamos cambiar la hora de la cita de hoy?', time: '15:15' },
-                { sender: 'doctor', text: 'Hola Sofía. Sí, tengo disponible a las 5:00 PM. ¿Te queda bien?', time: '15:18' },
-                { sender: 'patient', text: '¡Sí, excelente! Muchas gracias.', time: '15:20' }
-            ],
-            replies: [
-                "Perfecto doctor, estaré puntual a las 5:00 PM.",
-                "¿Tengo que llevar la bitácora impresa hoy?",
-                "Muchas gracias por su flexibilidad, nos vemos más tarde."
-            ],
-            replyIndex: 0
-        },
-        {
-            id: 'carlos_flores',
-            name: 'Carlos Flores',
-            avatar: '../img/Logo0.png',
-            status: 'offline',
-            lastMsg: 'Gracias por la sesión de ayer',
-            time: 'Ayer',
-            messages: [
-                { sender: 'doctor', text: 'Hola Carlos, ¿cómo te has sentido hoy después de la terapia?', time: 'Ayer 10:10' },
-                { sender: 'patient', text: 'Me he sentido con menos ansiedad, gracias por la sesión de ayer', time: 'Ayer 11:30' }
-            ],
-            replies: [
-                "He estado practicando los ejercicios de respiración que acordamos.",
-                "Me gustaría agendar una cita extra para la próxima semana.",
-                "De acuerdo doctor, nos vemos el próximo martes."
-            ],
-            replyIndex: 0
-        },
-        {
-            id: 'alejandro_ruiz',
-            name: 'Alejandro Ruiz',
-            avatar: '../img/Logo0.png',
-            status: 'online',
-            lastMsg: 'Ya completé el test semanal',
-            time: 'Ayer',
-            messages: [
-                { sender: 'doctor', text: 'Hola Alejandro, recuerda completar el test de ansiedad antes de mañana.', time: 'Ayer 14:00' },
-                { sender: 'patient', text: 'Hola Dr., ya completé el test semanal. Quedo al tanto de sus comentarios.', time: 'Ayer 15:45' }
-            ],
-            replies: [
-                "¿Pudo revisar mis resultados del test?",
-                "Me sentí un poco abrumado respondiendo las últimas preguntas.",
-                "Entendido doctor, gracias por el seguimiento."
-            ],
-            replyIndex: 0
-        },
-        {
-            id: 'maria_gomez',
-            name: 'María Gómez',
-            avatar: '../img/Logo0.png',
-            status: 'offline',
-            lastMsg: 'Confirmado, nos vemos pronto',
-            time: '2 días',
-            messages: [
-                { sender: 'patient', text: 'Hola Dr., confirmando la sesión de terapia para el jueves.', time: '2 días' },
-                { sender: 'doctor', text: 'Hola María. Sí, está confirmada en agenda. Nos vemos a las 3:00 PM.', time: '2 días' },
-                { sender: 'patient', text: 'Confirmado, nos vemos pronto.', time: '2 días' }
-            ],
-            replies: [
-                "Perfecto, nos vemos pronto en el consultorio.",
-                "¿La sesión será presencial o mantendremos el formato en línea?",
-                "Gracias por recordarme, doctor."
-            ],
-            replyIndex: 0
-        }
-    ];
+    let patientsData = [];
+    let notificationsData = [];
+    let activeChatId = null;
 
-    const notificationsData = [
-        {
-            id: 1,
-            type: 'message',
-            unread: true,
-            title: 'Nuevo Mensaje',
-            desc: 'Sofía Torres: "Hola Dr., ¿podríamos cambiar la hora de la..."',
-            time: 'Hace 5 min',
-            icon: 'bi-chat-left-text-fill'
-        },
-        {
-            id: 2,
-            type: 'appointment',
-            unread: true,
-            title: 'Recordatorio de Cita',
-            desc: 'Cita programada hoy con Alejandro Ruiz a las 4:00 PM.',
-            time: 'Hace 20 min',
-            icon: 'bi-calendar-check-fill'
-        },
-        {
-            id: 3,
-            type: 'message',
-            unread: false,
-            title: 'Mensaje de Paciente',
-            desc: 'Carlos Flores: "Me he sentido con menos ansiedad, gracias..."',
-            time: 'Ayer',
-            icon: 'bi-chat-left-text-fill'
-        },
-        {
-            id: 4,
-            type: 'appointment',
-            unread: false,
-            title: 'Recordatorio de Cita',
-            desc: 'Próxima sesión grupal programada mañana a las 9:00 AM.',
-            time: 'Ayer',
-            icon: 'bi-people-fill'
+    async function cargarPacientesDesdeAPI() {
+        try {
+            if (typeof peticionApi !== 'function') return;
+            const res = await peticionApi('/estudiantes');
+            const lista = typeof normalizarListado === 'function' ? normalizarListado(res) : (Array.isArray(res) ? res : (res?.content || []));
+            if (lista && lista.length > 0) {
+                patientsData = lista.map((est, idx) => {
+                    const nombreComp = `${est.nombreCompleto || est.nombres || est.nombre || 'Estudiante'} ${est.apellidos || est.apellido || ''}`.trim();
+                    const idVal = String(est.idEstudiante || est.id || idx + 1);
+                    return {
+                        id: idVal,
+                        name: nombreComp,
+                        avatar: '../img/Logo0.png',
+                        status: idx % 2 === 0 ? 'online' : 'offline',
+                        lastMsg: 'Sin mensajes previos',
+                        time: 'Hoy',
+                        messages: [
+                            { sender: 'doctor', text: `Hola ${nombreComp}, ¿en qué puedo ayudarte hoy?`, time: '09:00' }
+                        ],
+                        replies: [
+                            "Hola doctor, muchas gracias.",
+                            "Estaré atento a sus comentarios.",
+                            "Nos vemos en la siguiente consulta."
+                        ],
+                        replyIndex: 0
+                    };
+                });
+                if (patientsData.length > 0) {
+                    activeChatId = patientsData[0].id;
+                }
+            }
+        } catch (e) {
+            console.warn('[chatService] No se pudieron cargar los estudiantes desde la API:', e.message);
         }
-    ];
-
-    let activeChatId = 'sofia_torres';
+    }
 
     const bellIcon = document.querySelector('.bi-bell.fs-4');
     const chatIcon = document.querySelector('.bi-chat.fs-4');
@@ -252,11 +174,16 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function openChat() {
+    async function openChat() {
+        if (patientsData.length === 0) {
+            await cargarPacientesDesdeAPI();
+        }
         chatOverlay.classList.add('active');
         chatPanel.classList.add('active');
         renderPatientList();
-        loadConversation(activeChatId);
+        if (activeChatId) {
+            loadConversation(activeChatId);
+        }
     }
 
     function closeChat() {
