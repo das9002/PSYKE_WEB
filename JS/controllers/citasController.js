@@ -89,6 +89,33 @@ document.addEventListener('DOMContentLoaded', () => {
         return texto.includes('T') ? texto.split('T')[1].substring(0, 5) : '';
     }
 
+    function formatearHora12(hora24) {
+        if (!hora24) return '';
+        const [h, m] = hora24.split(':').map(Number);
+        if (isNaN(h) || isNaN(m)) return hora24;
+        const periodo = h >= 12 ? 'PM' : 'AM';
+        const h12 = h % 12 === 0 ? 12 : h % 12;
+        return `${String(h12).padStart(2, '0')}:${String(m).padStart(2, '0')} ${periodo}`;
+    }
+
+    function generarOpcionesHora30Min() {
+        const select = el('horaCita');
+        if (!select) return;
+        select.innerHTML = '<option value="" selected disabled>Seleccionar hora</option>';
+        for (let h = 7; h <= 18; h++) {
+            for (let m = 0; m < 60; m += 30) {
+                if (h === 18 && m > 0) break;
+                const hStr = String(h).padStart(2, '0');
+                const mStr = String(m).padStart(2, '0');
+                const val24 = `${hStr}:${mStr}`;
+                const opt = document.createElement('option');
+                opt.value = val24;
+                opt.textContent = formatearHora12(val24);
+                select.appendChild(opt);
+            }
+        }
+    }
+
     function estadoCita(cita) {
         return String(cita.estado ?? cita.estadoConfirmacion ?? '').toUpperCase();
     }
@@ -206,6 +233,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const est = estadoCita(cita);
             const nombre = nombreEstudiante(cita);
             const hora = horaCita(cita);
+            const hora12 = formatearHora12(hora);
 
             const tr = document.createElement('tr');
             tr.innerHTML = `
@@ -222,7 +250,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td>
                     <span class="d-inline-flex align-items-center gap-1">
                         <i class="bi bi-calendar3 text-muted"></i> ${escapeHTML(formatearFechaLegible(fechaCita(cita)))}
-                        ${hora ? `&nbsp;·&nbsp;<i class="bi bi-clock text-muted"></i> ${escapeHTML(hora)}` : ''}
+                        ${hora12 ? `&nbsp;·&nbsp;<i class="bi bi-clock text-muted"></i> ${escapeHTML(hora12)}` : ''}
                     </span>
                 </td>
                 <td>${badgeEstado(est)}</td>
@@ -361,9 +389,23 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!hora) {
             marcarError('horaCita', 'La hora de la cita es obligatoria.');
             valido = false;
-        } else if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(hora)) {
-            marcarError('horaCita', 'Ingrese una hora válida en formato HH:MM.');
-            valido = false;
+        }
+
+        const idPsicologo = el('psicologoSelect').value;
+        if (fecha && hora && idPsicologo) {
+            const traslape = estado.citas.some(c => {
+                if (estado.modoEdicion && Number(idCita(c)) === Number(estado.idEnEdicion)) return false;
+                if (estadoCita(c) === 'CANCELADA') return false;
+                const cPsiId = c.psicologo?.idPsicologo ?? c.psicologo?.id ?? c.idPsicologo;
+                if (Number(cPsiId) !== Number(idPsicologo)) return false;
+                const cFecha = fechaCita(c);
+                const cHora = horaCita(c);
+                return cFecha === fecha && cHora === hora;
+            });
+            if (traslape) {
+                marcarError('horaCita', 'El psicólogo ya tiene programada otra cita en esa misma fecha y hora.');
+                valido = false;
+            }
         }
 
         if (!el('motivoCita').value.trim()) {
@@ -399,6 +441,8 @@ document.addEventListener('DOMContentLoaded', () => {
         estado.modoEdicion = false;
         estado.idEnEdicion = null;
 
+        generarOpcionesHora30Min();
+
         const form = el('formCrearCita');
         if (form) form.reset();
         limpiarErrores();
@@ -428,6 +472,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const cita = estado.citas.find(c => Number(idCita(c)) === Number(id));
         if (!cita) return;
 
+        generarOpcionesHora30Min();
+
         estado.modoEdicion = true;
         estado.idEnEdicion = id;
         limpiarErrores();
@@ -453,6 +499,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const nombre = nombreEstudiante(cita);
         const hora = horaCita(cita);
+        const hora12 = formatearHora12(hora);
+        const idEstudianteCita = cita.estudiante?.idEstudiante ?? cita.estudiante?.id;
+
+        const hoyStr = new Date().toISOString().split('T')[0];
+        const fechaCitaStr = fechaCita(cita);
+
+        // Validar si es momento de la cita
+        const esMomentoCita = fechaCitaStr <= hoyStr && estadoCita(cita) !== 'CANCELADA';
 
         el('expedienteModalTitulo').textContent = 'Detalle de la Cita';
         el('expedienteModalBody').innerHTML = `
@@ -470,17 +524,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 <h6 class="fw-bold mb-2 text-dark"><i class="bi bi-calendar-event me-2 text-primary"></i>Fecha y Hora Programada</h6>
                 <p class="small text-muted mb-0">
                     <i class="bi bi-calendar3 me-1"></i>${escapeHTML(formatearFechaLegible(fechaCita(cita)))}
-                    ${hora ? ` &nbsp;·&nbsp; <i class="bi bi-clock me-1"></i>${escapeHTML(hora)}` : ''}
+                    ${hora12 ? ` &nbsp;·&nbsp; <i class="bi bi-clock me-1"></i>${escapeHTML(hora12)}` : ''}
                 </p>
             </div>
             <div class="card p-3 mb-3 border-0 bg-light">
                 <h6 class="fw-bold mb-2 text-dark"><i class="bi bi-flag-fill me-2 text-primary"></i>Estado de la Cita</h6>
                 <div>${badgeEstado(estadoCita(cita))}</div>
             </div>
-            <div class="card p-3 border-0 bg-light">
+            <div class="card p-3 mb-3 border-0 bg-light">
                 <h6 class="fw-bold mb-2 text-dark"><i class="bi bi-chat-left-text me-2 text-primary"></i>Motivo de Consulta</h6>
                 <p class="small text-muted mb-0" style="line-height: 1.6;">${escapeHTML(motivoCita(cita)) || 'Sin motivo registrado.'}</p>
-            </div>`;
+            </div>
+
+            ${esMomentoCita ? `
+            <div class="card p-3 border-primary bg-primary bg-opacity-10 mb-3" id="boxSesionNotas">
+                <h6 class="fw-bold text-primary mb-2"><i class="bi bi-journal-check me-2"></i>Registrar Notas de Sesión</h6>
+                <textarea class="form-control mb-2" id="inputNotasSesion" rows="3" placeholder="Escriba las observaciones y notas relevantes de la sesión realizada..."></textarea>
+                <div class="d-flex justify-content-end">
+                    <button type="button" class="btn btn-primary btn-sm" onclick="guardarNotasSesion(${idEstudianteCita}, ${id})">
+                        <i class="bi bi-save me-1"></i> Guardar Sesión en Seguimiento
+                    </button>
+                </div>
+            </div>` : ''}`;
 
         const modal = new bootstrap.Modal(el('modalExpediente'));
         modal.show();
@@ -562,6 +627,66 @@ document.addEventListener('DOMContentLoaded', () => {
             Notif.exito('¡Cita confirmada exitosamente!');
         } catch (error) {
             Notif.error(mensajeErrorAmigable(error), 'No se pudo confirmar la cita');
+        }
+    };
+
+    window.guardarNotasSesion = async function(idEstudiante, idCitaTarget) {
+        const notas = el('inputNotasSesion')?.value.trim();
+        if (!notas) {
+            Notif.error('Por favor escriba las notas o resumen de la sesión antes de guardar.');
+            return;
+        }
+
+        try {
+            // Buscar o crear expediente del estudiante
+            let idExpediente = null;
+            if (typeof CasosTransferidosService !== 'undefined' && CasosTransferidosService.listarExpedientes) {
+                const exps = await CasosTransferidosService.listarExpedientes();
+                const exp = (Array.isArray(exps) ? exps : []).find(e => {
+                    const idEst = e.estudiante?.idEstudiante ?? e.estudiante?.id ?? e.idEstudiante;
+                    return Number(idEst) === Number(idEstudiante);
+                });
+                if (exp) idExpediente = exp.idExpediente ?? exp.id;
+            }
+
+            if (!idExpediente) {
+                try {
+                    const nuevoExp = await CasosTransferidosService.crearExpediente({
+                        estudiante: { idEstudiante: Number(idEstudiante) }
+                    });
+                    if (nuevoExp) idExpediente = nuevoExp.idExpediente ?? nuevoExp.id;
+                } catch(e) { }
+            }
+
+            if (!idExpediente) {
+                Notif.error('No se pudo encontrar ni crear el expediente del estudiante.');
+                return;
+            }
+
+            const hoyStr = new Date().toISOString().split('T')[0];
+            const payloadSesion = {
+                expediente: { idExpediente: Number(idExpediente) },
+                fechaSesion: hoyStr,
+                resumenSesion: notas
+            };
+
+            if (typeof SeguimientosService !== 'undefined' && SeguimientosService.crear) {
+                await SeguimientosService.crear(payloadSesion);
+            } else {
+                await peticionApi('/sesiones', 'POST', payloadSesion);
+            }
+
+            // Marcar cita como realizada
+            await CitasService.cambiarEstado(idCitaTarget, 'REALIZADA');
+            await recargarCitas();
+
+            const modalInstance = bootstrap.Modal.getInstance(el('modalExpediente'));
+            if (modalInstance) modalInstance.hide();
+
+            Notif.exito('¡Notas de sesión guardadas en el historial de seguimiento del estudiante y cita marcada como realizada!');
+        } catch (error) {
+            console.error('Error al guardar la sesión:', error);
+            Notif.error(mensajeErrorAmigable(error), 'No se pudo guardar la sesión');
         }
     };
 
