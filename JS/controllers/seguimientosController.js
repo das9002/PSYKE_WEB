@@ -241,14 +241,23 @@ document.addEventListener('DOMContentLoaded', () => {
         const elGrado = el('detGrado');
         const elCarnet = el('detCarnet');
         const elEspecialidad = el('detEspecialidad');
+        const elPsicologo = el('detPsicologo');
         const elAvatar = el('detAvatar');
         const elBadge = el('detBadgeEstado');
         const elResumen = el('resumenCasoTextarea');
+
+        await cargarSesionesExpediente(expediente.idExpediente);
+        const ultimaSesion = obtenerUltimaSesion(expediente.idExpediente);
 
         if (elNombre) elNombre.textContent = nombreEstudiante(est);
         if (elGrado) elGrado.textContent = `${est.grado?.nombreGrado ?? 'Sin grado'} - Sección "${est.seccion?.nombreSeccion ?? '—'}"`;
         if (elCarnet) elCarnet.textContent = est.codigoCarnet ?? '';
         if (elEspecialidad) elEspecialidad.textContent = est.especialidad?.nombreEspecialidad ?? 'General';
+        if (elPsicologo) {
+            const psiSesion = ultimaSesion?.psicologo;
+            const psiNombre = psiSesion ? nombrePsicologo(psiSesion) : '';
+            elPsicologo.textContent = psiNombre ? `Lic. ${psiNombre}` : 'Sin asignar';
+        }
         if (elAvatar) elAvatar.textContent = obtenerIniciales(est.nombres, est.apellidos);
         if (elResumen) elResumen.value = expediente.resumenCaso ?? '';
 
@@ -257,9 +266,6 @@ document.addEventListener('DOMContentLoaded', () => {
             elBadge.innerHTML = generarBadgeEstado(estadoDeTarjeta(expediente));
         }
 
-        await cargarSesionesExpediente(expediente.idExpediente);
-
-        const ultimaSesion = obtenerUltimaSesion(expediente.idExpediente);
         cargarSelectorPsicologo(ultimaSesion?.psicologo?.idPsicologo);
         renderTablaHistorial();
 
