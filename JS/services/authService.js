@@ -1,18 +1,30 @@
 // JS/services/authService.js
 
+// Función auxiliar para decodificar el payload del token JWT
+function decodificarToken(token) {
+    try {
+        if (!token) return null;
+        const payloadBase64 = token.split('.')[1];
+        if (!payloadBase64) return null;
+        const payloadJson = atob(payloadBase64.replace(/-/g, '+').replace(/_/g, '/'));
+        return JSON.parse(payloadJson);
+    } catch (e) {
+        console.error('Error al decodificar el token:', e);
+        return null;
+    }
+}
+
 async function loginUsuario(credentials) {
     const credencialesConOrigen = {
         ...credentials,
         origen: 'WEB'
     };
 
-    // Obtenemos la URL base (que ya contiene '/api/auth') y nos aseguramos de no duplicar barras
+    // Obtener la URL base evitando barras duplicadas
     const baseUrl = (window.AUTH_API_URL || 'https://api-auth-1b19165bcf87.herokuapp.com/api/auth').replace(/\/+$/, '');
 
     let respuesta;
     try {
-        // CORREGIDO: Se cambió `${AUTH_API_URL}/api/auth/login` a `${baseUrl}/login`
-        // para evitar que la URL quede como /api/auth/api/auth/login
         respuesta = await fetch(`${baseUrl}/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -42,10 +54,16 @@ async function loginUsuario(credentials) {
 
     const datos = await respuesta.json();
 
-    const rol = datos?.tipoUsuario || datos?.usuario?.tipoUsuario || datos?.rol;
+    // 1. Extraer el token
+    const token = datos?.token || datos?.jwt || datos?.accessToken;
+
+    // 2. Extraer o decodificar los datos del usuario
+    const datosUsuario = datos?.usuario || decodificarToken(token) || datos;
+
+    // 3. Validar el rol
+    const rol = datosUsuario?.tipoUsuario || datosUsuario?.rol || datosUsuario?.sub || datos?.tipoUsuario || datos?.rol;
     if (rol === 'ESTUDIANTE') {
         try {
-            // CORREGIDO: Se cambió `${AUTH_API_URL}/api/auth/logout` a `${baseUrl}/logout`
             await fetch(`${baseUrl}/logout`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -57,13 +75,13 @@ async function loginUsuario(credentials) {
         throw error;
     }
 
-    const token = datos?.token || datos?.jwt || datos?.accessToken;
+    // 4. Guardar en localStorage
     if (token) {
         localStorage.setItem('psyke_token', token);
     }
 
-    if (datos?.usuario || datos) {
-        localStorage.setItem('psyke_user', JSON.stringify(datos.usuario || datos));
+    if (datosUsuario) {
+        localStorage.setItem('psyke_user', JSON.stringify(datosUsuario));
     }
 
     return { datos };
