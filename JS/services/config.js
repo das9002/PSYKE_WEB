@@ -147,13 +147,15 @@
     }
 
     async function verificarSesion() {
+        var token = localStorage.getItem('psyke_token');
+        if (!token) return null;
+
         try {
             var url = AUTH_API_URL + '/me';
-            var headers = { 'Content-Type': 'application/json' };
-            var token = localStorage.getItem('psyke_token');
-            if (token) {
-                headers['Authorization'] = 'Bearer ' + token;
-            }
+            var headers = {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+            };
             var respuesta = await fetch(url, {
                 method: 'GET',
                 headers: headers,
@@ -163,9 +165,12 @@
                 return await respuesta.json();
             }
         } catch (e) {
-            // Ignorar errores de red temporales
+            // Ignorar errores temporales de red
         }
-        return null;
+
+        // Respaldo: si /me falla pero existe el usuario guardado, mantener la sesión
+        var usuarioLocal = localStorage.getItem('psyke_user');
+        return usuarioLocal ? JSON.parse(usuarioLocal) : null;
     }
 
     function peticionApi(ruta, opciones) {
