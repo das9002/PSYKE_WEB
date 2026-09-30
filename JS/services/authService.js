@@ -49,6 +49,15 @@ async function loginUsuario(credentials) {
         throw error;
     }
 
+    const token = datos?.token || datos?.jwt || datos?.accessToken;
+    if (token) {
+        localStorage.setItem('psyke_token', token);
+    }
+
+    if (datos?.usuario || datos) {
+        localStorage.setItem('psyke_user', JSON.stringify(datos.usuario || datos));
+    }
+
     return { datos };
 }
 

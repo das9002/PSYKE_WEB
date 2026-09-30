@@ -76,6 +76,10 @@
         var url = API_BASE_URL + normalizarRuta(ruta);
 
         var headers = { 'Content-Type': 'application/json' };
+        var token = localStorage.getItem('psyke_token');
+        if (token) {
+            headers['Authorization'] = 'Bearer ' + token;
+        }
         if (opciones.headers) Object.assign(headers, opciones.headers);
 
         var respuesta;
@@ -138,9 +142,14 @@
     async function verificarSesion() {
         try {
             var url = AUTH_API_URL + '/me';
+            var headers = { 'Content-Type': 'application/json' };
+            var token = localStorage.getItem('psyke_token');
+            if (token) {
+                headers['Authorization'] = 'Bearer ' + token;
+            }
             var respuesta = await fetch(url, {
                 method: 'GET',
-                headers: { 'Content-Type': 'application/json' },
+                headers: headers,
                 credentials: 'include'
             });
             if (respuesta.ok) {
