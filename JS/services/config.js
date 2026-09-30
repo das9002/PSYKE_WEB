@@ -2,8 +2,8 @@
 (function (global) {
     'use strict';
 
-    var API_BASE_URL = 'http://localhost:8080/api';
-    var AUTH_API_URL = 'http://localhost:8081/api/auth';
+    var API_BASE_URL = 'https://api-service-4d465a47b94c.herokuapp.com';
+    var AUTH_API_URL = 'https://api-auth-1b19165bcf87.herokuapp.com';
 
     var REDIRECT_FLAG = 'psyke_redirecting';
 
