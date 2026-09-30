@@ -22,6 +22,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
+            sessionStorage.removeItem('psyke_redirecting');
+
             const { datos } = await AuthService.loginUsuario(credenciales);
 
             sessionStorage.setItem('mostrarBienvenidaToast', 'true');
