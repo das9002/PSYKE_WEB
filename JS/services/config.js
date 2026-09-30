@@ -6,16 +6,19 @@
     var defaultApi = esLocal ? 'http://localhost:8080/api' : 'https://api-service-4d465a47b94c.herokuapp.com/api';
     var defaultAuth = esLocal ? 'http://localhost:8081/api/auth' : 'https://api-auth-1b19165bcf87.herokuapp.com/api/auth';
 
-    var API_BASE_URL = env.api || defaultApi;
-    var AUTH_API_URL = env.auth || defaultAuth;
+    // Se eliminan barras inclinadas al final para evitar rutas duplicadas
+    var API_BASE_URL = (env.api || defaultApi).replace(/\/+$/, '');
+    var AUTH_API_URL = (env.auth || defaultAuth).replace(/\/+$/, '');
 
     var REDIRECT_FLAG = 'psyke_redirecting';
-
     var sesionCerradaEnCurso = false;
 
     function normalizarRuta(ruta) {
         var partes = String(ruta || '').split('?');
         var limpia = partes[0].replace(/\/{2,}/g, '/');
+        if (!limpia.startsWith('/')) {
+            limpia = '/' + limpia;
+        }
         return partes.length > 1 ? limpia + '?' + partes.slice(1).join('?') : limpia;
     }
 
@@ -160,7 +163,7 @@
                 return await respuesta.json();
             }
         } catch (e) {
-            // Ignorar errores de red, se manejará en la llamada posterior
+            // Ignorar errores de red temporales
         }
         return null;
     }
