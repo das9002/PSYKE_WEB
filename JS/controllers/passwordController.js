@@ -58,7 +58,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Obtener datos del usuario autenticado via /auth/me
                 let usuarioSesion = null;
                 try {
-                    const respuesta = await fetch('http://localhost:8081/api/auth/me', {
+                    const baseUrl = window.AUTH_API_URL || 'http://localhost:8081/api/auth';
+                    const respuesta = await fetch(`${baseUrl}/me`, {
                         method: 'GET',
                         headers: { 'Content-Type': 'application/json' },
                         credentials: 'include'

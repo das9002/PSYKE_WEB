@@ -28,7 +28,8 @@
 
         try {
             // Usar la API de autenticación para verificar sesión via cookie
-            const respuesta = await fetch('http://localhost:8081/api/auth/me', {
+            const baseUrl = window.AUTH_API_URL || 'http://localhost:8081/api/auth';
+            const respuesta = await fetch(`${baseUrl}/me`, {
                 method: 'GET',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include'
@@ -119,7 +120,8 @@
 
     async function handleLogout() {
         try {
-            await fetch('http://localhost:8081/api/auth/logout', {
+            const baseUrl = window.AUTH_API_URL || 'http://localhost:8081/api/auth';
+            await fetch(`${baseUrl}/logout`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include'

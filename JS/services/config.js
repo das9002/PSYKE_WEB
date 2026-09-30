@@ -2,8 +2,9 @@
 (function (global) {
     'use strict';
 
-    var API_BASE_URL = 'http://localhost:8080/api';
-    var AUTH_API_URL = 'http://localhost:8081/api/auth';
+    var env = global.PSYKE_ENV || {};
+    var API_BASE_URL = env.api || 'http://localhost:8080/api';
+    var AUTH_API_URL = env.auth || 'http://localhost:8081/api/auth';
 
     var REDIRECT_FLAG = 'psyke_redirecting';
 
