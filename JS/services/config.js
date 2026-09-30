@@ -6,12 +6,23 @@
     var defaultApi = esLocal ? 'http://localhost:8080/api' : 'https://api-service-4d465a47b94c.herokuapp.com/api';
     var defaultAuth = esLocal ? 'http://localhost:8081/api/auth' : 'https://api-auth-1b19165bcf87.herokuapp.com/api/auth';
 
-    // Se eliminan barras inclinadas al final para evitar rutas duplicadas
     var API_BASE_URL = (env.api || defaultApi).replace(/\/+$/, '');
     var AUTH_API_URL = (env.auth || defaultAuth).replace(/\/+$/, '');
 
     var REDIRECT_FLAG = 'psyke_redirecting';
     var sesionCerradaEnCurso = false;
+
+    // Obtiene el token sin importar bajo qué nombre se guardó
+    function obtenerToken() {
+        return localStorage.getItem('psyke_token') || localStorage.getItem('token') || sessionStorage.getItem('psyke_token') || sessionStorage.getItem('token');
+    }
+
+    // Obtiene los datos de usuario guardados localmente
+    function obtenerUsuario() {
+        var raw = localStorage.getItem('psyke_user') || localStorage.getItem('user');
+        if (!raw) return null;
+        try { return JSON.parse(raw); } catch (e) { return null; }
+    }
 
     function normalizarRuta(ruta) {
         var partes = String(ruta || '').split('?');
@@ -70,6 +81,7 @@
         }, 900);
     }
 
+    // Peticiones a la API de Servicios Principal (api-service)
     async function apiFetch(ruta, opciones, cuerpoData) {
         if (typeof opciones === 'string') {
             var metodo = opciones;
@@ -83,7 +95,7 @@
         var url = API_BASE_URL + normalizarRuta(ruta);
 
         var headers = { 'Content-Type': 'application/json' };
-        var token = localStorage.getItem('psyke_token');
+        var token = obtenerToken();
         if (token) {
             headers['Authorization'] = 'Bearer ' + token;
         }
@@ -99,14 +111,14 @@
                 credentials: 'include'
             });
         } catch (error) {
-            var eRed = new Error('No se pudo conectar con el servidor. Verifique que el backend esté activo en ' + API_BASE_URL + '.');
+            var eRed = new Error('No se pudo conectar con el servidor.');
             eRed.tipo = 'RED';
             throw eRed;
         }
 
         if (respuesta.status === 401) {
             cerrarSesionGlobal();
-            var eSesion = new Error('No se proporcionó un token válido. El token es inválido o expirado.');
+            var eSesion = new Error('No se proporcionó un token válido.');
             eSesion.status = 401;
             throw eSesion;
         }
@@ -114,14 +126,12 @@
         if (respuesta.status === 403) {
             var ePermiso = new Error('No tiene permisos para realizar esta acción.');
             ePermiso.status = 403;
-            console.error('[apiFetch] 403 Forbidden:', ePermiso.message);
             throw ePermiso;
         }
 
         if (respuesta.status >= 500) {
-            var eServidor = new Error('Error interno del servidor. Intente nuevamente más tarde.');
+            var eServidor = new Error('Error interno del servidor.');
             eServidor.status = respuesta.status;
-            console.error('[apiFetch] 5xx Server Error:', eServidor.message);
             throw eServidor;
         }
 
@@ -129,11 +139,7 @@
             var mensaje = 'Ocurrió un error en la petición al servidor.';
             try {
                 var cuerpo = await respuesta.json();
-                if (cuerpo.message) {
-                    mensaje = cuerpo.message;
-                } else if (cuerpo.details && typeof cuerpo.details === 'object') {
-                    mensaje = Object.values(cuerpo.details).join('\n');
-                }
+                if (cuerpo.message) mensaje = cuerpo.message;
             } catch (e) { }
             var eApi = new Error(mensaje);
             eApi.status = respuesta.status;
@@ -146,21 +152,32 @@
         return texto ? JSON.parse(texto) : null;
     }
 
+    // Peticiones a la API de Autenticación (api-auth)
+    async function authFetch(ruta, opciones) {
+        opciones = opciones || {};
+        var url = AUTH_API_URL + normalizarRuta(ruta);
+        var headers = { 'Content-Type': 'application/json' };
+        var token = obtenerToken();
+
+        if (token) {
+            headers['Authorization'] = 'Bearer ' + token;
+        }
+        if (opciones.headers) Object.assign(headers, opciones.headers);
+
+        return fetch(url, {
+            method: opciones.method || 'GET',
+            headers: headers,
+            body: opciones.body,
+            credentials: 'include'
+        });
+    }
+
     async function verificarSesion() {
-        var token = localStorage.getItem('psyke_token');
+        var token = obtenerToken();
         if (!token) return null;
 
         try {
-            var url = AUTH_API_URL + '/me';
-            var headers = {
-                'Content-Type': 'application/json',
-                'Authorization': 'Bearer ' + token
-            };
-            var respuesta = await fetch(url, {
-                method: 'GET',
-                headers: headers,
-                credentials: 'include'
-            });
+            var respuesta = await authFetch('/me');
             if (respuesta.ok) {
                 return await respuesta.json();
             }
@@ -168,9 +185,8 @@
             // Ignorar errores temporales de red
         }
 
-        // Respaldo: si /me falla pero existe el usuario guardado, mantener la sesión
-        var usuarioLocal = localStorage.getItem('psyke_user');
-        return usuarioLocal ? JSON.parse(usuarioLocal) : null;
+        // Respaldo de seguridad: si /me falla temporalmente pero los datos locales existen, no expulsar
+        return obtenerUsuario();
     }
 
     function peticionApi(ruta, opciones) {
@@ -179,9 +195,12 @@
 
     global.API_BASE_URL = API_BASE_URL;
     global.AUTH_API_URL = AUTH_API_URL;
+    global.obtenerToken = obtenerToken;
+    global.obtenerUsuario = obtenerUsuario;
     global.normalizarRuta = normalizarRuta;
     global.cerrarSesionGlobal = cerrarSesionGlobal;
     global.apiFetch = apiFetch;
+    global.authFetch = authFetch;
     global.peticionApi = peticionApi;
     global.verificarSesion = verificarSesion;
     global.normalizarListado = normalizarListado;
