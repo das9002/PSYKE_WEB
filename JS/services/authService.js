@@ -1,20 +1,26 @@
+// JS/services/authService.js
+
 async function loginUsuario(credentials) {
     const credencialesConOrigen = {
         ...credentials,
         origen: 'WEB'
     };
 
+    // Obtenemos la URL base (que ya contiene '/api/auth') y nos aseguramos de no duplicar barras
+    const baseUrl = (window.AUTH_API_URL || 'https://api-auth-1b19165bcf87.herokuapp.com/api/auth').replace(/\/+$/, '');
+
     let respuesta;
     try {
-        // CORREGIDO: Se agregó la ruta completa /api/auth/login
-        respuesta = await fetch(`${AUTH_API_URL}/api/auth/login`, {
+        // CORREGIDO: Se cambió `${AUTH_API_URL}/api/auth/login` a `${baseUrl}/login`
+        // para evitar que la URL quede como /api/auth/api/auth/login
+        respuesta = await fetch(`${baseUrl}/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(credencialesConOrigen),
             credentials: 'include'
         });
     } catch (error) {
-        const e = new Error(`No se pudo conectar con el servidor de autenticación. Verifique que el backend esté activo en ${AUTH_API_URL}.`);
+        const e = new Error(`No se pudo conectar con el servidor de autenticación. Verifique que el backend esté activo en ${baseUrl}.`);
         e.tipo = 'RED';
         throw e;
     }
@@ -39,8 +45,8 @@ async function loginUsuario(credentials) {
     const rol = datos?.tipoUsuario || datos?.usuario?.tipoUsuario || datos?.rol;
     if (rol === 'ESTUDIANTE') {
         try {
-            // CORREGIDO: Se agregó la ruta completa /api/auth/logout
-            await fetch(`${AUTH_API_URL}/api/auth/logout`, {
+            // CORREGIDO: Se cambió `${AUTH_API_URL}/api/auth/logout` a `${baseUrl}/logout`
+            await fetch(`${baseUrl}/logout`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include'
