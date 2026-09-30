@@ -7,6 +7,24 @@
     let usuarioCache = null;
     let sesionVerificada = false;
 
+    function getStoredToken() {
+        if (typeof window.obtenerToken === 'function') {
+            return window.obtenerToken();
+        }
+        return localStorage.getItem('psyke_token') || localStorage.getItem('token') || sessionStorage.getItem('psyke_token');
+    }
+
+    function getStoredUser() {
+        if (typeof window.obtenerUsuario === 'function') {
+            return window.obtenerUsuario();
+        }
+        try {
+            const raw = localStorage.getItem('psyke_user') || localStorage.getItem('user');
+            return raw ? JSON.parse(raw) : null;
+        } catch (e) {
+            return null;
+        }
+    }
 
     function resolveLoginPage() {
         const path = window.location.pathname;
@@ -26,50 +44,69 @@
             return usuarioCache;
         }
 
+        const token = getStoredToken();
+        const usuarioLocal = getStoredUser();
+
+        // Si no existe token ni datos locales guardados, forzar login
+        if (!token && !usuarioLocal) {
+            return null;
+        }
+
         try {
-            // Usar la API de autenticación para verificar sesión via cookie
-            const baseUrl = window.AUTH_API_URL || 'http://localhost:8081/api/auth';
+            const baseUrl = window.AUTH_API_URL || 'https://api-auth-1b19165bcf87.herokuapp.com/api/auth';
+            
+            // CABECERAS CORREGIDAS: Se envía explícitamente el token Bearer
+            const headers = { 'Content-Type': 'application/json' };
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+
             const respuesta = await fetch(`${baseUrl}/me`, {
                 method: 'GET',
-                headers: { 'Content-Type': 'application/json' },
+                headers: headers,
                 credentials: 'include'
             });
 
-            if (respuesta.status === 401) {
-                return null;
-            }
-
-            if (respuesta.status === 403) {
-                console.warn('[navbarService] Acceso denegado (403), pero se mantiene la sesión');
-                return null;
-            }
-
-            if (respuesta.status >= 500) {
-                console.error('[navbarService] Error del servidor (5xx), se mantiene la sesión');
-                return null;
-            }
-
             if (respuesta.ok) {
                 const datos = await respuesta.json();
-                // Solo permitir ADMIN y PSICOLOGO en la web
-                const rol = datos.tipoUsuario;
+                
+                // Extraer y normalizar el rol
+                const rawRol = datos.tipoUsuario || datos.rol || (Array.isArray(datos.roles) ? datos.roles[0] : '');
+                const rol = String(rawRol).replace('ROLE_', '').toUpperCase();
+
                 if (rol === 'ADMIN' || rol === 'PSICOLOGO') {
                     usuarioCache = {
-                        nombre: datos.correo?.split('@')[0] || 'Usuario',
-                        email: datos.correo || '',
+                        nombre: datos.nombre || datos.correo?.split('@')[0] || 'Usuario',
+                        email: datos.correo || datos.email || '',
                         rol: rol
                     };
                     sesionVerificada = true;
                     return usuarioCache;
                 } else {
-                    // Estudiante no puede acceder a la web
-                    throw new Error('Acceso denegado');
+                    console.warn('[navbarService] Rol no autorizado para la versión web:', rol);
+                    return null;
                 }
             }
         } catch (e) {
-            // Error de red - no cerrar sesión
             console.error('[navbarService] Error de red al verificar sesión:', e);
         }
+
+        // FALLBACK DE RESPALDO: Si /me falla pero el usuario ya inició sesión previamente en este navegador
+        if (usuarioLocal) {
+            const rawRolLocal = usuarioLocal.tipoUsuario || usuarioLocal.rol || '';
+            const rolLocal = String(rawRolLocal).replace('ROLE_', '').toUpperCase();
+
+            if (rolLocal === 'ADMIN' || rolLocal === 'PSICOLOGO') {
+                usuarioCache = {
+                    nombre: usuarioLocal.nombre || usuarioLocal.correo?.split('@')[0] || 'Usuario',
+                    email: usuarioLocal.correo || usuarioLocal.email || '',
+                    rol: rolLocal
+                };
+                sesionVerificada = true;
+                return usuarioCache;
+            }
+        }
+
         return null;
     }
 
@@ -117,17 +154,22 @@
         });
     }
 
-
     async function handleLogout() {
         try {
-            const baseUrl = window.AUTH_API_URL || 'http://localhost:8081/api/auth';
+            const baseUrl = window.AUTH_API_URL || 'https://api-auth-1b19165bcf87.herokuapp.com/api/auth';
+            const token = getStoredToken();
+            const headers = { 'Content-Type': 'application/json' };
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+
             await fetch(`${baseUrl}/logout`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: headers,
                 credentials: 'include'
             });
         } catch (e) {
-            // Ignorar errores
+            // Ignorar errores de red en el logout
         }
         localStorage.clear();
         sessionStorage.clear();
@@ -143,7 +185,6 @@
         menu.classList.remove('active');
         if (button) button.classList.remove('active');
     }
-
 
     async function initNavbar() {
         const button = document.querySelector(BUTTON_SELECTOR);
