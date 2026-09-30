@@ -1,9 +1,13 @@
-
 (function (global) {
     'use strict';
 
-    var API_BASE_URL = 'https://api-service-4d465a47b94c.herokuapp.com';
-    var AUTH_API_URL = 'https://api-auth-1b19165bcf87.herokuapp.com';
+    var env = global.PSYKE_ENV || {};
+    var esLocal = global.location && (global.location.hostname === 'localhost' || global.location.hostname === '127.0.0.1');
+    var defaultApi = esLocal ? 'http://localhost:8080/api' : 'https://api-service-4d465a47b94c.herokuapp.com/api';
+    var defaultAuth = esLocal ? 'http://localhost:8081/api/auth' : 'https://api-auth-1b19165bcf87.herokuapp.com/api/auth';
+
+    var API_BASE_URL = env.api || defaultApi;
+    var AUTH_API_URL = env.auth || defaultAuth;
 
     var REDIRECT_FLAG = 'psyke_redirecting';
 
