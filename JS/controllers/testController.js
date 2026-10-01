@@ -1,4 +1,3 @@
-
 window.addEventListener('unhandledrejection', (event) => {
     const error = event.reason;
     if (error && (error.name === 'AbortError' || /interrupted by a call to pause/i.test(String(error.message)))) {
@@ -10,12 +9,30 @@ function reproducirAudioSeguro(elemento) {
     if (!elemento || typeof elemento.play !== 'function') return;
     const playPromise = elemento.play();
     if (playPromise !== undefined && typeof playPromise.catch === 'function') {
-        playPromise.catch(() => {  });
+        playPromise.catch(() => { });
     }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+// Funciones auxiliares de normalización de tipos de respuesta
+function normalizarTipoUI(tipo) {
+    if (!tipo) return 'Escala Likert';
+    const t = String(tipo).trim().toUpperCase();
+    if (t === 'ESCALA' || t.includes('LIKERT')) return 'Escala Likert';
+    if (t === 'OPCION_MULTIPLE' || t.includes('OPCION') || t.includes('OPCIÓN')) return 'Opcion multiple';
+    if (t === 'TEXTO_LIBRE' || t.includes('ABIERTA') || t.includes('TEXTO')) return 'Pregunta abierta';
+    return tipo;
+}
 
+function normalizarTipoBackend(tipo) {
+    if (!tipo) return 'ESCALA';
+    const t = String(tipo).trim().toUpperCase();
+    if (t.includes('LIKERT') || t === 'ESCALA') return 'ESCALA';
+    if (t.includes('OPCI') || t === 'OPCION_MULTIPLE') return 'OPCION_MULTIPLE';
+    if (t.includes('ABIERTA') || t === 'TEXTO_LIBRE') return 'TEXTO_LIBRE';
+    return tipo;
+}
+
+document.addEventListener('DOMContentLoaded', () => {
 
     const estado = {
         cuestionarios: [],
@@ -28,7 +45,6 @@ document.addEventListener('DOMContentLoaded', () => {
         cuestionarioEditandoId: null,
         cargandoCatalogo: false
     };
-
 
     function el(id) {
         return document.getElementById(id);
@@ -45,7 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function nombreCuestionario(c) {
-        return c?.nombre ?? c?.nombreCuestionario ?? c?.titulo ?? 'Cuestionario';
+        return c?.nombre ?? c?.nombreCuestionario ?? c?.nombreTest ?? c?.titulo ?? 'Cuestionario';
     }
 
     function objetivoCuestionario(c) {
@@ -125,7 +141,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return resp?.pregunta ?? resp?.enunciado ?? textoPregunta(resp);
     }
 
-
     const tablaTestsBody = el('tablaTestsBody');
     const noResultsTests = el('noResultsTests');
     const buscarTestInput = el('buscarTestInput');
@@ -151,7 +166,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const tabSinResponder = el('tabSinResponder');
 
     let questionCount = 0;
-
 
     async function cargarCatalogo({ forzar = false } = {}) {
         if (estado.cargandoCatalogo) return;
@@ -220,7 +234,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-
     function activarPestana(tabActiva, vistaActiva) {
         [tabCatalogo, tabCrear, tabRespondidos, tabSinResponder].forEach(t => {
             if (t) t.classList.remove('active');
@@ -253,7 +266,6 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(cargarEstudiantes)
             .then(() => renderTablaSinResponder());
     });
-
 
     function mostrarFilaCargando(tbody, colspan) {
         if (!tbody) return;
@@ -372,9 +384,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-
     function generarPreguntaHTML(numero, texto = '', tipo = 'Escala Likert') {
-        const previewHTML = generarPreviewPorTipo(tipo, numero);
+        const tipoNorm = normalizarTipoUI(tipo);
+        const previewHTML = generarPreviewPorTipo(tipoNorm, numero);
         return `
             <div class="card-test-section question-card" id="questionCard_${numero}" data-num="${numero}">
                 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -400,25 +412,25 @@ document.addEventListener('DOMContentLoaded', () => {
                     </label>
                     <div class="row g-2">
                         <div class="col-md-4">
-                            <button type="button" class="btn-tipo-respuesta w-100 ${tipo === 'Escala Likert' ? 'active' : ''}"
+                            <button type="button" class="btn-tipo-respuesta w-100 ${tipoNorm === 'Escala Likert' ? 'active' : ''}"
                                     data-num="${numero}" data-type="Escala Likert">
                                 <i class="bi bi-sliders"></i> Escala Likert
                             </button>
                         </div>
                         <div class="col-md-4">
-                            <button type="button" class="btn-tipo-respuesta w-100 ${tipo === 'Opcion multiple' ? 'active' : ''}"
+                            <button type="button" class="btn-tipo-respuesta w-100 ${tipoNorm === 'Opcion multiple' ? 'active' : ''}"
                                     data-num="${numero}" data-type="Opcion multiple">
                                 <i class="bi bi-list-check"></i> Opción Múltiple
                             </button>
                         </div>
                         <div class="col-md-4">
-                            <button type="button" class="btn-tipo-respuesta w-100 ${tipo === 'Pregunta abierta' ? 'active' : ''}"
+                            <button type="button" class="btn-tipo-respuesta w-100 ${tipoNorm === 'Pregunta abierta' ? 'active' : ''}"
                                     data-num="${numero}" data-type="Pregunta abierta">
                                 <i class="bi bi-textarea-t"></i> Pregunta Abierta
                             </button>
                         </div>
                     </div>
-                    <input type="hidden" id="tipoRespuesta_${numero}" value="${tipo}">
+                    <input type="hidden" id="tipoRespuesta_${numero}" value="${tipoNorm}">
                 </div>
 
                 <div class="preview-container mt-3">
@@ -434,7 +446,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function generarPreviewPorTipo(tipo, numero) {
-        if (tipo === 'Escala Likert') {
+        const tipoNorm = normalizarTipoUI(tipo);
+        if (tipoNorm === 'Escala Likert') {
             return `
                 <div class="preview-respuestas p-3">
                     <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
@@ -465,7 +478,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 </div>
             `;
-        } else if (tipo === 'Opcion multiple') {
+        } else if (tipoNorm === 'Opcion multiple') {
             return `
                 <div class="preview-respuestas p-3">
                     <div class="form-check mb-2">
@@ -584,8 +597,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-
-    const TIPOS_RESPUESTA_VALIDOS = ['Escala Likert', 'Opcion multiple', 'Pregunta abierta'];
+    // Lista extendida de valores permitidos en el frontend para evitar rechazos en la validación
+    const TIPOS_RESPUESTA_VALIDOS = [
+        'Escala Likert', 'ESCALA', 'escala',
+        'Opcion multiple', 'Opción Múltiple', 'Opción múltiple', 'OPCION_MULTIPLE', 'opcion_multiple',
+        'Pregunta abierta', 'Pregunta Abierta', 'TEXTO_LIBRE', 'texto_libre'
+    ];
 
     async function cargarPsicologos() {
         if (!selectCreador) return;
@@ -613,7 +630,7 @@ document.addEventListener('DOMContentLoaded', () => {
             await TestService.crearPregunta({
                 cuestionario: { idCuestionario: Number(idCuestionario) },
                 textoPregunta: p.textoPregunta,
-                tipoRespuesta: p.tipoRespuesta
+                tipoRespuesta: normalizarTipoBackend(p.tipoRespuesta)
             });
         }
     }
@@ -702,7 +719,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (btnGuardarTest) btnGuardarTest.addEventListener('click', guardarCuestionario);
 
-
     window.editarCuestionario = async function (id) {
         let c = estado.cuestionarios.find(item => Number(idCuestionario(item)) === Number(id));
         try {
@@ -731,7 +747,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const preguntas = preguntasCuestionario(c);
         if (preguntas.length > 0) {
-            preguntas.forEach(p => agregarPregunta(textoPregunta(p), tipoPregunta(p)));
+            preguntas.forEach(p => agregarPregunta(textoPregunta(p), normalizarTipoUI(tipoPregunta(p))));
         } else {
             agregarPregunta('', 'Escala Likert');
         }
@@ -805,7 +821,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const modal = new bootstrap.Modal(el('modalVerPreguntas'));
         modal.show();
     };
-
 
     function renderTablaRespondidos(filtroCuestionarioId = null) {
         const tbody = el('tablaRespondidosBody');
@@ -905,7 +920,6 @@ document.addEventListener('DOMContentLoaded', () => {
         modal.show();
     };
 
-
     function renderTablaSinResponder(filtroCuestionarioId = null) {
         const tbody = el('tablaSinResponderBody');
         if (!tbody) return;
@@ -924,6 +938,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 estado.estudiantes.forEach(est => {
                     if (!respondieron.has(Number(idEstudianteDe(est)))) {
                         pendientes.push({
+                            idCuestionario: idC,
                             estudiante: `${est?.nombres ?? ''} ${est?.apellidos ?? ''}`.trim() || 'Estudiante',
                             carnet: est?.codigoCarnet ?? '',
                             grado: est?.grado?.nombreGrado ?? '',
@@ -941,6 +956,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 );
                 if (!hayRespuestas) {
                     pendientes.push({
+                        idCuestionario: idC,
                         estudiante: 'Sin asignaciones registradas',
                         carnet: '',
                         grado: '',
@@ -952,9 +968,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (filtroCuestionarioId !== null) {
-            pendientes = pendientes.filter(p => Number(p.idCuestionario ?? p.testId) === Number(filtroCuestionarioId) || p.test === nombreCuestionario(
-                estado.cuestionarios.find(c => Number(idCuestionario(c)) === Number(filtroCuestionarioId))
-            ));
+            pendientes = pendientes.filter(p => Number(p.idCuestionario) === Number(filtroCuestionarioId));
         }
 
         if (pendientes.length === 0) {
@@ -991,18 +1005,15 @@ document.addEventListener('DOMContentLoaded', () => {
             });
     };
 
-    // Notificación de recordatorio (SweetAlert2)
+    // Notificación de recordatorio
     window.recordarEstudiante = function (nombreEstudiante) {
         Notif.informar(
             `Se ha enviado el recordatorio de resolución del cuestionario a ${nombreEstudiante} mediante el módulo de notificaciones.`
         );
     };
 
-    // ================= ERRORES =================
-
+    // Mensajes de error
     function mensajeErrorAmigable(error) {
-        const texto = String(error?.message ?? '').toUpperCase();
-
         if (error?.status === 400) {
             return `Revise los datos enviados: ${error.message}`;
         }
@@ -1013,14 +1024,12 @@ document.addEventListener('DOMContentLoaded', () => {
             return 'Ocurrió un error interno en el servidor. Inténtelo de nuevo más tarde.';
         }
         if (error instanceof TypeError || !error?.status) {
-            return `No se pudo conectar con el servidor. Verifique que el backend esté activo en ${API_BASE_URL}.`;
+            return `No se pudo conectar con el servidor. Verifique que el backend esté activo.`;
         }
         return error.message || 'Ocurrió un error inesperado.';
     }
 
-    // ================= INICIALIZACIÓN =================
-
-    // Carga inicial mínima: solo el catálogo de cuestionarios (GET /cuestionarios)
+    // Carga inicial
     cargarCatalogo();
     cargarPsicologos();
 
