@@ -1,6 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
 
-    // 1. Alternar visibilidad de contraseña (Ojito)
+    // 1. Visibilidad de contraseña
     const eyeButtons = document.querySelectorAll('.btn-eye-toggle');
     eyeButtons.forEach(btn => {
         btn.addEventListener('click', () => {
@@ -22,7 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // 2. Requisitos de validación de la nueva contraseña
+    // 2. Requisitos de la nueva contraseña
     const newPassword = document.getElementById('newPassword');
     const requirements = {
         length: { element: document.getElementById('reqLength'), regex: /.{8,}/ },
@@ -62,7 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 3. Envío del formulario de cambio de contraseña
+    // 3. Envío del formulario
     const passwordForm = document.getElementById('passwordForm');
     if (passwordForm) {
         passwordForm.addEventListener('submit', async (e) => {
@@ -72,79 +72,96 @@ document.addEventListener('DOMContentLoaded', () => {
             const confirmInput = document.getElementById('confirmPassword');
             const cPass = confirmInput ? confirmInput.value : '';
 
-            // Validar coincidencia de contraseñas
             if (nPass !== cPass) {
                 mostrarMensaje('La nueva contraseña y su confirmación no coinciden.', 'error');
                 return;
             }
 
-            // Validar que cumpla todos los requisitos de complejidad
             const cumpleRequisitos = Object.values(requirements).every(req => req.regex.test(nPass));
             if (!cumpleRequisitos) {
-                mostrarMensaje('La nueva contraseña debe cumplir con todos los requisitos de seguridad.', 'error');
+                mostrarMensaje('La nueva contraseña no cumple con todos los requisitos de seguridad.', 'error');
                 return;
             }
 
-            // Obtener token JWT
             const token = localStorage.getItem('token') || localStorage.getItem('psyke_token') || sessionStorage.getItem('token');
-
             if (!token) {
-                mostrarMensaje('No se encontró un token de sesión. Inicie sesión nuevamente.', 'error');
+                mostrarMensaje('No hay sesión activa. Inicie sesión nuevamente.', 'error');
                 setTimeout(() => window.location.href = '../HTML/login.html', 2000);
                 return;
             }
 
-            // Obtener sesión del usuario
-            let usuarioSesion = null;
+            // Obtener el ID del usuario autenticado vía /auth/me
+            let idUsuario = null;
             try {
-                const baseUrl = window.AUTH_API_URL || window.ENV?.API_BASE_URL || 'https://api-auth-1b19165bcf87.herokuapp.com/api/auth';
-                
-                const respuesta = await fetch(`${baseUrl}/me`, {
+                const authBaseUrl = window.AUTH_API_URL || window.ENV?.API_BASE_URL || 'https://api-auth-1b19165bcf87.herokuapp.com/api/auth';
+                const respAuth = await fetch(`${authBaseUrl}/me`, {
                     method: 'GET',
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${token}`
-                    },
-                    credentials: 'include'
+                    }
                 });
 
-                if (respuesta.ok) {
-                    usuarioSesion = await respuesta.json();
-                } else if (respuesta.status === 401) {
-                    mostrarMensaje('Su sesión ha expirado. Inicie sesión nuevamente.', 'error');
+                if (respAuth.ok) {
+                    const authData = await respAuth.json();
+                    idUsuario = authData.idUsuario || authData.id;
+                } else if (respAuth.status === 401) {
+                    mostrarMensaje('Su sesión ha expirado.', 'error');
                     setTimeout(() => window.location.href = '../HTML/login.html', 2000);
                     return;
                 }
             } catch (err) {
-                console.error('Error al obtener sesión:', err);
+                console.error('Error al verificar sesión auth:', err);
             }
 
-            const idUsuario = usuarioSesion?.idUsuario || usuarioSesion?.id;
-
-            if (!usuarioSesion || !idUsuario) {
-                mostrarMensaje('No se pudo obtener la información del usuario autenticado.', 'error');
+            if (!idUsuario) {
+                mostrarMensaje('No se pudo determinar el ID del usuario en sesión.', 'error');
                 return;
             }
 
-            // MANTENER TODOS LOS CAMPOS EXISTENTES PARA NO VIOLAR VALIDACIONES DEL BACKEND
-            const datosContrasena = {
-                ...usuarioSesion,
+            // Obtener el usuario COMPLETO desde ProfileService o API para no perder datos obligatorios
+            let perfilCompleto = null;
+            try {
+                if (typeof ProfileService.obtenerPerfil === 'function') {
+                    perfilCompleto = await ProfileService.obtenerPerfil(idUsuario);
+                } else {
+                    const apiBaseUrl = window.ENV?.API_SERVICE_URL || 'https://api-service-4d465a47b94c.herokuapp.com/api';
+                    const respPerfil = await fetch(`${apiBaseUrl}/usuarios/${idUsuario}`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (respPerfil.ok) {
+                        perfilCompleto = await respPerfil.json();
+                    }
+                }
+            } catch (err) {
+                console.error('Error al obtener perfil completo:', err);
+            }
+
+            if (!perfilCompleto) {
+                mostrarMensaje('No se pudieron obtener los datos completos del perfil.', 'error');
+                return;
+            }
+
+            // Unir perfil completo + la nueva contraseña
+            const payload = {
+                ...perfilCompleto,
                 contrasena: nPass
             };
 
-            // Enviar actualización al backend
+            console.log('Payload completo enviado:', payload);
+
             try {
-                await ProfileService.actualizarPerfil(idUsuario, datosContrasena);
+                await ProfileService.actualizarPerfil(idUsuario, payload);
                 mostrarMensaje('¡Tu contraseña ha sido actualizada con éxito!', 'exito');
                 passwordForm.reset();
             } catch (error) {
-                console.error('Error detallado de actualización:', error);
+                console.error('Error al actualizar:', error);
                 mostrarMensaje('No se pudo actualizar la contraseña: ' + error.message, 'error');
             }
         });
     }
 
-    // 4. Redirección botón Volver
+    // 4. Botón Volver
     const btnVolver = document.getElementById('btnVolver');
     if (btnVolver) {
         btnVolver.addEventListener('click', (e) => {
@@ -154,9 +171,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-/**
- * Helper para mostrar alertas unificadas
- */
 function mostrarMensaje(mensaje, tipo = 'info') {
     if (window.Notif) {
         if (tipo === 'exito') Notif.exito(mensaje);
