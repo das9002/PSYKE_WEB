@@ -12,16 +12,38 @@
     var REDIRECT_FLAG = 'psyke_redirecting';
     var sesionCerradaEnCurso = false;
 
-    // Obtiene el token sin importar bajo qué nombre se guardó
+    // Obtiene el token sin importar bajo qué nombre o almacenamiento se guardó
     function obtenerToken() {
-        return localStorage.getItem('psyke_token') || localStorage.getItem('token') || sessionStorage.getItem('psyke_token') || sessionStorage.getItem('token');
+        var claves = ['psyke_token', 'token', 'jwt', 'access_token', 'auth_token', 'psyke_jwt'];
+        for (var i = 0; i < claves.length; i++) {
+            var val = localStorage.getItem(claves[i]) || sessionStorage.getItem(claves[i]);
+            if (val) {
+                val = String(val).trim();
+                // Eliminar comillas dobles si se guardó vía JSON.stringify
+                if (val.startsWith('"') && val.endsWith('"')) {
+                    val = val.substring(1, val.length - 1);
+                }
+                if (val && val !== 'null' && val !== 'undefined') {
+                    return val;
+                }
+            }
+        }
+        return null;
     }
 
     // Obtiene los datos de usuario guardados localmente
     function obtenerUsuario() {
-        var raw = localStorage.getItem('psyke_user') || localStorage.getItem('user');
-        if (!raw) return null;
-        try { return JSON.parse(raw); } catch (e) { return null; }
+        var claves = ['psyke_user', 'user', 'currentUser', 'psyke_usuario', 'usuario'];
+        for (var i = 0; i < claves.length; i++) {
+            var raw = localStorage.getItem(claves[i]) || sessionStorage.getItem(claves[i]);
+            if (raw) {
+                try {
+                    var parsed = JSON.parse(raw);
+                    if (parsed && typeof parsed === 'object') return parsed;
+                } catch (e) { }
+            }
+        }
+        return null;
     }
 
     function normalizarRuta(ruta) {
@@ -123,6 +145,7 @@
                 method: opciones.method || 'GET',
                 headers: headers,
                 body: body,
+                credentials: 'include', // Incluir credenciales CORS
                 signal: opciones.signal
             });
         } catch (error) {
@@ -206,7 +229,8 @@
         return fetch(url, {
             method: opciones.method || 'GET',
             headers: headers,
-            body: body
+            body: body,
+            credentials: 'include' // Incluir credenciales CORS
         });
     }
 
@@ -217,7 +241,13 @@
         try {
             var respuesta = await authFetch('/me');
             if (respuesta.ok) {
-                return await respuesta.json();
+                var datosUsuario = await respuesta.json();
+                if (datosUsuario) {
+                    try {
+                        localStorage.setItem('psyke_user', JSON.stringify(datosUsuario));
+                    } catch (e) { }
+                }
+                return datosUsuario;
             }
         } catch (e) {
             // Ignorar errores temporales de red
