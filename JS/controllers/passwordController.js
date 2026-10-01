@@ -72,41 +72,29 @@ document.addEventListener('DOMContentLoaded', () => {
             const confirmInput = document.getElementById('confirmPassword');
             const cPass = confirmInput ? confirmInput.value : '';
 
-            // Validar que las contraseñas coincidan
+            // Validar coincidencia de contraseñas
             if (nPass !== cPass) {
-                if (window.Notif) {
-                    Notif.informar('La nueva contraseña y su confirmación no coinciden.');
-                } else {
-                    alert('La nueva contraseña y su confirmación no coinciden.');
-                }
+                mostrarMensaje('La nueva contraseña y su confirmación no coinciden.', 'error');
                 return;
             }
 
             // Validar que cumpla todos los requisitos de complejidad
             const cumpleRequisitos = Object.values(requirements).every(req => req.regex.test(nPass));
             if (!cumpleRequisitos) {
-                if (window.Notif) {
-                    Notif.informar('La nueva contraseña debe cumplir con todos los requisitos de seguridad.');
-                } else {
-                    alert('La nueva contraseña debe cumplir con todos los requisitos de seguridad.');
-                }
+                mostrarMensaje('La nueva contraseña debe cumplir con todos los requisitos de seguridad.', 'error');
                 return;
             }
 
-            // Obtener token JWT almacenado en el navegador
+            // Obtener token JWT
             const token = localStorage.getItem('token') || localStorage.getItem('psyke_token') || sessionStorage.getItem('token');
 
             if (!token) {
-                if (window.Notif) {
-                    Notif.error('No se encontró un token de sesión. Inicie sesión nuevamente.', 'Error de sesión');
-                } else {
-                    alert('No se encontró un token de sesión.');
-                }
+                mostrarMensaje('No se encontró un token de sesión. Inicie sesión nuevamente.', 'error');
                 setTimeout(() => window.location.href = '../HTML/login.html', 2000);
                 return;
             }
 
-            // Obtener datos del usuario autenticado enviando la cabecera Authorization
+            // Obtener sesión del usuario
             let usuarioSesion = null;
             try {
                 const baseUrl = window.AUTH_API_URL || window.ENV?.API_BASE_URL || 'https://api-auth-1b19165bcf87.herokuapp.com/api/auth';
@@ -115,7 +103,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     method: 'GET',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}` // Cabecera corregida para solucionar el error 401
+                        'Authorization': `Bearer ${token}`
                     },
                     credentials: 'include'
                 });
@@ -123,54 +111,40 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (respuesta.ok) {
                     usuarioSesion = await respuesta.json();
                 } else if (respuesta.status === 401) {
-                    if (window.Notif) {
-                        Notif.error('Su sesión ha expirado. Inicie sesión nuevamente.', 'Sesión Expirada');
-                    } else {
-                        alert('Su sesión ha expirado.');
-                    }
+                    mostrarMensaje('Su sesión ha expirado. Inicie sesión nuevamente.', 'error');
                     setTimeout(() => window.location.href = '../HTML/login.html', 2000);
                     return;
                 }
             } catch (err) {
-                console.error('Error de red al obtener sesión:', err);
+                console.error('Error al obtener sesión:', err);
             }
 
-            if (!usuarioSesion || !usuarioSesion.idUsuario) {
-                if (window.Notif) {
-                    Notif.error('No se pudo obtener la información del usuario en sesión.', 'Error de sesión');
-                } else {
-                    alert('No se pudo obtener la información del usuario en sesión.');
-                }
+            const idUsuario = usuarioSesion?.idUsuario || usuarioSesion?.id;
+
+            if (!usuarioSesion || !idUsuario) {
+                mostrarMensaje('No se pudo obtener la información del usuario autenticado.', 'error');
                 return;
             }
 
+            // MANTENER TODOS LOS CAMPOS EXISTENTES PARA NO VIOLAR VALIDACIONES DEL BACKEND
             const datosContrasena = {
-                correo: usuarioSesion.correo || '',
-                tipoUsuario: usuarioSesion.tipoUsuario || 'PSICOLOGO',
-                estadoCuenta: 'ACTIVO',
+                ...usuarioSesion,
                 contrasena: nPass
             };
 
-            // Enviar actualización
+            // Enviar actualización al backend
             try {
-                await ProfileService.actualizarPerfil(usuarioSesion.idUsuario, datosContrasena);
-                if (window.Notif) {
-                    Notif.exito('¡Tu contraseña ha sido actualizada con éxito!');
-                } else {
-                    alert('¡Tu contraseña ha sido actualizada con éxito!');
-                }
+                await ProfileService.actualizarPerfil(idUsuario, datosContrasena);
+                mostrarMensaje('¡Tu contraseña ha sido actualizada con éxito!', 'exito');
                 passwordForm.reset();
             } catch (error) {
-                if (window.Notif) {
-                    Notif.error('No se pudo actualizar la contraseña: ' + error.message, 'Error al actualizar');
-                } else {
-                    alert('No se pudo actualizar la contraseña: ' + error.message);
-                }
+                console.error('Error detallado de actualización:', error);
+                mostrarMensaje('No se pudo actualizar la contraseña: ' + error.message, 'error');
             }
         });
     }
 
-    // 4. Redirección del botón Volver
+    // 4. Redirección botón Volver
     const btnVolver = document.getElementById('btnVolver');
     if (btnVolver) {
         btnVolver.addEventListener('click', (e) => {
@@ -179,3 +153,16 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+
+/**
+ * Helper para mostrar alertas unificadas
+ */
+function mostrarMensaje(mensaje, tipo = 'info') {
+    if (window.Notif) {
+        if (tipo === 'exito') Notif.exito(mensaje);
+        else if (tipo === 'error') Notif.error(mensaje, 'Error');
+        else Notif.informar(mensaje);
+    } else {
+        alert(mensaje);
+    }
+}
