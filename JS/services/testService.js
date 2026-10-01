@@ -1,10 +1,27 @@
-
+/**
+ * Normaliza los tipos de respuesta provistos desde la interfaz de usuario
+ * hacia las constantes permitidas por el DTO y la base de datos Oracle.
+ */
+function normalizarTipoRespuesta(tipo) {
+    if (!tipo) return tipo;
+    const mapaTipos = {
+        'Pregunta abierta': 'TEXTO_LIBRE',
+        'Escala Likert': 'ESCALA',
+        'Opción múltiple': 'OPCION_MULTIPLE',
+        'texto_libre': 'TEXTO_LIBRE',
+        'escala': 'ESCALA',
+        'opcion_multiple': 'OPCION_MULTIPLE'
+    };
+    return mapaTipos[tipo.trim()] || tipo;
+}
 
 const TestService = {
     async listarCuestionarios() {
         try {
             const lista = await peticionApi('/cuestionarios');
-            return typeof normalizarListado === 'function' ? normalizarListado(lista) : (Array.isArray(lista) ? lista : (lista?.content || []));
+            return typeof normalizarListado === 'function' 
+                ? normalizarListado(lista) 
+                : (Array.isArray(lista) ? lista : (lista?.content || []));
         } catch (error) {
             const mensaje = error?.status === 500
                 ? 'Ocurrió un error interno en el servidor al cargar los cuestionarios. Inténtelo de nuevo más tarde.'
@@ -21,7 +38,8 @@ const TestService = {
     },
 
     buscarCuestionarios(termino) {
-        return peticionApi(`/cuestionarios?search=${encodeURIComponent(termino)}`).then(res => typeof normalizarListado === 'function' ? normalizarListado(res) : (Array.isArray(res) ? res : (res?.content || [])));
+        return peticionApi(`/cuestionarios?search=${encodeURIComponent(termino)}`)
+            .then(res => typeof normalizarListado === 'function' ? normalizarListado(res) : (Array.isArray(res) ? res : (res?.content || [])));
     },
 
     crearCuestionario(cuestionario) {
@@ -43,13 +61,28 @@ const TestService = {
     },
 
     listarPreguntas() {
-        return peticionApi('/preguntas').then(res => typeof normalizarListado === 'function' ? normalizarListado(res) : (Array.isArray(res) ? res : (res?.content || [])));
+        return peticionApi('/preguntas')
+            .then(res => typeof normalizarListado === 'function' ? normalizarListado(res) : (Array.isArray(res) ? res : (res?.content || [])));
     },
 
     crearPregunta(pregunta) {
+        // Extrae el tipo de respuesta (ya sea enviado como tipoRespuesta o tipo)
+        const tipoOriginal = pregunta.tipoRespuesta || pregunta.tipo;
+        
+        // Formatea el objeto cuestionario si solo se envió el ID como número o string
+        const cuestionarioObj = (typeof pregunta.cuestionario === 'number' || typeof pregunta.cuestionario === 'string')
+            ? { idCuestionario: Number(pregunta.cuestionario) }
+            : pregunta.cuestionario;
+
+        const payload = {
+            ...pregunta,
+            cuestionario: cuestionarioObj,
+            tipoRespuesta: normalizarTipoRespuesta(tipoOriginal)
+        };
+
         return peticionApi('/preguntas', {
             method: 'POST',
-            body: JSON.stringify(pregunta)
+            body: JSON.stringify(payload)
         });
     },
 
@@ -58,7 +91,8 @@ const TestService = {
     },
 
     listarTestsRespondidos() {
-        return peticionApi('/tests-respondidos').then(res => typeof normalizarListado === 'function' ? normalizarListado(res) : (Array.isArray(res) ? res : (res?.content || [])));
+        return peticionApi('/tests-respondidos')
+            .then(res => typeof normalizarListado === 'function' ? normalizarListado(res) : (Array.isArray(res) ? res : (res?.content || [])));
     },
 
     obtenerTestRespondidoPorId(id) {
@@ -66,7 +100,8 @@ const TestService = {
     },
 
     listarPorCuestionario(idCuestionario) {
-        return peticionApi(`/tests-respondidos?cuestionarioId=${idCuestionario}`).then(res => typeof normalizarListado === 'function' ? normalizarListado(res) : (Array.isArray(res) ? res : (res?.content || [])));
+        return peticionApi(`/tests-respondidos?cuestionarioId=${idCuestionario}`)
+            .then(res => typeof normalizarListado === 'function' ? normalizarListado(res) : (Array.isArray(res) ? res : (res?.content || [])));
     },
 
     crearTestRespondido(testRespondido) {
@@ -88,6 +123,7 @@ const TestService = {
     },
 
     listarEstudiantes() {
-        return peticionApi('/estudiantes').then(res => typeof normalizarListado === 'function' ? normalizarListado(res) : (Array.isArray(res) ? res : (res?.content || [])));
+        return peticionApi('/estudiantes')
+            .then(res => typeof normalizarListado === 'function' ? normalizarListado(res) : (Array.isArray(res) ? res : (res?.content || [])));
     }
 };
