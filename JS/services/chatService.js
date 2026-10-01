@@ -27,7 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (lista && lista.length > 0) {
                 patientsData = lista.map((est, idx) => {
                     const nombreComp = `${est.nombreCompleto || est.nombres || est.nombre || 'Estudiante'} ${est.apellidos || est.apellido || ''}`.trim();
-                    const idVal = String(est.idEstudiante || est.id || idx + 1);
+                    const idVal = String(est.idEstudiante || est.idUsuario || est.id || idx + 1);
                     return {
                         id: idVal,
                         name: nombreComp,
@@ -292,7 +292,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 6. CARGAR MENSAJES REALES DESDE EL BACKEND
     async function loadConversation(patientId, forceScroll = false) {
-        const patient = patientsData.find(p => p.id === patientId);
+        const patient = patientsData.find(p => p.id === String(patientId));
         if (!patient) return;
 
         const activeUserContainer = document.getElementById('chatActiveUser');
@@ -320,23 +320,40 @@ document.addEventListener('DOMContentLoaded', () => {
                 ? normalizarListado(res) 
                 : (Array.isArray(res) ? res : (res?.content || []));
 
-            const patient = patientsData.find(p => p.id === studentId);
+            const patient = patientsData.find(p => p.id === String(studentId));
             if (!patient) return;
 
+            // Obtener ID del usuario activo para comparar el emisor de los mensajes
+            const usuarioSesion = JSON.parse(
+                localStorage.getItem('usuario') || 
+                sessionStorage.getItem('usuario') || 
+                '{}'
+            );
+            const myId = usuarioSesion.idUsuario || usuarioSesion.id || usuarioSesion.USU_idUsuario;
+
             const nuevosMensajes = listaMensajes.map(m => {
-                const esMio = m.esDoctor || m.emisor === 'doctor' || m.remitente === 'doctor' || m.sender === 'doctor';
-                const horaFormat = m.fecha 
-                    ? new Date(m.fecha).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
+                // Mapear emisor desde el objeto MensajesPrivadosDTO (m.emisor.idUsuario o fallback)
+                const emisorObj = m.emisor;
+                const emisorId = (typeof emisorObj === 'object' && emisorObj !== null) 
+                    ? (emisorObj.idUsuario || emisorObj.id) 
+                    : (m.idEmisor || m.emisorId || m.emisor);
+
+                const esMio = (myId && String(emisorId) === String(myId)) || 
+                             m.esDoctor || m.emisor === 'doctor' || m.remitente === 'doctor' || m.sender === 'doctor';
+                
+                const fechaMsg = m.fechaEnvio || m.fecha;
+                const horaFormat = fechaMsg 
+                    ? new Date(fechaMsg).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
                     : (m.time || 'Hoy');
+
                 return {
-                    id: m.id || m.idMensaje || null,
+                    id: m.idMensaje || m.id || null,
                     sender: esMio ? 'doctor' : 'patient',
                     text: m.contenido || m.mensaje || m.text || '',
                     time: horaFormat
                 };
             });
 
-            // Evita renderizar innecesariamente si no han cambiado los mensajes durante el polling
             const numMensajesAnteriores = patient.messages.length;
             patient.messages = nuevosMensajes;
 
@@ -346,11 +363,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 patient.time = ultimo.time;
             }
 
-            // Solo re-renderizar si la cantidad cambió o si se fuerza el renderizado
             if (forceScroll || numMensajesAnteriores !== patient.messages.length) {
                 renderMessages(patient, forceScroll);
                 
-                // No re-renderizar lista de pacientes si el usuario está buscando
                 const activeSearch = document.getElementById('chatSearchInput')?.value.trim();
                 if (!activeSearch) {
                     renderPatientList();
@@ -365,7 +380,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const conversationArea = document.getElementById('chatConversationArea');
         if (!conversationArea) return;
 
-        // Comprobar si el usuario está al final de la conversación antes de re-renderizar
         const isAtBottom = conversationArea.scrollHeight - conversationArea.scrollTop <= conversationArea.clientHeight + 100;
 
         conversationArea.innerHTML = '';
@@ -380,7 +394,6 @@ document.addEventListener('DOMContentLoaded', () => {
             conversationArea.appendChild(bubble);
         });
 
-        // Solo hace autoscroll si el usuario estaba al final o si fue una acción explícita (abrir/enviar)
         if (forceScroll || isAtBottom) {
             setTimeout(() => {
                 conversationArea.scrollTop = conversationArea.scrollHeight;
@@ -388,7 +401,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // 7. ENVIAR MENSAJE AL SERVIDOR (CORREGIDO)
+    // 7. ENVIAR MENSAJE AL SERVIDOR (CORREGIDO PARA MensajesPrivadosDTO)
     async function handleSendMessage(e) {
         e.preventDefault();
         const inputField = document.getElementById('chatInputField');
@@ -397,17 +410,37 @@ document.addEventListener('DOMContentLoaded', () => {
         const text = inputField.value.trim();
         if (!text || !activeChatId) return;
 
+        // 1. Obtener ID del usuario activo (Emisor)
+        const usuarioSesion = JSON.parse(
+            localStorage.getItem('usuario') || 
+            sessionStorage.getItem('usuario') || 
+            '{}'
+        );
+        const rawEmisorId = usuarioSesion.idUsuario || usuarioSesion.id || usuarioSesion.USU_idUsuario;
+
+        if (!rawEmisorId) {
+            console.error('[chatService] No se encontró el ID del usuario logueado en la sesión.');
+            alert('Sesión no válida: No se pudo identificar al emisor del mensaje.');
+            return;
+        }
+
         inputField.value = '';
 
         try {
             if (typeof peticionApi === 'function') {
-                // Parse de ID a número para evitar errores 400 por incompatibilidad de tipos
-                const numericId = parseInt(activeChatId, 10);
-                const targetId = isNaN(numericId) ? activeChatId : numericId;
+                const idEmisor = parseInt(rawEmisorId, 10);
+                const idReceptor = parseInt(activeChatId, 10);
 
-                // Payload limpio y estandarizado para la API
+                // Payload ajustado a MensajesPrivadosDTO: emisor y receptor como objetos Usuario
                 const payload = {
-                    idEstudiante: targetId,
+                    emisor: { 
+                        idUsuario: idEmisor,
+                        id: idEmisor 
+                    },
+                    receptor: { 
+                        idUsuario: idReceptor,
+                        id: idReceptor 
+                    },
                     contenido: text
                 };
 
@@ -417,7 +450,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
 
-            // Recargar la lista de mensajes y forzar el scroll al final
+            // Recargar la lista de mensajes y forzar scroll al final
             await obtenerMensajesDelServidor(activeChatId, true);
 
         } catch (err) {
@@ -425,7 +458,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (err.response) {
                 console.error('[chatService] Detalle del error de validación backend:', err.response);
             }
-            alert('No se pudo enviar el mensaje. Verifica los campos requeridos en la consola.');
+            alert('No se pudo enviar el mensaje. Revisa la consola para más detalles.');
         }
     }
 
