@@ -5,16 +5,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const inputConfirmar = document.getElementById('confirmPassword');
     const botonGuardar = document.getElementById('btnActualizarContrasena');
 
-    const requisitos = {
-        longitud: { elemento: document.getElementById('reqLength'), regla: /.{8,}/ },
-        mayuscula: { elemento: document.getElementById('reqUpper'), regla: /[A-Z]/ },
-        minuscula: { elemento: document.getElementById('reqLower'), regla: /[a-z]/ },
-        numero: { elemento: document.getElementById('reqNumber'), regla: /[0-9]/ },
-        especial: { elemento: document.getElementById('reqSpecial'), regla: /[^A-Za-z0-9\s]/ }
-    };
-
-    const ESPACIOS = /\s/;
-
     function rutaLogin() {
         return '../index.html';
     }
@@ -24,37 +14,8 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
     }
 
-    document.querySelectorAll('.btn-eye-toggle').forEach(boton => {
-        boton.addEventListener('click', () => {
-            const input = document.getElementById(boton.dataset.target);
-            const icono = boton.querySelector('i');
-            if (!input || !icono) return;
-
-            const mostrar = input.type === 'password';
-            input.type = mostrar ? 'text' : 'password';
-            icono.classList.toggle('bi-eye', !mostrar);
-            icono.classList.toggle('bi-eye-slash', mostrar);
-            boton.setAttribute('aria-label', mostrar ? 'Ocultar contraseña' : 'Mostrar contraseña');
-        });
-    });
-
-    function pintarRequisitos(valor) {
-        Object.values(requisitos).forEach(({ elemento, regla }) => {
-            if (!elemento) return;
-            const cumple = regla.test(valor);
-            elemento.classList.toggle('valid', cumple);
-            elemento.classList.toggle('invalid', !cumple);
-            const icono = elemento.querySelector('i');
-            if (icono) {
-                icono.classList.toggle('bi-check-circle-fill', cumple);
-                icono.classList.toggle('bi-x-circle-fill', !cumple);
-            }
-        });
-    }
-
-    function cumpleRequisitos(valor) {
-        return Object.values(requisitos).every(({ regla }) => regla.test(valor));
-    }
+    ContrasenaValidaciones.activarOjos();
+    ContrasenaValidaciones.pintarRequisitos('');
 
     function marcarCampo(input, invalido) {
         if (input) input.classList.toggle('is-invalid', invalido);
@@ -62,7 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (inputNueva) {
         inputNueva.addEventListener('input', () => {
-            pintarRequisitos(inputNueva.value);
+            ContrasenaValidaciones.pintarRequisitos(inputNueva.value);
             marcarCampo(inputNueva, false);
         });
     }
@@ -80,29 +41,15 @@ document.addEventListener('DOMContentLoaded', () => {
             marcarCampo(inputActual, true);
             return 'Ingresa tu contraseña actual.';
         }
-        if (!nueva) {
-            marcarCampo(inputNueva, true);
-            return 'Ingresa la nueva contraseña.';
-        }
-        if (ESPACIOS.test(nueva)) {
-            marcarCampo(inputNueva, true);
-            return 'La nueva contraseña no puede contener espacios.';
-        }
-        if (!cumpleRequisitos(nueva)) {
-            marcarCampo(inputNueva, true);
-            return 'La nueva contraseña no cumple con todos los requisitos de seguridad.';
-        }
-        if (nueva.length > 100) {
-            marcarCampo(inputNueva, true);
-            return 'La nueva contraseña no puede superar los 100 caracteres.';
-        }
-        if (nueva === actual) {
+        if (nueva && nueva === actual) {
             marcarCampo(inputNueva, true);
             return 'La nueva contraseña debe ser diferente a la actual.';
         }
-        if (nueva !== confirmacion) {
-            marcarCampo(inputConfirmar, true);
-            return 'La confirmación no coincide con la nueva contraseña.';
+
+        const error = ContrasenaValidaciones.validarNueva(nueva, confirmacion);
+        if (error) {
+            marcarCampo(error.campo === 'nueva' ? inputNueva : inputConfirmar, true);
+            return error.mensaje;
         }
         return null;
     }
@@ -161,7 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 await cambiarContrasena();
                 Notif.cerrar();
                 form.reset();
-                pintarRequisitos('');
+                ContrasenaValidaciones.pintarRequisitos('');
                 await Notif.exitoModal('Tu contraseña se actualizó correctamente.', 'Contraseña actualizada');
                 window.location.href = 'config.html';
             } catch (error) {

@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Psyke - Recuperar Contraseña</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+    <link rel="stylesheet" href="../css/styleCambioContrasena.css">
+    <link rel="stylesheet" href="../css/styleRecuperarContrasena.css">
+    <link rel="stylesheet" href="../css/styleTemaoscuro.css">
+    <link rel="stylesheet" href="../css/styleAlertas.css">
+    <link rel="icon" href="../img/Logo0.png" crossorigin>
+    <script>
+        (function () {
+            if (localStorage.getItem('psyke_dark_mode') === 'enabled') {
+                document.documentElement.classList.add('dark-mode');
+            }
+        })();
+    </script>
+</head>
+
+<body>
+
+    <div class="bg-circle bg-circle-1"></div>
+    <div class="bg-circle bg-circle-2"></div>
+    <div class="floating-sphere sphere-1"></div>
+    <div class="floating-sphere sphere-2"></div>
+    <div class="floating-sphere sphere-3"></div>
+    <div class="floating-sphere sphere-4"></div>
+    <div class="floating-sphere sphere-5"></div>
+    <div class="floating-sphere sphere-6"></div>
+
+    <div class="split-card">
+
+        <div class="left-panel">
+            <ol class="pasos-recuperacion" aria-label="Pasos para recuperar la contraseña">
+                <li class="paso activo" data-paso="1"><span>1</span> Correo</li>
+                <li class="paso" data-paso="2"><span>2</span> Código</li>
+                <li class="paso" data-paso="3"><span>3</span> Contraseña</li>
+            </ol>
+
+            <section id="pasoCorreo" class="seccion-paso">
+                <h1 class="form-header-title d-flex align-items-center gap-2">
+                    <i class="bi bi-envelope-paper-fill text-primary"></i>
+                    <span>Recuperar contraseña</span>
+                </h1>
+                <p class="texto-ayuda">Escribe el correo con el que inicias sesión. Te enviaremos un código de 6 dígitos para autorizar el cambio.</p>
+
+                <form id="formCorreo" novalidate>
+                    <div class="custom-input-group">
+                        <label for="inputCorreo">Correo institucional</label>
+                        <div class="input-wrapper">
+                            <i class="bi bi-envelope-fill field-icon"></i>
+                            <input type="email" id="inputCorreo" placeholder="correo@ricaldone.edu.sv" maxlength="150" autocomplete="email" required>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn-submit-blue d-inline-flex align-items-center gap-2" id="btnEnviarCodigo">
+                        <i class="bi bi-send-fill"></i>
+                        <span>Enviar código</span>
+                    </button>
+                </form>
+            </section>
+
+            <section id="pasoCodigo" class="seccion-paso d-none">
+                <h1 class="form-header-title d-flex align-items-center gap-2">
+                    <i class="bi bi-shield-lock-fill text-primary"></i>
+                    <span>Ingresa el código</span>
+                </h1>
+                <p class="texto-ayuda">
+                    Enviamos un código a <strong id="correoDestino"></strong>.
+                    Revisa también la carpeta de spam.
+                </p>
+
+                <form id="formCodigo" novalidate>
+                    <div class="custom-input-group">
+                        <label for="inputCodigo">Código de verificación</label>
+                        <div class="input-wrapper">
+                            <i class="bi bi-123 field-icon"></i>
+                            <input type="text" id="inputCodigo" class="input-codigo" placeholder="000000" maxlength="6"
+                                inputmode="numeric" autocomplete="one-time-code" pattern="\d{6}" required>
+                        </div>
+                    </div>
+
+                    <p class="estado-codigo" id="vigenciaCodigo" aria-live="polite"></p>
+
+                    <div class="d-flex flex-wrap align-items-center gap-3 mt-3">
+                        <button type="submit" class="btn-submit-blue d-inline-flex align-items-center gap-2" id="btnVerificarCodigo">
+                            <i class="bi bi-check2-circle"></i>
+                            <span>Verificar código</span>
+                        </button>
+                        <button type="button" class="btn-link-reenviar" id="btnReenviarCodigo" disabled>
+                            Reenviar código
+                        </button>
+                    </div>
+
+                    <button type="button" class="btn-link-secundario mt-3" id="btnCambiarCorreo">
+                        <i class="bi bi-arrow-left"></i> Usar otro correo
+                    </button>
+                </form>
+            </section>
+
+            <section id="pasoContrasena" class="seccion-paso d-none">
+                <h1 class="form-header-title d-flex align-items-center gap-2">
+                    <i class="bi bi-key-fill text-primary"></i>
+                    <span>Nueva contraseña</span>
+                </h1>
+                <p class="texto-ayuda">Código verificado. Crea tu nueva contraseña.</p>
+
+                <form id="formContrasena" novalidate>
+                    <div class="custom-input-group">
+                        <label for="newPassword">Nueva contraseña</label>
+                        <div class="input-wrapper">
+                            <i class="bi bi-key-fill field-icon"></i>
+                            <input type="password" id="newPassword" placeholder="Introduce tu nueva contraseña" maxlength="100" autocomplete="new-password" required>
+                            <button type="button" class="btn-eye-toggle" aria-label="Mostrar contraseña" data-target="newPassword">
+                                <i class="bi bi-eye-slash"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <ul class="validation-box">
+                        <li class="validation-item invalid" id="reqLength"><i class="bi bi-x-circle-fill"></i> Mínimo 8 caracteres</li>
+                        <li class="validation-item invalid" id="reqUpper"><i class="bi bi-x-circle-fill"></i> Al menos una mayúscula</li>
+                        <li class="validation-item invalid" id="reqLower"><i class="bi bi-x-circle-fill"></i> Al menos una minúscula</li>
+                        <li class="validation-item invalid" id="reqNumber"><i class="bi bi-x-circle-fill"></i> Al menos un número</li>
+                        <li class="validation-item invalid" id="reqSpecial"><i class="bi bi-x-circle-fill"></i> Un carácter especial (ej. !@#$%)</li>
+                    </ul>
+
+                    <div class="custom-input-group mb-4">
+                        <label for="confirmPassword">Confirmar contraseña nueva</label>
+                        <div class="input-wrapper">
+                            <i class="bi bi-shield-check field-icon"></i>
+                            <input type="password" id="confirmPassword" placeholder="Repite tu nueva contraseña" maxlength="100" autocomplete="new-password" required>
+                            <button type="button" class="btn-eye-toggle" aria-label="Mostrar contraseña" data-target="confirmPassword">
+                                <i class="bi bi-eye-slash"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn-submit-blue d-inline-flex align-items-center gap-2" id="btnGuardarContrasena">
+                        <i class="bi bi-check2-circle"></i>
+                        <span>Guardar contraseña</span>
+                    </button>
+                </form>
+            </section>
+        </div>
+
+        <div class="right-panel">
+            <h2>¿Olvidaste tu contraseña?</h2>
+            <p>No te preocupes. Verificaremos que eres tú con un código enviado a tu correo y podrás crear una nueva.</p>
+            <a href="../index.html" class="btn-outline-white">
+                <i class="bi bi-arrow-left me-1"></i> Volver a iniciar sesión
+            </a>
+        </div>
+
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.js"></script>
+    <script src="../JS/services/env.js"></script>
+    <script src="../JS/services/config.js"></script>
+    <script src="../JS/services/notificacionesService.js"></script>
+    <script src="../JS/services/authService.js"></script>
+    <script src="../JS/validaciones/contrasenaValidaciones.js"></script>
+    <script src="../JS/controllers/recuperarContrasenaController.js"></script>
+</body>
+
+</html>

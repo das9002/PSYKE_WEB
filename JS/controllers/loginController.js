@@ -40,14 +40,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (linkOlvide) {
-        linkOlvide.addEventListener('click', (evento) => {
-            evento.preventDefault();
-            Notif.informar(
-                'Por seguridad, el restablecimiento de contraseñas lo realiza el administrador del sistema. ' +
-                'Comunícate con el departamento de psicología o con el administrador de Psyke para que te asigne una contraseña temporal. ' +
-                'Después podrás cambiarla desde Configuración > Cambiar contraseña.',
-                '¿Olvidaste tu contraseña?'
-            );
+        linkOlvide.addEventListener('click', () => {
+            const correo = document.getElementById('loginEmail')?.value.trim();
+            if (correo) {
+                linkOlvide.href = `HTML/recuperarContrasena.html?correo=${encodeURIComponent(correo)}`;
+            }
         });
     }
 });

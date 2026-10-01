@@ -161,6 +161,46 @@
         return respuesta.json();
     }
 
+    async function postPublico(ruta, cuerpo, mensajePorDefecto) {
+        let respuesta;
+        try {
+            respuesta = await fetch(`${urlAuth()}${ruta}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(cuerpo)
+            });
+        } catch (e) {
+            const error = new Error('No se pudo conectar con el servidor. Revisa tu conexión.');
+            error.tipo = 'RED';
+            throw error;
+        }
+
+        const datos = await respuesta.json().catch(() => ({}));
+        if (!respuesta.ok) {
+            const detalles = datos.details && typeof datos.details === 'object' ? datos.details : {};
+            const mensajesCampos = Object.entries(detalles)
+                .filter(([clave]) => !['segundosRestantes', 'intentosRestantes'].includes(clave))
+                .map(([, valor]) => valor);
+            const error = new Error(mensajesCampos.length ? mensajesCampos.join('\n') : (datos.message || mensajePorDefecto));
+            error.status = respuesta.status;
+            error.detalles = detalles;
+            throw error;
+        }
+        return datos;
+    }
+
+    function solicitarCodigoRecuperacion(correo) {
+        return postPublico('/recuperar-contrasena', { correo, origen: 'WEB' }, 'No se pudo enviar el código.');
+    }
+
+    function verificarCodigoRecuperacion(correo, codigo) {
+        return postPublico('/verificar-codigo', { correo, codigo }, 'No se pudo verificar el código.');
+    }
+
+    function restablecerContrasena(correo, tokenRestablecimiento, nuevaContrasena) {
+        return postPublico('/restablecer-contrasena', { correo, tokenRestablecimiento, nuevaContrasena }, 'No se pudo cambiar la contraseña.');
+    }
+
     async function logoutUsuario() {
         const token = leerToken();
         try {
@@ -186,6 +226,9 @@
         loginUsuario,
         logoutUsuario,
         verificarContrasenaActual,
+        solicitarCodigoRecuperacion,
+        verificarCodigoRecuperacion,
+        restablecerContrasena,
         obtenerSesion,
         obtenerUsuarioActual,
         estaAutenticado,
