@@ -1,6 +1,17 @@
 const ProfileService = {
     /**
+     * Obtiene el token JWT guardado en el almacenamiento local.
+     * @returns {string|null}
+     */
+    _obtenerToken() {
+        return localStorage.getItem('psyke_token') || 
+               localStorage.getItem('token') || 
+               localStorage.getItem('jwt');
+    },
+
+    /**
      * Obtiene el ID del usuario en sesión desde la caché local o helper global.
+     * @returns {string|number|null}
      */
     _obtenerIdUsuarioActual() {
         if (typeof window.obtenerUsuario === 'function') {
@@ -22,36 +33,64 @@ const ProfileService = {
     },
 
     /**
+     * Realiza peticiones HTTP asegurando que se incluyan las cabeceras de autenticación.
+     * @param {string} endpoint - Ruta relativa del endpoint.
+     * @param {Object} [options={}] - Opciones adicionales de fetch.
+     * @returns {Promise<any>}
+     */
+    async _hacerPeticion(endpoint, options = {}) {
+        const token = this._obtenerToken();
+        
+        const headers = {
+            'Content-Type': 'application/json',
+            ...(options.headers || {})
+        };
+
+        // Incluye la cabecera Authorization si existe un token
+        if (token && !headers['Authorization'] && !headers['authorization']) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        const config = {
+            ...options,
+            headers,
+            credentials: 'include' // Para peticiones CORS entre Vercel y Heroku
+        };
+
+        // Usa helpers globales si existen
+        if (typeof window.peticionApi === 'function') {
+            return window.peticionApi(endpoint, config);
+        } else if (typeof window.apiFetch === 'function') {
+            return window.apiFetch(endpoint, config);
+        } else {
+            // Fallback directo a la API
+            const baseUrl = window.ENV?.API_URL || window.API_URL || 'https://api-auth-1b19165bcf87.herokuapp.com/api';
+            const res = await fetch(`${baseUrl}${endpoint}`, config);
+            
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.message || `Error ${res.status}: ${res.statusText}`);
+            }
+            return res.json();
+        }
+    },
+
+    /**
      * Obtiene la información del perfil del usuario.
-     * @param {string|number} [idUsuario] - ID opcional. Si no se provee, usará el del usuario en sesión.
+     * @param {string|number} [idUsuario] - ID opcional. Si no se provee, consulta /auth/me o usará el del usuario en sesión.
      * @returns {Promise<Object>}
      */
     async obtenerPerfil(idUsuario) {
         const id = idUsuario || this._obtenerIdUsuarioActual();
 
-        if (!id) {
-            return Promise.reject(new Error('No se pudo determinar el ID del usuario para obtener el perfil.'));
-        }
+        // Si tenemos un ID específico consultamos /usuarios/{id}, de lo contrario /auth/me
+        const endpoint = id ? `/usuarios/${id}` : '/auth/me';
 
-        if (typeof window.peticionApi === 'function') {
-            return window.peticionApi(`/usuarios/${id}`);
-        } else if (typeof window.apiFetch === 'function') {
-            return window.apiFetch(`/usuarios/${id}`);
-        } else {
-            return Promise.reject(new Error('No se encontró la función global peticionApi o apiFetch.'));
-        }
+        return this._hacerPeticion(endpoint);
     },
-
-    /**
-     * Actualiza la información del perfil del usuario.
-     * Permite llamarlo de dos formas:
-     *   1. actualizarPerfil(idUsuario, datos)
-     *   2. actualizarPerfil(datos) -> Usará el ID del usuario en sesión automáticamente.
-     *
-     * @param {string|number|Object} idUsuarioODatos - ID del usuario O los datos si no se pasa ID.
-     * @param {Object} [datos] - Objeto con la información a actualizar.
-     * @returns {Promise<Object>}
-     */
+    async obtenerMiPerfil() {
+        return this._hacerPeticion('/auth/me');
+    },
     async actualizarPerfil(idUsuarioODatos, datos) {
         let id;
         let payload;
@@ -65,29 +104,17 @@ const ProfileService = {
             payload = datos;
         }
 
-        if (!id) {
-            return Promise.reject(new Error('No se pudo determinar el ID del usuario para actualizar el perfil.'));
-        }
-
         if (!payload || typeof payload !== 'object') {
             return Promise.reject(new Error('Los datos a actualizar deben ser un objeto válido.'));
         }
 
+        const endpoint = id ? `/usuarios/${id}` : '/auth/me';
         const bodyContent = typeof payload === 'string' ? payload : JSON.stringify(payload);
 
-        if (typeof window.peticionApi === 'function') {
-            return window.peticionApi(`/usuarios/${id}`, {
-                method: 'PUT',
-                body: bodyContent
-            });
-        } else if (typeof window.apiFetch === 'function') {
-            return window.apiFetch(`/usuarios/${id}`, {
-                method: 'PUT',
-                body: bodyContent
-            });
-        } else {
-            return Promise.reject(new Error('No se encontró la función global peticionApi o apiFetch.'));
-        }
+        return this._hacerPeticion(endpoint, {
+            method: 'PUT',
+            body: bodyContent
+        });
     }
 };
 
