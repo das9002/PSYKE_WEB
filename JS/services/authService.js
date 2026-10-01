@@ -1,10 +1,3 @@
-// JS/services/authService.js
-
-/**
- * Decodifica de forma segura el payload de un token JWT soportando caracteres UTF-8.
- * @param {string} token - Token JWT
- * @returns {Object|null} Payload decodificado o null si ocurre un error
- */
 function decodificarToken(token) {
     try {
         if (!token) return null;
@@ -156,30 +149,11 @@ async function loginUsuario(credentials) {
 
 /**
  * Solicita el restablecimiento de contraseña enviando el correo a la API.
+ * IMPORTANTE: No usa authFetch para evitar adjuntar tokens caducados/inválidos que provocan error 401.
  * @param {string} correo - Correo del usuario registrado
  * @returns {Promise<Object>} Datos devueltos por la API
  */
 async function recuperarContrasena(correo) {
-    if (typeof window.authFetch === 'function') {
-        const respuesta = await window.authFetch('/recuperar-contrasena', {
-            method: 'POST',
-            body: { correo }
-        });
-
-        if (!respuesta.ok) {
-            let mensaje = 'Ocurrió un error al procesar la solicitud.';
-            try {
-                const cuerpo = await respuesta.json();
-                if (cuerpo.message) mensaje = cuerpo.message;
-            } catch (e) { }
-            const error = new Error(mensaje);
-            error.status = respuesta.status;
-            throw error;
-        }
-
-        return await respuesta.json().catch(() => ({ message: 'Solicitud enviada correctamente.' }));
-    }
-
     const baseUrl = (window.AUTH_API_URL || 'https://api-auth-1b19165bcf87.herokuapp.com/api/auth').replace(/\/+$/, '');
 
     let respuesta;
@@ -208,6 +182,44 @@ async function recuperarContrasena(correo) {
     }
 
     return await respuesta.json().catch(() => ({ message: 'Solicitud enviada correctamente.' }));
+}
+
+/**
+ * Confirma el código enviado al correo y actualiza la contraseña del usuario.
+ * @param {string} correo - Correo del usuario
+ * @param {string} codigo - Código de verificación de 6 dígitos
+ * @param {string} nuevaContrasena - La nueva contraseña elegida
+ * @returns {Promise<Object>}
+ */
+async function restablecerContrasena(correo, codigo, nuevaContrasena) {
+    const baseUrl = (window.AUTH_API_URL || 'https://api-auth-1b19165bcf87.herokuapp.com/api/auth').replace(/\/+$/, '');
+
+    let respuesta;
+    try {
+        respuesta = await fetch(`${baseUrl}/restablecer-contrasena`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ correo, codigo, nuevaContrasena }),
+            credentials: 'include'
+        });
+    } catch (error) {
+        const e = new Error(`No se pudo conectar con el servidor de autenticación en ${baseUrl}.`);
+        e.tipo = 'RED';
+        throw e;
+    }
+
+    if (!respuesta.ok) {
+        let mensaje = 'Código inválido o expirado.';
+        try {
+            const cuerpo = await respuesta.json();
+            if (cuerpo.message) mensaje = cuerpo.message;
+        } catch (e) { }
+        const error = new Error(mensaje);
+        error.status = respuesta.status;
+        throw error;
+    }
+
+    return await respuesta.json().catch(() => ({ message: 'Contraseña actualizada exitosamente.' }));
 }
 
 /**
@@ -246,6 +258,9 @@ const AuthService = {
     loginUsuario,
     logoutUsuario,
     recuperarContrasena,
+    solicitarCodigoRecuperacion: recuperarContrasena,
+    restablecerContrasena,
+    cambiarContrasenaConCodigo: restablecerContrasena,
     obtenerToken,
     obtenerUsuarioActual,
     estaAutenticado,
