@@ -1,5 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const INTERVALO_SINCRONIZACION = 8000;
+    const INTERVALO_CHAT_ABIERTO = 3000;
+    const INTERVALO_CHAT_CERRADO = 10000;
+    const LIMITE_ESPERA = 20000;
     const TAMANO_PAGINA = 50;
 
     let patientsData = [];
@@ -9,6 +11,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let ultimoIdProcesado = 0;
     let cargaInicialLista = false;
     let sincronizando = false;
+    let inicioSincronizacion = 0;
+    let sincronizacionActiva = false;
     let temporizador = null;
 
     function escapeHTML(texto) {
@@ -93,6 +97,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function procesarMensajes(mensajes, anunciar) {
+        let agregados = 0;
         mensajes
             .filter(m => m.idMensaje > ultimoIdProcesado)
             .sort((a, b) => a.idMensaje - b.idMensaje)
@@ -106,6 +111,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const paciente = patientsData.find(p => p.userId === (esMio ? receptor : emisor));
                 if (!paciente || paciente.messages.some(x => x.id === m.idMensaje)) return;
+                agregados++;
 
                 paciente.messages.push({
                     id: m.idMensaje,
@@ -127,6 +133,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
             });
+        return agregados;
     }
 
     function resumirNoLeidos() {
@@ -137,9 +144,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function sincronizar() {
-        if (sincronizando) return;
+        if (sincronizando && Date.now() - inicioSincronizacion < LIMITE_ESPERA) return;
         if (typeof obtenerToken === 'function' && !obtenerToken()) return;
         sincronizando = true;
+        inicioSincronizacion = Date.now();
 
         try {
             if (!(await obtenerMiUsuarioId())) return;
@@ -150,13 +158,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 procesarMensajes(todos, false);
                 resumirNoLeidos();
                 cargaInicialLista = true;
-            } else {
-                const res = await peticionApi(`/mensajes?page=0&size=${TAMANO_PAGINA}&sortBy=idMensaje&direction=desc`);
-                const recientes = Array.isArray(res) ? res : ((res && res.content) || []);
-                procesarMensajes(recientes, true);
+                refrescarVistas();
+                return;
             }
 
-            refrescarVistas();
+            const res = await peticionApi(`/mensajes?page=0&size=${TAMANO_PAGINA}&sortBy=idMensaje&direction=desc`);
+            const recientes = Array.isArray(res) ? res : ((res && res.content) || []);
+            if (procesarMensajes(recientes, true) > 0) refrescarVistas();
         } catch (error) {
             if (error && error.status === 403) detenerSincronizacion();
         } finally {
@@ -164,17 +172,33 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function programarSincronizacion() {
+        clearTimeout(temporizador);
+        if (!sincronizacionActiva) return;
+
+        const espera = chatPanel.classList.contains('active') ? INTERVALO_CHAT_ABIERTO : INTERVALO_CHAT_CERRADO;
+        temporizador = setTimeout(async () => {
+            await sincronizar();
+            programarSincronizacion();
+        }, espera);
+    }
+
     function iniciarSincronizacion() {
-        if (temporizador) return;
-        temporizador = setInterval(() => {
-            if (document.visibilityState === 'visible') sincronizar();
-        }, INTERVALO_SINCRONIZACION);
+        if (sincronizacionActiva) return;
+        sincronizacionActiva = true;
+        programarSincronizacion();
     }
 
     function detenerSincronizacion() {
-        clearInterval(temporizador);
+        sincronizacionActiva = false;
+        clearTimeout(temporizador);
         temporizador = null;
     }
+
+    window.addEventListener('focus', sincronizar);
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') sincronizar();
+    });
 
     function refrescarVistas() {
         const buscador = document.getElementById('chatSearchInput');
@@ -348,10 +372,9 @@ document.addEventListener('DOMContentLoaded', () => {
         chatOverlay.classList.add('active');
         chatPanel.classList.add('active');
 
-        if (!cargaInicialLista) {
-            await sincronizar();
-        }
+        await sincronizar();
         iniciarSincronizacion();
+        programarSincronizacion();
 
         if (!activeChatId || !patientsData.some(p => p.id === activeChatId)) {
             const conMensajes = patientsData.find(p => p.messages.length > 0);
@@ -563,4 +586,3 @@ document.addEventListener('DOMContentLoaded', () => {
 
     sincronizar().then(iniciarSincronizacion);
 });
-
