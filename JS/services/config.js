@@ -65,14 +65,17 @@
         sesionCerradaEnCurso = true;
 
         var yaRedirigido = sessionStorage.getItem(REDIRECT_FLAG);
+        
+        // Limpiar almacenamiento local y de sesión
         localStorage.clear();
         sessionStorage.clear();
 
         if (yaRedirigido) return;
 
+        // Establecer flag después de borrar sessionStorage para prevenir bucles de redirección
         sessionStorage.setItem(REDIRECT_FLAG, '1');
 
-        if (typeof Notif !== 'undefined') {
+        if (typeof Notif !== 'undefined' && Notif.error) {
             Notif.error('Tu sesión ha expirado o el token es inválido. Inicia sesión nuevamente.', 'Sesión expirada');
         }
 
@@ -87,28 +90,40 @@
             var metodo = opciones;
             opciones = {
                 method: metodo,
-                body: typeof cuerpoData === 'string' ? cuerpoData : (cuerpoData !== undefined ? JSON.stringify(cuerpoData) : undefined)
+                body: cuerpoData
             };
         } else {
             opciones = opciones || {};
         }
-        var url = API_BASE_URL + normalizarRuta(ruta);
 
-        var headers = { 'Content-Type': 'application/json' };
+        var url = API_BASE_URL + normalizarRuta(ruta);
+        var headers = {};
+
+        // Manejo automático del Body y Content-Type (evita errores con FormData)
+        var body = opciones.body;
+        if (body && !(body instanceof FormData) && typeof body === 'object') {
+            body = JSON.stringify(body);
+            headers['Content-Type'] = 'application/json';
+        } else if (typeof body === 'string') {
+            headers['Content-Type'] = 'application/json';
+        }
+
         var token = obtenerToken();
         if (token) {
             headers['Authorization'] = 'Bearer ' + token;
         }
-        if (opciones.headers) Object.assign(headers, opciones.headers);
+
+        if (opciones.headers) {
+            Object.assign(headers, opciones.headers);
+        }
 
         var respuesta;
         try {
             respuesta = await fetch(url, {
                 method: opciones.method || 'GET',
                 headers: headers,
-                body: opciones.body,
-                signal: opciones.signal,
-                credentials: 'include'
+                body: body,
+                signal: opciones.signal
             });
         } catch (error) {
             var eRed = new Error('No se pudo conectar con el servidor.');
@@ -116,25 +131,38 @@
             throw eRed;
         }
 
+        // Manejo de Estado HTTP 401 - Sesión Expirada
         if (respuesta.status === 401) {
             cerrarSesionGlobal();
-            var eSesion = new Error('No se proporcionó un token válido.');
+            var eSesion = new Error('No se proporcionó un token válido o la sesión ha expirado.');
             eSesion.status = 401;
             throw eSesion;
         }
 
+        // Manejo de Estado HTTP 403 - Sin Permisos
         if (respuesta.status === 403) {
             var ePermiso = new Error('No tiene permisos para realizar esta acción.');
             ePermiso.status = 403;
             throw ePermiso;
         }
 
+        // Manejo de Errores 5xx (Server Error / 503 Service Unavailable)
         if (respuesta.status >= 500) {
-            var eServidor = new Error('Error interno del servidor.');
+            var mensajeServidor = respuesta.status === 503 
+                ? 'El servicio no está disponible temporalmente (Timeout/503).' 
+                : 'Error interno del servidor.';
+            
+            try {
+                var jsonErr = await respuesta.json();
+                if (jsonErr.message) mensajeServidor = jsonErr.message;
+            } catch (e) { }
+
+            var eServidor = new Error(mensajeServidor);
             eServidor.status = respuesta.status;
             throw eServidor;
         }
 
+        // Manejo de Errores 4xx
         if (!respuesta.ok) {
             var mensaje = 'Ocurrió un error en la petición al servidor.';
             try {
@@ -156,19 +184,29 @@
     async function authFetch(ruta, opciones) {
         opciones = opciones || {};
         var url = AUTH_API_URL + normalizarRuta(ruta);
-        var headers = { 'Content-Type': 'application/json' };
-        var token = obtenerToken();
+        var headers = {};
 
+        var body = opciones.body;
+        if (body && !(body instanceof FormData) && typeof body === 'object') {
+            body = JSON.stringify(body);
+            headers['Content-Type'] = 'application/json';
+        } else if (typeof body === 'string') {
+            headers['Content-Type'] = 'application/json';
+        }
+
+        var token = obtenerToken();
         if (token) {
             headers['Authorization'] = 'Bearer ' + token;
         }
-        if (opciones.headers) Object.assign(headers, opciones.headers);
+
+        if (opciones.headers) {
+            Object.assign(headers, opciones.headers);
+        }
 
         return fetch(url, {
             method: opciones.method || 'GET',
             headers: headers,
-            body: opciones.body,
-            credentials: 'include'
+            body: body
         });
     }
 
@@ -193,6 +231,7 @@
         return apiFetch(ruta, opciones);
     }
 
+    // Exposición global de utilidades
     global.API_BASE_URL = API_BASE_URL;
     global.AUTH_API_URL = AUTH_API_URL;
     global.obtenerToken = obtenerToken;
