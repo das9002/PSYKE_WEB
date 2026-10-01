@@ -22,7 +22,7 @@
     <link rel="stylesheet" href="../css/styleAlertas.css">
     <link rel="stylesheet" href="../css/stylenotificacionChat.css">
     <link rel="stylesheet" href="../css/styleAIAssistant.css">
-    <link rel="icon" href="../img/Logo0.png" crossorigin>
+    <link rel="icon" href="../img/Logo0.png">
 
     <style>
         /* Ocultar el chatbot asistente flotante cuando la sección/modal de chat está abierta */
@@ -44,7 +44,7 @@
         #aiAssistantWidget,
         #aiAssistantBtn,
         #ai-assistant-container,
-        .chat-assistant-floating {
+        #chat-assistant-floating {
             left: 20px !important;
             right: auto !important;
             bottom: 20px !important;
@@ -109,9 +109,13 @@
                     </div>
                 </div>
 
-                <div class="d-flex align-items-center position-relative">
-                    <i class="bi bi-chat fs-4 me-3 clickable-icon" id="topbarChatBtn" role="button" title="Mensajes"></i>
-                    <i class="bi bi-bell fs-4 me-3 clickable-icon" role="button" title="Notificaciones"></i>
+                <div class="d-flex align-items-center position-relative gap-2">
+                    <button type="button" class="btn btn-link text-dark p-1 text-decoration-none" id="topbarChatBtn" title="Mensajes" aria-label="Abrir Mensajes">
+                        <i class="bi bi-chat fs-4"></i>
+                    </button>
+                    <button type="button" class="btn btn-link text-dark p-1 me-2 text-decoration-none" id="topbarNotifBtn" title="Notificaciones" aria-label="Ver Notificaciones">
+                        <i class="bi bi-bell fs-4"></i>
+                    </button>
 
                     <button class="btn btn-user-profile d-flex align-items-center gap-2 shadow-sm position-relative" id="userProfileBtn" aria-expanded="false" aria-controls="profileDropdownMenu">
                         <i class="bi bi-person-circle fs-5 text-primary"></i>
@@ -296,7 +300,7 @@
 
                             <div class="search-box-container position-relative flex-grow-1" style="max-width: 420px;">
                                 <i class="bi bi-search search-icon position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"></i>
-                                <input type="text" id="searchRecentStudents" class="form-control ps-5" placeholder="Buscar por nombre, riesgo o estado...">
+                                <input type="text" id="searchRecentStudents" class="form-control ps-5" placeholder="Buscar por nombre, riesgo o estado..." aria-label="Buscar estudiantes">
                             </div>
 
                             <a href="estudiante.html" class="btn btn-outline-primary d-inline-flex align-items-center gap-2">
@@ -343,7 +347,7 @@
                                             </span>
                                         </td>
                                         <td class="text-end">
-                                            <a href="seguimientos.html" class="btn btn-sm btn-outline-secondary" title="Ver expediente">
+                                            <a href="seguimientos.html" class="btn btn-sm btn-outline-secondary" title="Ver expediente" aria-label="Ver expediente de Angela Torres">
                                                 <i class="bi bi-eye"></i>
                                             </a>
                                         </td>
@@ -375,7 +379,7 @@
                                             </span>
                                         </td>
                                         <td class="text-end">
-                                            <a href="seguimientos.html" class="btn btn-sm btn-outline-secondary" title="Ver expediente">
+                                            <a href="seguimientos.html" class="btn btn-sm btn-outline-secondary" title="Ver expediente" aria-label="Ver expediente de Juan Pérez">
                                                 <i class="bi bi-eye"></i>
                                             </a>
                                         </td>
@@ -407,7 +411,7 @@
                                             </span>
                                         </td>
                                         <td class="text-end">
-                                            <a href="seguimientos.html" class="btn btn-sm btn-outline-secondary" title="Ver expediente">
+                                            <a href="seguimientos.html" class="btn btn-sm btn-outline-secondary" title="Ver expediente" aria-label="Ver expediente de María López">
                                                 <i class="bi bi-eye"></i>
                                             </a>
                                         </td>
@@ -447,7 +451,7 @@
     <!-- Lógica JavaScript del UI General -->
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // Manejador del botón de Chat flotante / topbar
+            // Manejador del botón de Chat
             const chatBtn = document.getElementById('topbarChatBtn');
             if (chatBtn) {
                 chatBtn.addEventListener('click', () => {
@@ -476,21 +480,23 @@
 
             // Manejador del menú responsive / Sidebar móvil
             const hamburgerBtn = document.getElementById('hamburgerBtn');
-            const sidebar = id => document.getElementById('sidebar');
+            const sidebar = document.getElementById('sidebar');
             const sidebarOverlay = document.getElementById('sidebarOverlay');
 
             const toggleSidebar = () => {
-                const targetSidebar = sidebar();
-                if (targetSidebar && sidebarOverlay) {
-                    targetSidebar.classList.toggle('show');
+                if (sidebar && sidebarOverlay) {
+                    const isOpen = sidebar.classList.toggle('show');
                     sidebarOverlay.classList.toggle('show');
+                    if (hamburgerBtn) {
+                        hamburgerBtn.setAttribute('aria-expanded', isOpen);
+                    }
                 }
             };
 
             if (hamburgerBtn) hamburgerBtn.addEventListener('click', toggleSidebar);
             if (sidebarOverlay) sidebarOverlay.addEventListener('click', toggleSidebar);
 
-            // Filtro de búsqueda en tiempo real de la tabla (Fallback nativo)
+            // Filtro de búsqueda en tiempo real de la tabla
             const searchInput = document.getElementById('searchRecentStudents');
             const tableRows = document.querySelectorAll('#recentStudentsBody tr');
             const noResultsMsg = document.getElementById('noResultsMessage');
