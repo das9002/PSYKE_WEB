@@ -7,23 +7,43 @@
     let usuarioCache = null;
     let sesionVerificada = false;
 
+    // Alangon ti token manipud iti nadumaduma a mabalin a naka-saveran
     function getStoredToken() {
         if (typeof window.obtenerToken === 'function') {
             return window.obtenerToken();
         }
-        return localStorage.getItem('psyke_token') || localStorage.getItem('token') || sessionStorage.getItem('psyke_token');
+        const claves = ['psyke_token', 'token', 'jwt', 'access_token', 'auth_token'];
+        for (let i = 0; i < claves.length; i++) {
+            let val = localStorage.getItem(claves[i]) || sessionStorage.getItem(claves[i]);
+            if (val) {
+                val = String(val).trim();
+                if (val.startsWith('"') && val.endsWith('"')) {
+                    val = val.substring(1, val.length - 1);
+                }
+                if (val && val !== 'null' && val !== 'undefined') {
+                    return val;
+                }
+            }
+        }
+        return null;
     }
 
+    // Alangon ti usuario manipud iti local storage
     function getStoredUser() {
         if (typeof window.obtenerUsuario === 'function') {
             return window.obtenerUsuario();
         }
-        try {
-            const raw = localStorage.getItem('psyke_user') || localStorage.getItem('user');
-            return raw ? JSON.parse(raw) : null;
-        } catch (e) {
-            return null;
+        const claves = ['psyke_user', 'user', 'currentUser', 'usuario'];
+        for (let i = 0; i < claves.length; i++) {
+            const raw = localStorage.getItem(claves[i]) || sessionStorage.getItem(claves[i]);
+            if (raw) {
+                try {
+                    const parsed = JSON.parse(raw);
+                    if (parsed && typeof parsed === 'object') return parsed;
+                } catch (e) { }
+            }
         }
+        return null;
     }
 
     function resolveLoginPage() {
@@ -47,36 +67,40 @@
         const token = getStoredToken();
         const usuarioLocal = getStoredUser();
 
-        // Si no existe token ni datos locales guardados, forzar login
+        // No awan ti token ken datos ti usuario, iparangarang nga awan ti session
         if (!token && !usuarioLocal) {
             return null;
         }
 
         try {
-            const baseUrl = window.AUTH_API_URL || 'https://api-auth-1b19165bcf87.herokuapp.com/api/auth';
-            
-            // CABECERAS CORREGIDAS: Se envía explícitamente el token Bearer
+            const baseUrl = (window.AUTH_API_URL || 'https://api-auth-1b19165bcf87.herokuapp.com/api/auth').replace(/\/+$/, '');
             const headers = { 'Content-Type': 'application/json' };
+            
             if (token) {
                 headers['Authorization'] = `Bearer ${token}`;
             }
 
-            const respuesta = await fetch(`${baseUrl}/me`, {
-                method: 'GET',
-                headers: headers,
-                credentials: 'include'
-            });
+            let respuesta;
+            if (typeof window.authFetch === 'function') {
+                respuesta = await window.authFetch('/me');
+            } else {
+                respuesta = await fetch(`${baseUrl}/me`, {
+                    method: 'GET',
+                    headers: headers,
+                    credentials: 'include'
+                });
+            }
 
-            if (respuesta.ok) {
+            if (respuesta && respuesta.ok) {
                 const datos = await respuesta.json();
                 
-                // Extraer y normalizar el rol
+                // Extracto ken normalisasion ti rol
                 const rawRol = datos.tipoUsuario || datos.rol || (Array.isArray(datos.roles) ? datos.roles[0] : '');
                 const rol = String(rawRol).replace('ROLE_', '').toUpperCase();
 
                 if (rol === 'ADMIN' || rol === 'PSICOLOGO') {
                     usuarioCache = {
-                        nombre: datos.nombre || datos.correo?.split('@')[0] || 'Usuario',
+                        nombre: datos.nombre || (datos.correo ? datos.correo.split('@')[0] : 'Usuario'),
                         email: datos.correo || datos.email || '',
                         rol: rol
                     };
@@ -91,14 +115,14 @@
             console.error('[navbarService] Error de red al verificar sesión:', e);
         }
 
-        // FALLBACK DE RESPALDO: Si /me falla pero el usuario ya inició sesión previamente en este navegador
+        // FALLBACK: Usaren ti local storage no dumanon ti pagsukisokan iti /me
         if (usuarioLocal) {
-            const rawRolLocal = usuarioLocal.tipoUsuario || usuarioLocal.rol || '';
+            const rawRolLocal = usuarioLocal.tipoUsuario || usuarioLocal.rol || (Array.isArray(usuarioLocal.roles) ? usuarioLocal.roles[0] : '');
             const rolLocal = String(rawRolLocal).replace('ROLE_', '').toUpperCase();
 
             if (rolLocal === 'ADMIN' || rolLocal === 'PSICOLOGO') {
                 usuarioCache = {
-                    nombre: usuarioLocal.nombre || usuarioLocal.correo?.split('@')[0] || 'Usuario',
+                    nombre: usuarioLocal.nombre || (usuarioLocal.correo ? usuarioLocal.correo.split('@')[0] : 'Usuario'),
                     email: usuarioLocal.correo || usuarioLocal.email || '',
                     rol: rolLocal
                 };
@@ -155,8 +179,18 @@
     }
 
     async function handleLogout() {
+        if (window.AuthService && typeof window.AuthService.logoutUsuario === 'function') {
+            await window.AuthService.logoutUsuario();
+            return;
+        }
+
+        if (typeof window.cerrarSesionGlobal === 'function') {
+            window.cerrarSesionGlobal();
+            return;
+        }
+
         try {
-            const baseUrl = window.AUTH_API_URL || 'https://api-auth-1b19165bcf87.herokuapp.com/api/auth';
+            const baseUrl = (window.AUTH_API_URL || 'https://api-auth-1b19165bcf87.herokuapp.com/api/auth').replace(/\/+$/, '');
             const token = getStoredToken();
             const headers = { 'Content-Type': 'application/json' };
             if (token) {
@@ -169,21 +203,26 @@
                 credentials: 'include'
             });
         } catch (e) {
-            // Ignorar errores de red en el logout
+            // Ipagalang ti linteg ti logout Error
+        } finally {
+            localStorage.clear();
+            sessionStorage.clear();
+            window.location.replace(resolveLoginPage());
         }
-        localStorage.clear();
-        sessionStorage.clear();
-        window.location.replace(resolveLoginPage());
     }
 
     function toggleMenu(menu, button) {
         const abierto = menu.classList.toggle('active');
         button.classList.toggle('active', abierto);
+        button.setAttribute('aria-expanded', abierto ? 'true' : 'false');
     }
 
     function closeMenu(menu, button) {
         menu.classList.remove('active');
-        if (button) button.classList.remove('active');
+        if (button) {
+            button.classList.remove('active');
+            button.setAttribute('aria-expanded', 'false');
+        }
     }
 
     async function initNavbar() {
@@ -217,6 +256,9 @@
         const menuEmail = menu.querySelector('.profile-dropdown-email');
         if (menuName) menuName.textContent = nombreUsuario;
         if (menuEmail) menuEmail.textContent = usuario.email || '';
+
+        button.setAttribute('aria-haspopup', 'true');
+        button.setAttribute('aria-expanded', 'false');
 
         button.addEventListener('click', (e) => {
             e.preventDefault();
