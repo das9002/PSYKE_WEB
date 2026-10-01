@@ -4,12 +4,25 @@ document.addEventListener('DOMContentLoaded', () => {
     let activeChatId = null;
     let pollingInterval = null; // Temporizador para actualización en tiempo real
 
+    // Funciones auxiliares de seguridad
+    function escapeHtml(str) {
+        if (str === null || str === undefined) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
     // 1. CARGAR ESTUDIANTES DESDE LA API
     async function cargarPacientesDesdeAPI() {
         try {
             if (typeof peticionApi !== 'function') return;
             const res = await peticionApi('/estudiantes');
-            const lista = typeof normalizarListado === 'function' ? normalizarListado(res) : (Array.isArray(res) ? res : (res?.content || []));
+            const lista = typeof normalizarListado === 'function' 
+                ? normalizarListado(res) 
+                : (Array.isArray(res) ? res : (res?.content || []));
             
             if (lista && lista.length > 0) {
                 patientsData = lista.map((est, idx) => {
@@ -22,7 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         status: 'online',
                         lastMsg: 'Sin mensajes previos',
                         time: '',
-                        messages: [] // Se cargarán desde la base de datos
+                        messages: []
                     };
                 });
                 if (patientsData.length > 0 && !activeChatId) {
@@ -180,7 +193,7 @@ document.addEventListener('DOMContentLoaded', () => {
         chatPanel.classList.add('active');
         renderPatientList();
         if (activeChatId) {
-            await loadConversation(activeChatId);
+            await loadConversation(activeChatId, true);
         }
         iniciarPolling();
     }
@@ -214,13 +227,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const item = document.createElement('div');
             item.className = `notification-item ${n.unread ? 'unread' : ''}`;
             item.innerHTML = `
-                <div class="notification-item-icon ${n.type}">
-                    <i class="bi ${n.icon}"></i>
+                <div class="notification-item-icon ${escapeHtml(n.type)}">
+                    <i class="bi ${escapeHtml(n.icon)}"></i>
                 </div>
                 <div class="notification-item-content">
-                    <div class="notification-item-title">${n.title}</div>
-                    <div class="notification-item-desc">${n.desc}</div>
-                    <div class="notification-item-time">${n.time}</div>
+                    <div class="notification-item-title">${escapeHtml(n.title)}</div>
+                    <div class="notification-item-desc">${escapeHtml(n.desc)}</div>
+                    <div class="notification-item-time">${escapeHtml(n.time)}</div>
                 </div>
             `;
             item.addEventListener('click', () => {
@@ -256,38 +269,38 @@ document.addEventListener('DOMContentLoaded', () => {
             item.className = `chat-patient-item ${p.id === activeChatId ? 'active' : ''}`;
             item.innerHTML = `
                 <div class="chat-avatar-wrapper">
-                    <img src="${p.avatar}" class="chat-avatar" alt="${p.name}">
-                    <span class="chat-status-dot ${p.status}"></span>
+                    <img src="${escapeHtml(p.avatar)}" class="chat-avatar" alt="${escapeHtml(p.name)}">
+                    <span class="chat-status-dot ${escapeHtml(p.status)}"></span>
                 </div>
                 <div class="chat-patient-info">
                     <div class="chat-patient-header">
-                        <span class="chat-patient-name">${p.name}</span>
-                        <span class="chat-patient-time">${p.time || ''}</span>
+                        <span class="chat-patient-name">${escapeHtml(p.name)}</span>
+                        <span class="chat-patient-time">${escapeHtml(p.time || '')}</span>
                     </div>
-                    <div class="chat-last-msg">${p.lastMsg}</div>
+                    <div class="chat-last-msg">${escapeHtml(p.lastMsg)}</div>
                 </div>
             `;
             item.addEventListener('click', () => {
                 activeChatId = p.id;
                 document.querySelectorAll('.chat-patient-item').forEach(el => el.classList.remove('active'));
                 item.classList.add('active');
-                loadConversation(p.id);
+                loadConversation(p.id, true);
             });
             patientContainer.appendChild(item);
         });
     }
 
     // 6. CARGAR MENSAJES REALES DESDE EL BACKEND
-    async function loadConversation(patientId) {
+    async function loadConversation(patientId, forceScroll = false) {
         const patient = patientsData.find(p => p.id === patientId);
         if (!patient) return;
 
         const activeUserContainer = document.getElementById('chatActiveUser');
         if (activeUserContainer) {
             activeUserContainer.innerHTML = `
-                <img src="${patient.avatar}" class="chat-avatar" alt="${patient.name}">
+                <img src="${escapeHtml(patient.avatar)}" class="chat-avatar" alt="${escapeHtml(patient.name)}">
                 <div>
-                    <h5 class="chat-active-name">${patient.name}</h5>
+                    <h5 class="chat-active-name">${escapeHtml(patient.name)}</h5>
                     <span class="chat-active-status ${patient.status === 'offline' ? 'offline' : ''}">
                         <i class="bi bi-circle-fill fs-8 me-1"></i> ${patient.status === 'online' ? 'En línea' : 'Desconectado'}
                     </span>
@@ -295,30 +308,37 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
         }
 
-        await obtenerMensajesDelServidor(patientId);
+        await obtenerMensajesDelServidor(patientId, forceScroll);
     }
 
-    async function obtenerMensajesDelServidor(studentId) {
+    async function obtenerMensajesDelServidor(studentId, forceScroll = false) {
         try {
             if (typeof peticionApi !== 'function') return;
 
-            // Petición al backend con el ID del estudiante activo
             const res = await peticionApi(`/mensajes/${studentId}`);
-            const listaMensajes = typeof normalizarListado === 'function' ? normalizarListado(res) : (Array.isArray(res) ? res : (res?.content || []));
+            const listaMensajes = typeof normalizarListado === 'function' 
+                ? normalizarListado(res) 
+                : (Array.isArray(res) ? res : (res?.content || []));
 
             const patient = patientsData.find(p => p.id === studentId);
             if (!patient) return;
 
-            // Mapeo de la respuesta recibida del servidor
-            patient.messages = listaMensajes.map(m => {
+            const nuevosMensajes = listaMensajes.map(m => {
                 const esMio = m.esDoctor || m.emisor === 'doctor' || m.remitente === 'doctor' || m.sender === 'doctor';
-                const horaFormat = m.fecha ? new Date(m.fecha).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : (m.time || 'Hoy');
+                const horaFormat = m.fecha 
+                    ? new Date(m.fecha).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
+                    : (m.time || 'Hoy');
                 return {
+                    id: m.id || m.idMensaje || null,
                     sender: esMio ? 'doctor' : 'patient',
                     text: m.contenido || m.mensaje || m.text || '',
                     time: horaFormat
                 };
             });
+
+            // Evita renderizar innecesariamente si no han cambiado los mensajes durante el polling
+            const numMensajesAnteriores = patient.messages.length;
+            patient.messages = nuevosMensajes;
 
             if (patient.messages.length > 0) {
                 const ultimo = patient.messages[patient.messages.length - 1];
@@ -326,16 +346,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 patient.time = ultimo.time;
             }
 
-            renderMessages(patient);
-            renderPatientList(document.getElementById('chatSearchInput')?.value.toLowerCase() || '');
+            // Solo re-renderizar si la cantidad cambió o si se fuerza el renderizado
+            if (forceScroll || numMensajesAnteriores !== patient.messages.length) {
+                renderMessages(patient, forceScroll);
+                
+                // No re-renderizar lista de pacientes si el usuario está buscando
+                const activeSearch = document.getElementById('chatSearchInput')?.value.trim();
+                if (!activeSearch) {
+                    renderPatientList();
+                }
+            }
         } catch (e) {
             console.error('[chatService] Error al obtener mensajes del servidor:', e);
         }
     }
 
-    function renderMessages(patient) {
+    function renderMessages(patient, forceScroll = false) {
         const conversationArea = document.getElementById('chatConversationArea');
         if (!conversationArea) return;
+
+        // Comprobar si el usuario está al final de la conversación antes de re-renderizar
+        const isAtBottom = conversationArea.scrollHeight - conversationArea.scrollTop <= conversationArea.clientHeight + 100;
 
         conversationArea.innerHTML = '';
         
@@ -343,18 +374,21 @@ document.addEventListener('DOMContentLoaded', () => {
             const bubble = document.createElement('div');
             bubble.className = `chat-msg-bubble ${msg.sender === 'doctor' ? 'sent' : 'received'}`;
             bubble.innerHTML = `
-                ${msg.text}
-                <span class="chat-msg-time">${msg.time}</span>
+                ${escapeHtml(msg.text)}
+                <span class="chat-msg-time">${escapeHtml(msg.time)}</span>
             `;
             conversationArea.appendChild(bubble);
         });
 
-        setTimeout(() => {
-            conversationArea.scrollTop = conversationArea.scrollHeight;
-        }, 50);
+        // Solo hace autoscroll si el usuario estaba al final o si fue una acción explícita (abrir/enviar)
+        if (forceScroll || isAtBottom) {
+            setTimeout(() => {
+                conversationArea.scrollTop = conversationArea.scrollHeight;
+            }, 50);
+        }
     }
 
-    // 7. ENVIAR MENSAJE AL SERVIDOR
+    // 7. ENVIAR MENSAJE AL SERVIDOR (CORREGIDO)
     async function handleSendMessage(e) {
         e.preventDefault();
         const inputField = document.getElementById('chatInputField');
@@ -367,24 +401,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             if (typeof peticionApi === 'function') {
-                // Envío POST al backend
+                // Parse de ID a número para evitar errores 400 por incompatibilidad de tipos
+                const numericId = parseInt(activeChatId, 10);
+                const targetId = isNaN(numericId) ? activeChatId : numericId;
+
+                // Payload limpio y estandarizado para la API
+                const payload = {
+                    idEstudiante: targetId,
+                    contenido: text
+                };
+
                 await peticionApi('/mensajes', {
                     method: 'POST',
-                    body: JSON.stringify({
-                        receptorId: activeChatId,
-                        idEstudiante: activeChatId,
-                        contenido: text,
-                        mensaje: text
-                    })
+                    body: JSON.stringify(payload)
                 });
             }
 
-            // Recargar la lista de mensajes actualizada desde la BD
-            await obtenerMensajesDelServidor(activeChatId);
+            // Recargar la lista de mensajes y forzar el scroll al final
+            await obtenerMensajesDelServidor(activeChatId, true);
 
         } catch (err) {
             console.error('[chatService] Error al enviar mensaje:', err);
-            alert('Ocurrió un error al enviar el mensaje. Por favor intenta de nuevo.');
+            if (err.response) {
+                console.error('[chatService] Detalle del error de validación backend:', err.response);
+            }
+            alert('No se pudo enviar el mensaje. Verifica los campos requeridos en la consola.');
         }
     }
 
@@ -393,7 +434,7 @@ document.addEventListener('DOMContentLoaded', () => {
         detenerPolling();
         pollingInterval = setInterval(() => {
             if (activeChatId && chatPanel.classList.contains('active')) {
-                obtenerMensajesDelServidor(activeChatId);
+                obtenerMensajesDelServidor(activeChatId, false);
             }
         }, 3000);
     }
