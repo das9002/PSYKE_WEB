@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 contrasena: inputContrasena ? inputContrasena.value : ''
             };
 
-            // Validación con fallback defensivo si LoginValidaciones no se ha cargado
+            // Validación defensiva con fallback
             let validacion = { isValid: true, message: '' };
             if (typeof LoginValidaciones !== 'undefined' && typeof LoginValidaciones.validarLogin === 'function') {
                 validacion = LoginValidaciones.validarLogin(credenciales);
@@ -58,99 +58,227 @@ document.addEventListener('DOMContentLoaded', () => {
     if (linkOlvide) {
         linkOlvide.addEventListener('click', async (evento) => {
             evento.preventDefault();
-
-            // Verificar disponibilidad de SweetAlert2
-            if (typeof Swal === 'undefined') {
-                const correoPrompt = prompt('Ingresa tu correo electrónico registrado:');
-                if (correoPrompt && correoPrompt.trim()) {
-                    ejecutarRecuperacion(correoPrompt.trim());
-                }
-                return;
-            }
-
-            // Despliega ventana modal emergente para pedir el correo
-            const { value: correo } = await Swal.fire({
-                title: 'Recuperar Contraseña',
-                text: 'Ingresa tu correo electrónico registrado para enviarte un enlace de recuperación:',
-                input: 'email',
-                inputPlaceholder: 'correo@ejemplo.com',
-                showCancelButton: true,
-                confirmButtonText: 'Enviar enlace',
-                cancelButtonText: 'Cancelar',
-                confirmButtonColor: '#3085d6',
-                cancelButtonColor: '#d33',
-                inputValidator: (value) => {
-                    if (!value || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
-                        return 'Debes ingresar un correo electrónico válido.';
-                    }
-                }
-            });
-
-            if (correo) {
-                ejecutarRecuperacion(correo);
-            }
+            iniciarFlujoRecuperacion();
         });
     }
 
+    let cooldownReenvio = 0;
+    let timerInterval = null;
+
     /**
-     * Procesa la solicitud de recuperación llamando al servicio o fallbacks.
+     * Paso 1: Pedir el correo electrónico registrado al usuario.
      */
-    async function ejecutarRecuperacion(correo) {
+    async function iniciarFlujoRecuperacion() {
+        if (typeof Swal === 'undefined') {
+            const correoPrompt = prompt('Ingresa tu correo electrónico registrado:');
+            if (correoPrompt && correoPrompt.trim()) {
+                enviarCodigoYMostrarPaso2(correoPrompt.trim());
+            }
+            return;
+        }
+
+        const { value: correo } = await Swal.fire({
+            title: 'Recuperar Contraseña',
+            text: 'Ingresa tu correo registrado para enviarte un código de verificación:',
+            input: 'email',
+            inputPlaceholder: 'correo@ejemplo.com',
+            showCancelButton: true,
+            confirmButtonText: 'Enviar código',
+            cancelButtonText: 'Cancelar',
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            inputValidator: (value) => {
+                if (!value || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+                    return 'Debes ingresar un correo electrónico válido.';
+                }
+            }
+        });
+
+        if (correo) {
+            enviarCodigoYMostrarPaso2(correo.trim());
+        }
+    }
+
+    /**
+     * Solicita el envío del código a la API y abre el modal del Paso 2.
+     */
+    async function enviarCodigoYMostrarPaso2(correo) {
         if (typeof Swal !== 'undefined') {
             Swal.fire({
-                title: 'Enviando solicitud...',
-                text: 'Por favor espera un momento.',
+                title: 'Enviando código...',
+                text: 'Por favor espera unos segundos.',
                 allowOutsideClick: false,
                 didOpen: () => Swal.showLoading()
             });
         }
 
         try {
-            // 1. Preferir AuthService.recuperarContrasena (Centralizado en authService.js)
-            if (typeof AuthService !== 'undefined' && typeof AuthService.recuperarContrasena === 'function') {
-                await AuthService.recuperarContrasena(correo);
-            } 
-            // 2. Uso de authFetch de config.js (Apunta directamente a Heroku)
-            else if (typeof window.authFetch === 'function') {
-                const response = await window.authFetch('/recuperar-contrasena', {
-                    method: 'POST',
-                    body: { correo }
-                });
-
-                if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.message || 'No se pudo enviar la solicitud.');
-                }
-            } 
-            // 3. Fallback directo a la URL de Auth en Heroku
-            else {
-                const authUrl = (typeof window.AUTH_API_URL !== 'undefined') 
-                    ? window.AUTH_API_URL 
-                    : 'https://api-auth-1b19165bcf87.herokuapp.com/api/auth';
-
-                const response = await fetch(`${authUrl.replace(/\/+$/, '')}/recuperar-contrasena`, {
+            // Llama a la API limpia (sin utilizar authFetch para evitar error 401 por tokens viejos)
+            if (typeof AuthService !== 'undefined' && (AuthService.solicitarCodigoRecuperacion || AuthService.recuperarContrasena)) {
+                const metodo = AuthService.solicitarCodigoRecuperacion || AuthService.recuperarContrasena;
+                await metodo(correo);
+            } else {
+                const authUrl = (window.AUTH_API_URL || 'https://api-auth-1b19165bcf87.herokuapp.com/api/auth').replace(/\/+$/, '');
+                const res = await fetch(`${authUrl}/recuperar-contrasena`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ correo })
                 });
 
-                if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.message || 'No se pudo enviar la solicitud.');
+                if (!res.ok) {
+                    const errData = await res.json().catch(() => ({}));
+                    throw new Error(errData.message || 'No se pudo enviar el código de recuperación.');
+                }
+            }
+
+            // Iniciar cooldown de 30 segundos para reenvío de código
+            cooldownReenvio = 30;
+
+            // Abrir modal para que el usuario ingrese el código enviado y su nueva contraseña
+            mostrarModalCodigoYPassword(correo);
+
+        } catch (error) {
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: error.message || 'Ocurrió un problema al solicitar el código de recuperación.',
+                    confirmButtonColor: '#d33'
+                });
+            } else {
+                alert(error.message || 'Error al enviar el código de recuperación.');
+            }
+        }
+    }
+
+    /**
+     * Paso 2: Modal para ingresar el código recibido (5 min de vigencia) y la nueva contraseña.
+     */
+    async function mostrarModalCodigoYPassword(correo) {
+        if (typeof Swal === 'undefined') {
+            const codigo = prompt(`Ingresa el código enviado a ${correo}:`);
+            const nuevaPass = prompt('Ingresa tu nueva contraseña:');
+            if (codigo && nuevaPass) {
+                completarRestablecimiento(correo, codigo, nuevaPass);
+            }
+            return;
+        }
+
+        const { value: formValues } = await Swal.fire({
+            title: 'Restablecer Contraseña',
+            html: `
+                <p style="font-size: 0.9em; color: #555; margin-bottom: 15px;">
+                    Enviamos un código a <b>${correo}</b>.<br>
+                    Tienes <b style="color: #d33;">5 minutos</b> para ingresar el código recibido.
+                </p>
+                <input id="swal-codigo" class="swal2-input" placeholder="Código de verificación" maxlength="10">
+                <input id="swal-pass1" type="password" class="swal2-input" placeholder="Nueva contraseña">
+                <input id="swal-pass2" type="password" class="swal2-input" placeholder="Confirmar nueva contraseña">
+                <div style="margin-top: 15px;">
+                    <button id="btn-reenviar-codigo" type="button" class="swal2-styled" style="background-color: #6c757d; padding: 6px 15px; font-size: 0.85em;" disabled>
+                        Reenviar código (30s)
+                    </button>
+                </div>
+            `,
+            focusConfirm: false,
+            showCancelButton: true,
+            confirmButtonText: 'Cambiar Contraseña',
+            cancelButtonText: 'Cancelar',
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            didOpen: () => {
+                const btnReenviar = document.getElementById('btn-reenviar-codigo');
+
+                // Temporizador de 30 segundos antes de permitir reenviar otro código
+                clearInterval(timerInterval);
+                timerInterval = setInterval(() => {
+                    if (cooldownReenvio > 0) {
+                        cooldownReenvio--;
+                        btnReenviar.textContent = `Reenviar código (${cooldownReenvio}s)`;
+                    } else {
+                        clearInterval(timerInterval);
+                        btnReenviar.textContent = 'Reenviar código';
+                        btnReenviar.disabled = false;
+                        btnReenviar.style.backgroundColor = '#17a2b8';
+                    }
+                }, 1000);
+
+                btnReenviar.addEventListener('click', () => {
+                    if (cooldownReenvio === 0) {
+                        clearInterval(timerInterval);
+                        enviarCodigoYMostrarPaso2(correo);
+                    }
+                });
+            },
+            willClose: () => {
+                clearInterval(timerInterval);
+            },
+            preConfirm: () => {
+                const codigo = document.getElementById('swal-codigo').value.trim();
+                const pass1 = document.getElementById('swal-pass1').value;
+                const pass2 = document.getElementById('swal-pass2').value;
+
+                if (!codigo) {
+                    Swal.showValidationMessage('Debes ingresar el código de verificación.');
+                    return false;
+                }
+                if (!pass1 || pass1.length < 6) {
+                    Swal.showValidationMessage('La nueva contraseña debe tener al menos 6 caracteres.');
+                    return false;
+                }
+                if (pass1 !== pass2) {
+                    Swal.showValidationMessage('Las contraseñas no coinciden.');
+                    return false;
+                }
+
+                return { codigo, pass1 };
+            }
+        });
+
+        if (formValues) {
+            completarRestablecimiento(correo, formValues.codigo, formValues.pass1);
+        }
+    }
+
+    /**
+     * Completa el proceso enviando el código validado y la nueva contraseña a la API.
+     */
+    async function completarRestablecimiento(correo, codigo, nuevaContrasena) {
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                title: 'Actualizando contraseña...',
+                allowOutsideClick: false,
+                didOpen: () => Swal.showLoading()
+            });
+        }
+
+        try {
+            if (typeof AuthService !== 'undefined' && (AuthService.cambiarContrasenaConCodigo || AuthService.restablecerContrasena)) {
+                const metodo = AuthService.cambiarContrasenaConCodigo || AuthService.restablecerContrasena;
+                await metodo(correo, codigo, nuevaContrasena);
+            } else {
+                const authUrl = (window.AUTH_API_URL || 'https://api-auth-1b19165bcf87.herokuapp.com/api/auth').replace(/\/+$/, '');
+                const res = await fetch(`${authUrl}/restablecer-contrasena`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ correo, codigo, nuevaContrasena })
+                });
+
+                if (!res.ok) {
+                    const errData = await res.json().catch(() => ({}));
+                    throw new Error(errData.message || 'Código inválido o expirado.');
                 }
             }
 
             if (typeof Swal !== 'undefined') {
                 Swal.fire({
                     icon: 'success',
-                    title: '¡Correo enviado!',
-                    text: 'Hemos enviado las instrucciones a tu correo electrónico para restablecer tu contraseña.',
+                    title: '¡Contraseña actualizada!',
+                    text: 'Tu contraseña ha sido restablecida con éxito. Ya puedes iniciar sesión con tu nueva clave.',
                     confirmButtonColor: '#3085d6'
                 });
-            } else if (typeof Notif !== 'undefined' && Notif.exito) {
-                Notif.exito('Hemos enviado las instrucciones a tu correo electrónico.');
             } else {
-                alert('Hemos enviado las instrucciones a tu correo electrónico.');
+                alert('¡Contraseña actualizada con éxito! Ya puedes iniciar sesión.');
             }
 
         } catch (error) {
@@ -158,13 +286,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 Swal.fire({
                     icon: 'error',
                     title: 'Error',
-                    text: error.message || 'Ocurrió un problema al intentar enviar el correo de recuperación.',
+                    text: error.message || 'Ocurrió un problema al actualizar la contraseña.',
                     confirmButtonColor: '#d33'
                 });
-            } else if (typeof Notif !== 'undefined' && Notif.error) {
-                Notif.error(error.message, 'Error de recuperación');
             } else {
-                alert(error.message || 'Error al enviar el correo de recuperación.');
+                alert(error.message || 'Error al actualizar la contraseña.');
             }
         }
     }
