@@ -96,26 +96,6 @@ document.querySelectorAll('.container input').forEach(input => {
 
 
 
-const signUpBtn = document.querySelector('.sign-up button[type="button"]:not(.hidden)');
-
-if (signUpBtn) {
-
-    signUpBtn.addEventListener('click', () => {
-
-        const form = document.querySelector('.sign-up form');
-
-        if (validateForm(form)) {
-
-            Notif.exito('¡Cuenta creada con éxito!');
-
-        }
-
-    });
-
-}
-
-
-
 function mobileSweep(direction, callback) {
 
     const sweepClass = direction === 'down' ? 'sweeping' : 'sweeping-up';

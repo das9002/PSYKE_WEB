@@ -257,3 +257,14 @@ body {
         grid-template-columns: 1fr;
     }
 }
+.input-wrapper:has(input.is-invalid) {
+    border-color: #ef4444;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.18);
+}
+
+.btn-submit-blue:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}

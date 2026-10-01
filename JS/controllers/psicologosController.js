@@ -57,6 +57,34 @@ document.addEventListener('DOMContentLoaded', () => {
         return psi.usuario?.idUsuario ?? null;
     }
 
+    function generarContrasenaTemporal() {
+        const grupos = ['ABCDEFGHJKLMNPQRSTUVWXYZ', 'abcdefghijkmnpqrstuvwxyz', '23456789', '!@#$%*?'];
+        const todos = grupos.join('');
+        const aleatorio = (max) => {
+            const arr = new Uint32Array(1);
+            crypto.getRandomValues(arr);
+            return arr[0] % max;
+        };
+        const caracteres = grupos.map(g => g[aleatorio(g.length)]);
+        while (caracteres.length < 12) caracteres.push(todos[aleatorio(todos.length)]);
+        for (let i = caracteres.length - 1; i > 0; i--) {
+            const j = aleatorio(i + 1);
+            [caracteres[i], caracteres[j]] = [caracteres[j], caracteres[i]];
+        }
+        return caracteres.join('');
+    }
+
+    function mostrarCredenciales(titulo, correo, contrasena, nota) {
+        return Notif.credenciales(
+            titulo,
+            `<div class="text-start">
+                <p class="mb-2"><strong>Usuario:</strong> ${escapeHTML(correo)}</p>
+                <p class="mb-3"><strong>Contraseña temporal:</strong> <code>${escapeHTML(contrasena)}</code></p>
+                <small class="text-muted">${escapeHTML(nota)}</small>
+            </div>`
+        );
+    }
+
     function estadoCuentaPsicologo(psi) {
         return psi.usuario?.estadoCuenta ?? psi.estadoCuenta ?? 'ACTIVO';
     }
@@ -338,7 +366,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function guardarNuevo(datos) {
-        const passAuto = `${datos.nombresCompletos.split(' ')[0]}Psi2026*`;
+        const passAuto = generarContrasenaTemporal();
 
         const usuarioCreado = await PsicologosService.crearUsuario({
             correo: datos.correo,
@@ -359,9 +387,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        Notif.credenciales(
-            '¡Psicólogo registrado con éxito!',
-            `Se generaron las credenciales de acceso:<br><br><strong>Usuario:</strong> ${datos.correo}<br><strong>Contraseña:</strong> <code>${passAuto}</code>`
+        mostrarCredenciales(
+            'Psicólogo registrado',
+            datos.correo,
+            passAuto,
+            'Copia y entrega estas credenciales. Por seguridad no se volverán a mostrar; el psicólogo debe cambiar su contraseña al ingresar.'
         );
     }
 
@@ -410,9 +440,55 @@ document.addEventListener('DOMContentLoaded', () => {
         el('credPsiPass').type = 'password';
         el('iconEyePsi').className = 'bi bi-eye';
 
-        const modal = new bootstrap.Modal(el('modalCredencialesPsicologo'));
-        modal.show();
+        const btnRestablecer = el('btnRestablecerPassPsi');
+        if (btnRestablecer) {
+            btnRestablecer.classList.toggle('d-none', estado.usuarioSesion?.tipoUsuario !== 'ADMIN');
+            btnRestablecer.dataset.idPsicologo = id;
+        }
+
+        bootstrap.Modal.getOrCreateInstance(el('modalCredencialesPsicologo')).show();
     };
+
+    async function restablecerContrasenaPsicologo() {
+        const id = Number(el('btnRestablecerPassPsi')?.dataset.idPsicologo);
+        const psi = estado.psicologos.find(p => idPsicologo(p) === id);
+        if (!psi || estado.usuarioSesion?.tipoUsuario !== 'ADMIN') return;
+
+        const idUsuario = idUsuarioPsicologo(psi);
+        const correo = correoPsicologo(psi);
+        if (!idUsuario || !correo) {
+            Notif.error('Este psicólogo no tiene un usuario asociado.', 'No se pudo restablecer');
+            return;
+        }
+
+        const confirmado = await Notif.confirmar(
+            '¿Restablecer contraseña?',
+            `Se generará una contraseña temporal para ${psi.nombresCompletos} ${psi.apellidosCompletos}. La contraseña anterior dejará de funcionar.`,
+            'Sí, restablecer',
+            { icono: 'warning', peligro: true }
+        );
+        if (!confirmado) return;
+
+        const contrasena = generarContrasenaTemporal();
+        try {
+            await PsicologosService.actualizarUsuario(idUsuario, {
+                correo,
+                contrasena,
+                tipoUsuario: psi.usuario?.tipoUsuario || 'PSICOLOGO',
+                estadoCuenta: estadoCuentaPsicologo(psi)
+            });
+
+            el('credPsiPass').value = contrasena;
+            await mostrarCredenciales(
+                'Contraseña restablecida',
+                correo,
+                contrasena,
+                'Entrega esta contraseña al psicólogo y pídele que la cambie desde Configuración > Cambiar contraseña.'
+            );
+        } catch (error) {
+            Notif.error(error.message || 'No se pudo restablecer la contraseña.', 'No se pudo restablecer');
+        }
+    }
 
     function togglePassPsi() {
         const pass = el('credPsiPass');
@@ -499,6 +575,7 @@ document.addEventListener('DOMContentLoaded', () => {
         guardarFormulario();
     });
     el('btnTogglePassPsi')?.addEventListener('click', togglePassPsi);
+    el('btnRestablecerPassPsi')?.addEventListener('click', restablecerContrasenaPsicologo);
 
     document.querySelectorAll('#formPsicologo input, #formPsicologo select').forEach(campo => {
         campo.addEventListener('input', () => {

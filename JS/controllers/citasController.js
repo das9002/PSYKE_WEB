@@ -606,20 +606,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const cita = estado.citas.find(c => Number(idCita(c)) === Number(id));
         if (!cita) return;
 
-        const result = await Swal.fire({
-            title: 'Confirmar Cita',
-            text: `¿Desea confirmar la cita de ${nombreEstudiante(cita)} programada para el ${formatearFechaLegible(fechaCita(cita))}?`,
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonColor: '#0d6efd',
-            cancelButtonColor: '#6c757d',
-            confirmButtonText: 'Sí, confirmar',
-            cancelButtonText: 'Cancelar',
-            allowOutsideClick: false,
-            allowEscapeKey: false
-        });
+        const confirmado = await Notif.confirmar(
+            '¿Confirmar cita?',
+            `Se confirmará la cita de ${nombreEstudiante(cita)} programada para el ${formatearFechaLegible(fechaCita(cita))}.`,
+            'Sí, confirmar'
+        );
 
-        if (!result.isConfirmed) return;
+        if (!confirmado) return;
 
         try {
             await CitasService.cambiarEstado(id, 'CONFIRMADA', cita);
@@ -701,54 +694,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 await peticionApi(`/citas/${idCitaTarget}`, 'PUT', { estado: 'CANCELADA' });
             }
 
-            if (typeof Swal !== 'undefined' && Swal.mixin) {
-                const Toast = Swal.mixin({
-                    toast: true,
-                    position: 'top-start',
-                    showConfirmButton: false,
-                    timer: 3000,
-                    timerProgressBar: true
-                });
-                Toast.fire({
-                    icon: 'success',
-                    title: 'Cita cancelada correctamente'
-                });
-            } else if (typeof Notif !== 'undefined' && Notif.exito) {
-                Notif.exito('Cita cancelada correctamente');
-            }
+            Notif.exito('La cita se canceló correctamente.', 'Cita cancelada');
 
             await cargarCitas();
         } catch (error) {
             console.error('Error al ejecutar la cancelación de la cita:', error);
-            if (typeof Notif !== 'undefined' && Notif.error) {
-                Notif.error(mensajeErrorAmigable(error), 'No se pudo cancelar la cita');
-            } else if (typeof Swal !== 'undefined') {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error',
-                    text: error?.message || 'No se pudo cancelar la cita'
-                });
-            }
+            Notif.error(mensajeErrorAmigable(error), 'No se pudo cancelar la cita');
         }
     }
 
     window.ejecutarCancelacionCita = ejecutarCancelacionCita;
 
     window.cancelarCita = async function (idCita) {
-        const result = await Swal.fire({
-            title: 'Cancelar Cita',
-            text: '¿Estás seguro de que deseas cancelar esta cita?',
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#d33',
-            cancelButtonColor: '#3085d6',
-            confirmButtonText: 'Sí, cancelar',
-            cancelButtonText: 'No, mantener',
-            allowOutsideClick: false,
-            allowEscapeKey: false
-        });
+        const confirmado = await Notif.confirmar(
+            '¿Cancelar cita?',
+            'La cita quedará marcada como cancelada.',
+            'Sí, cancelar cita',
+            { icono: 'warning', peligro: true, botonCancelar: 'No, mantener' }
+        );
 
-        if (result.isConfirmed) {
+        if (confirmado) {
             await ejecutarCancelacionCita(idCita);
         }
     };
@@ -757,20 +722,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const cita = estado.citas.find(c => Number(idCita(c)) === Number(id));
         if (!cita) return;
 
-        const result = await Swal.fire({
-            title: 'Eliminar Cita',
-            text: `¿Está seguro de que desea eliminar la cita de ${nombreEstudiante(cita)} del sistema? Esta acción no se puede deshacer.`,
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#dc3545',
-            cancelButtonColor: '#6c757d',
-            confirmButtonText: 'Sí, eliminar',
-            cancelButtonText: 'Cancelar',
-            allowOutsideClick: false,
-            allowEscapeKey: false
-        });
+        const confirmado = await Notif.confirmarEliminar(
+            '¿Eliminar cita?',
+            `Se eliminará la cita de ${nombreEstudiante(cita)}. Esta acción no se puede deshacer.`
+        );
 
-        if (!result.isConfirmed) return;
+        if (!confirmado) return;
 
         try {
             await CitasService.eliminar(id);

@@ -76,29 +76,36 @@
     }
 
     function resolverLogin() {
-        var path = window.location.pathname;
-        var carpeta = path.substring(0, path.lastIndexOf('/'));
-        var profundidad = carpeta.split('/').filter(Boolean).length;
-        return profundidad > 0 ? '../index.html' : 'index.html';
+        return /\/(HTML|btnsEstudiante)\//i.test(window.location.pathname) ? '../index.html' : 'index.html';
     }
 
-    function cerrarSesionGlobal() {
+    function cerrarSesionGlobal(opciones) {
+        var voluntario = Boolean(opciones && opciones.voluntario);
         if (sesionCerradaEnCurso) return;
         sesionCerradaEnCurso = true;
 
         var yaRedirigido = sessionStorage.getItem(REDIRECT_FLAG);
-        
-        // Limpiar almacenamiento local y de sesión
+        var preferencias = ['psyke_dark_mode', 'psyke_cookie_preferences'].map(function (clave) {
+            return [clave, localStorage.getItem(clave)];
+        });
+
         localStorage.clear();
         sessionStorage.clear();
 
-        if (yaRedirigido) return;
+        preferencias.forEach(function (par) {
+            if (par[1] !== null) localStorage.setItem(par[0], par[1]);
+        });
 
-        // Establecer flag después de borrar sessionStorage para prevenir bucles de redirección
+        if (yaRedirigido && !voluntario) return;
+
         sessionStorage.setItem(REDIRECT_FLAG, '1');
 
-        if (typeof Notif !== 'undefined' && Notif.error) {
-            Notif.error('Tu sesión ha expirado o el token es inválido. Inicia sesión nuevamente.', 'Sesión expirada');
+        if (typeof Notif !== 'undefined') {
+            if (voluntario) {
+                Notif.exito('Has salido de tu cuenta de forma segura.', 'Sesión cerrada');
+            } else {
+                Notif.error('Tu sesión ha expirado. Inicia sesión nuevamente.', 'Sesión expirada');
+            }
         }
 
         setTimeout(function () {

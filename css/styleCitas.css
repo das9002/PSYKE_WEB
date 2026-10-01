@@ -529,27 +529,3 @@ html.dark-mode .card-dashboard h2 {
         gap: 12px;
     }
 }
-
-.swal2-container {
-    position: fixed !important;
-    inset: 0 !important;
-    z-index: 99999 !important;
-}
-
-.swal2-container.swal2-top-end {
-    justify-content: flex-end !important;
-    align-items: flex-start !important;
-    padding: 1.25rem !important;
-    pointer-events: none;
-}
-
-.swal2-container.swal2-top-start {
-    justify-content: flex-start !important;
-    align-items: flex-start !important;
-    padding: 1.25rem !important;
-    pointer-events: none;
-}
-
-.swal2-popup {
-    pointer-events: auto !important;
-}

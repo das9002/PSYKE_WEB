@@ -1,208 +1,186 @@
 document.addEventListener('DOMContentLoaded', () => {
+    const form = document.getElementById('passwordForm');
+    const inputActual = document.getElementById('currentPassword');
+    const inputNueva = document.getElementById('newPassword');
+    const inputConfirmar = document.getElementById('confirmPassword');
+    const botonGuardar = document.getElementById('btnActualizarContrasena');
 
-    // 1. Visibilidad de contraseña (Ojito)
-    const eyeButtons = document.querySelectorAll('.btn-eye-toggle');
-    eyeButtons.forEach(btn => {
-        btn.addEventListener('click', () => {
-            const targetId = btn.getAttribute('data-target');
-            const input = document.getElementById(targetId);
-            const icon = btn.querySelector('i');
+    const requisitos = {
+        longitud: { elemento: document.getElementById('reqLength'), regla: /.{8,}/ },
+        mayuscula: { elemento: document.getElementById('reqUpper'), regla: /[A-Z]/ },
+        minuscula: { elemento: document.getElementById('reqLower'), regla: /[a-z]/ },
+        numero: { elemento: document.getElementById('reqNumber'), regla: /[0-9]/ },
+        especial: { elemento: document.getElementById('reqSpecial'), regla: /[^A-Za-z0-9\s]/ }
+    };
 
-            if (!input || !icon) return;
+    const ESPACIOS = /\s/;
 
-            if (input.type === 'password') {
-                input.type = 'text';
-                icon.classList.remove('bi-eye-slash');
-                icon.classList.add('bi-eye');
-            } else {
-                input.type = 'password';
-                icon.classList.remove('bi-eye');
-                icon.classList.add('bi-eye-slash');
-            }
+    function rutaLogin() {
+        return '../index.html';
+    }
+
+    if (typeof obtenerToken === 'function' && !obtenerToken()) {
+        window.location.replace(rutaLogin());
+        return;
+    }
+
+    document.querySelectorAll('.btn-eye-toggle').forEach(boton => {
+        boton.addEventListener('click', () => {
+            const input = document.getElementById(boton.dataset.target);
+            const icono = boton.querySelector('i');
+            if (!input || !icono) return;
+
+            const mostrar = input.type === 'password';
+            input.type = mostrar ? 'text' : 'password';
+            icono.classList.toggle('bi-eye', !mostrar);
+            icono.classList.toggle('bi-eye-slash', mostrar);
+            boton.setAttribute('aria-label', mostrar ? 'Ocultar contraseña' : 'Mostrar contraseña');
         });
     });
 
-    // 2. Requisitos de la nueva contraseña
-    const newPassword = document.getElementById('newPassword');
-    const requirements = {
-        length: { element: document.getElementById('reqLength'), regex: /.{8,}/ },
-        upper: { element: document.getElementById('reqUpper'), regex: /[A-Z]/ },
-        number: { element: document.getElementById('reqNumber'), regex: /[0-9]/ },
-        special: { element: document.getElementById('reqSpecial'), regex: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/ }
-    };
-
-    if (newPassword) {
-        newPassword.addEventListener('input', () => {
-            const val = newPassword.value;
-
-            for (const key in requirements) {
-                const req = requirements[key];
-                if (!req.element) continue;
-
-                const isValid = req.regex.test(val);
-                const item = req.element;
-                const icon = item.querySelector('i');
-
-                if (isValid) {
-                    item.classList.remove('invalid');
-                    item.classList.add('valid');
-                    if (icon) {
-                        icon.classList.remove('bi-x-circle-fill');
-                        icon.classList.add('bi-check-circle-fill');
-                    }
-                } else {
-                    item.classList.remove('valid');
-                    item.classList.add('invalid');
-                    if (icon) {
-                        icon.classList.remove('bi-check-circle-fill');
-                        icon.classList.add('bi-x-circle-fill');
-                    }
-                }
+    function pintarRequisitos(valor) {
+        Object.values(requisitos).forEach(({ elemento, regla }) => {
+            if (!elemento) return;
+            const cumple = regla.test(valor);
+            elemento.classList.toggle('valid', cumple);
+            elemento.classList.toggle('invalid', !cumple);
+            const icono = elemento.querySelector('i');
+            if (icono) {
+                icono.classList.toggle('bi-check-circle-fill', cumple);
+                icono.classList.toggle('bi-x-circle-fill', !cumple);
             }
         });
     }
 
-    // 3. Envío del formulario
-    const passwordForm = document.getElementById('passwordForm');
-    if (passwordForm) {
-        passwordForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
+    function cumpleRequisitos(valor) {
+        return Object.values(requisitos).every(({ regla }) => regla.test(valor));
+    }
 
-            const nPass = newPassword ? newPassword.value : '';
-            const confirmInput = document.getElementById('confirmPassword');
-            const cPass = confirmInput ? confirmInput.value : '';
+    function marcarCampo(input, invalido) {
+        if (input) input.classList.toggle('is-invalid', invalido);
+    }
 
-            if (nPass !== cPass) {
-                mostrarMensaje('La nueva contraseña y su confirmación no coinciden.', 'error');
+    if (inputNueva) {
+        inputNueva.addEventListener('input', () => {
+            pintarRequisitos(inputNueva.value);
+            marcarCampo(inputNueva, false);
+        });
+    }
+
+    [inputActual, inputConfirmar].forEach(input => {
+        if (input) input.addEventListener('input', () => marcarCampo(input, false));
+    });
+
+    function validarFormulario() {
+        const actual = inputActual.value;
+        const nueva = inputNueva.value;
+        const confirmacion = inputConfirmar.value;
+
+        if (!actual) {
+            marcarCampo(inputActual, true);
+            return 'Ingresa tu contraseña actual.';
+        }
+        if (!nueva) {
+            marcarCampo(inputNueva, true);
+            return 'Ingresa la nueva contraseña.';
+        }
+        if (ESPACIOS.test(nueva)) {
+            marcarCampo(inputNueva, true);
+            return 'La nueva contraseña no puede contener espacios.';
+        }
+        if (!cumpleRequisitos(nueva)) {
+            marcarCampo(inputNueva, true);
+            return 'La nueva contraseña no cumple con todos los requisitos de seguridad.';
+        }
+        if (nueva.length > 100) {
+            marcarCampo(inputNueva, true);
+            return 'La nueva contraseña no puede superar los 100 caracteres.';
+        }
+        if (nueva === actual) {
+            marcarCampo(inputNueva, true);
+            return 'La nueva contraseña debe ser diferente a la actual.';
+        }
+        if (nueva !== confirmacion) {
+            marcarCampo(inputConfirmar, true);
+            return 'La confirmación no coincide con la nueva contraseña.';
+        }
+        return null;
+    }
+
+    function bloquear(bloqueado) {
+        if (!botonGuardar) return;
+        botonGuardar.disabled = bloqueado;
+        botonGuardar.querySelector('span').textContent = bloqueado ? 'Actualizando...' : 'Actualizar contraseña';
+    }
+
+    async function cambiarContrasena() {
+        const sesion = await AuthService.obtenerSesion();
+        if (!sesion || !sesion.idUsuario) {
+            throw new Error('No se pudo identificar al usuario de la sesión.');
+        }
+
+        const actualCorrecta = await AuthService.verificarContrasenaActual(sesion.correo, inputActual.value);
+        if (!actualCorrecta) {
+            const error = new Error('La contraseña actual es incorrecta.');
+            error.campo = inputActual;
+            throw error;
+        }
+
+        await apiFetch(`/usuarios/${sesion.idUsuario}`, {
+            method: 'PUT',
+            body: {
+                correo: sesion.correo,
+                contrasena: inputNueva.value,
+                tipoUsuario: sesion.tipoUsuario,
+                estadoCuenta: sesion.estadoCuenta || 'ACTIVO'
+            }
+        });
+    }
+
+    if (form) {
+        form.addEventListener('submit', async (evento) => {
+            evento.preventDefault();
+
+            const errorValidacion = validarFormulario();
+            if (errorValidacion) {
+                Notif.advertencia(errorValidacion, 'Revisa los campos');
                 return;
             }
 
-            const cumpleRequisitos = Object.values(requirements).every(req => req.regex.test(nPass));
-            if (!cumpleRequisitos) {
-                mostrarMensaje('La nueva contraseña no cumple con todos los requisitos de seguridad.', 'error');
-                return;
-            }
+            const confirmado = await Notif.confirmar(
+                '¿Cambiar contraseña?',
+                'Usarás la nueva contraseña la próxima vez que inicies sesión.',
+                'Sí, cambiar'
+            );
+            if (!confirmado) return;
 
-            const token = localStorage.getItem('token') || localStorage.getItem('psyke_token') || sessionStorage.getItem('token');
-            if (!token) {
-                mostrarMensaje('No hay sesión activa. Inicie sesión nuevamente.', 'error');
-                setTimeout(() => window.location.href = '../HTML/login.html', 2000);
-                return;
-            }
+            bloquear(true);
+            Notif.cargando('Actualizando contraseña...');
 
-            // 3.1 Obtener ID del usuario desde /auth/me
-            let idUsuario = null;
-            let datosSesion = {};
             try {
-                const authBaseUrl = window.AUTH_API_URL || window.ENV?.API_BASE_URL || 'https://api-auth-1b19165bcf87.herokuapp.com/api/auth';
-                const respAuth = await fetch(`${authBaseUrl}/me`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-
-                if (respAuth.ok) {
-                    datosSesion = await respAuth.json();
-                    idUsuario = datosSesion.idUsuario || datosSesion.id;
-                } else if (respAuth.status === 401) {
-                    mostrarMensaje('Su sesión ha expirado.', 'error');
-                    setTimeout(() => window.location.href = '../HTML/login.html', 2000);
-                    return;
-                }
-            } catch (err) {
-                console.error('Error al obtener /auth/me:', err);
-            }
-
-            if (!idUsuario) {
-                mostrarMensaje('No se pudo obtener el ID del usuario.', 'error');
-                return;
-            }
-
-            // 3.2 Obtener datos del perfil completo desde el backend
-            const apiServiceUrl = window.ENV?.API_SERVICE_URL || 'https://api-service-4d465a47b94c.herokuapp.com/api';
-            let usuarioActual = {};
-
-            try {
-                const resUser = await fetch(`${apiServiceUrl}/usuarios/${idUsuario}`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (resUser.ok) {
-                    usuarioActual = await resUser.json();
-                }
-            } catch (e) {
-                console.warn('No se pudo consultar GET /usuarios/', e);
-            }
-
-            // 3.3 Normalizar el campo tipoUsuario (Soporta ADMIN, ESTUDIANTE y PSICOLOGO)
-            let tipoBruto = (usuarioActual.tipoUsuario || datosSesion.tipoUsuario || 'PSICOLOGO').toString().toUpperCase().trim();
-            tipoBruto = tipoBruto.normalize("NFD").replace(/[\u0300-\u036f]/g, ""); // Remueve tildes ('PSICÓLOGO' -> 'PSICOLOGO')
-
-            let tipoUsuarioValido = 'PSICOLOGO';
-            if (tipoBruto.includes('ADMIN')) {
-                tipoUsuarioValido = 'ADMIN';
-            } else if (tipoBruto.includes('ESTUDIANTE') || tipoBruto.includes('ALUMNO')) {
-                tipoUsuarioValido = 'ESTUDIANTE';
-            } else if (tipoBruto.includes('PSICOLOGO')) {
-                tipoUsuarioValido = 'PSICOLOGO';
-            }
-
-            // 3.4 Construir el Payload correcto y completo
-            const payload = {
-                ...datosSesion,
-                ...usuarioActual,
-                idUsuario: idUsuario,
-                tipoUsuario: tipoUsuarioValido,
-                contrasena: nPass,
-                password: nPass
-            };
-
-            // 3.5 Enviar actualización a la API
-            try {
-                const response = await fetch(`${apiServiceUrl}/usuarios/${idUsuario}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify(payload)
-                });
-
-                const data = await response.json().catch(() => ({}));
-
-                if (response.ok) {
-                    mostrarMensaje('¡Tu contraseña ha sido actualizada con éxito!', 'exito');
-                    passwordForm.reset();
-                } else {
-                    console.error('Detalles del error:', data);
-                    let detalleErrores = '';
-                    if (data.details) {
-                        detalleErrores = Object.entries(data.details)
-                            .map(([campo, msg]) => `• ${campo}: ${msg}`)
-                            .join('\n');
-                    }
-                    mostrarMensaje(`Error al actualizar:\n${detalleErrores || data.message || 'Error de validación'}`, 'error');
-                }
+                await cambiarContrasena();
+                Notif.cerrar();
+                form.reset();
+                pintarRequisitos('');
+                await Notif.exitoModal('Tu contraseña se actualizó correctamente.', 'Contraseña actualizada');
+                window.location.href = 'config.html';
             } catch (error) {
-                console.error('Error de red al actualizar contraseña:', error);
-                mostrarMensaje('Error de conexión: ' + error.message, 'error');
-            }
-        });
-    }
+                Notif.cerrar();
+                if (error.campo) marcarCampo(error.campo, true);
 
-    // 4. Botón Volver
-    const btnVolver = document.getElementById('btnVolver');
-    if (btnVolver) {
-        btnVolver.addEventListener('click', (e) => {
-            e.preventDefault();
-            window.location.href = "../HTML/config.html";
+                if (error.status === 401) {
+                    Notif.error('Tu sesión ha expirado. Inicia sesión nuevamente.', 'Sesión expirada');
+                    setTimeout(() => window.location.replace(rutaLogin()), 1500);
+                } else if (error.status === 403) {
+                    Notif.error('Tu usuario no tiene permiso para cambiar la contraseña desde la web.', 'Acción no permitida');
+                } else if (error.tipo === 'RED') {
+                    Notif.error('No se pudo conectar con el servidor. Revisa tu conexión.', 'Sin conexión');
+                } else {
+                    Notif.error(error.message || 'No se pudo actualizar la contraseña.', 'No se pudo actualizar');
+                }
+            } finally {
+                bloquear(false);
+            }
         });
     }
 });
-
-function mostrarMensaje(mensaje, tipo = 'info') {
-    if (window.Notif) {
-        if (tipo === 'exito') Notif.exito(mensaje);
-        else if (tipo === 'error') Notif.error(mensaje, 'Error');
-        else Notif.informar(mensaje);
-    } else {
-        alert(mensaje);
-    }
-}

@@ -7,7 +7,6 @@
     let usuarioCache = null;
     let sesionVerificada = false;
 
-    // Alangon ti token manipud iti nadumaduma a mabalin a naka-saveran
     function getStoredToken() {
         if (typeof window.obtenerToken === 'function') {
             return window.obtenerToken();
@@ -28,7 +27,6 @@
         return null;
     }
 
-    // Alangon ti usuario manipud iti local storage
     function getStoredUser() {
         if (typeof window.obtenerUsuario === 'function') {
             return window.obtenerUsuario();
@@ -47,10 +45,7 @@
     }
 
     function resolveLoginPage() {
-        const path = window.location.pathname;
-        const carpeta = path.substring(0, path.lastIndexOf('/'));
-        const profundidad = carpeta.split('/').filter(Boolean).length;
-        return profundidad > 0 ? '../index.html' : 'index.html';
+        return /\/(HTML|btnsEstudiante)\//i.test(window.location.pathname) ? '../index.html' : 'index.html';
     }
 
     function pageLink(nombre) {
@@ -67,7 +62,6 @@
         const token = getStoredToken();
         const usuarioLocal = getStoredUser();
 
-        // No awan ti token ken datos ti usuario, iparangarang nga awan ti session
         if (!token && !usuarioLocal) {
             return null;
         }
@@ -94,7 +88,6 @@
             if (respuesta && respuesta.ok) {
                 const datos = await respuesta.json();
                 
-                // Extracto ken normalisasion ti rol
                 const rawRol = datos.tipoUsuario || datos.rol || (Array.isArray(datos.roles) ? datos.roles[0] : '');
                 const rol = String(rawRol).replace('ROLE_', '').toUpperCase();
 
@@ -115,7 +108,6 @@
             console.error('[navbarService] Error de red al verificar sesión:', e);
         }
 
-        // FALLBACK: Usaren ti local storage no dumanon ti pagsukisokan iti /me
         if (usuarioLocal) {
             const rawRolLocal = usuarioLocal.tipoUsuario || usuarioLocal.rol || (Array.isArray(usuarioLocal.roles) ? usuarioLocal.roles[0] : '');
             const rolLocal = String(rawRolLocal).replace('ROLE_', '').toUpperCase();
@@ -179,32 +171,34 @@
     }
 
     async function handleLogout() {
-        if (window.AuthService && typeof window.AuthService.logoutUsuario === 'function') {
-            await window.AuthService.logoutUsuario();
-            return;
+        if (typeof Notif !== 'undefined') {
+            const confirmado = await Notif.confirmar(
+                '¿Cerrar sesión?',
+                'Tendrás que ingresar tus credenciales nuevamente para volver a entrar.',
+                'Sí, cerrar sesión',
+                { icono: 'warning', peligro: true }
+            );
+            if (!confirmado) return;
         }
 
-        if (typeof window.cerrarSesionGlobal === 'function') {
-            window.cerrarSesionGlobal();
+        if (window.AuthService && typeof window.AuthService.logoutUsuario === 'function') {
+            await window.AuthService.logoutUsuario();
             return;
         }
 
         try {
             const baseUrl = (window.AUTH_API_URL || 'https://api-auth-1b19165bcf87.herokuapp.com/api/auth').replace(/\/+$/, '');
             const token = getStoredToken();
-            const headers = { 'Content-Type': 'application/json' };
-            if (token) {
-                headers['Authorization'] = `Bearer ${token}`;
-            }
-
             await fetch(`${baseUrl}/logout`, {
                 method: 'POST',
-                headers: headers,
+                headers: token ? { 'Authorization': `Bearer ${token}` } : {},
                 credentials: 'include'
             });
-        } catch (e) {
-            // Ipagalang ti linteg ti logout Error
-        } finally {
+        } catch (e) { }
+
+        if (typeof window.cerrarSesionGlobal === 'function') {
+            window.cerrarSesionGlobal({ voluntario: true });
+        } else {
             localStorage.clear();
             sessionStorage.clear();
             window.location.replace(resolveLoginPage());

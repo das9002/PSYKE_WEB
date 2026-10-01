@@ -15,6 +15,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
     <link rel="stylesheet" href="../css/styleCambioContrasena.css">
     <link rel="stylesheet" href="../css/styleTemaoscuro.css">
+    <link rel="stylesheet" href="../css/styleAlertas.css">
     <link rel="icon" href="../img/Logo0.png" crossorigin>
     <script>
         (function () {
@@ -24,9 +25,6 @@
         })();
     </script>
 </head>
-
-
-
 
 <body>
 
@@ -47,14 +45,14 @@
                 <span>Cambio de contraseña</span>
             </h1>
 
-            <form id="passwordForm">
+            <form id="passwordForm" novalidate>
                 <div class="custom-input-group">
                     <label for="currentPassword">Contraseña actual</label>
                     <div class="input-wrapper">
                         <i class="bi bi-lock-fill field-icon"></i>
-                        <input type="password" id="currentPassword" placeholder="Introduce tu contraseña actual" minlength="8" maxlength="100" required>
-                        <button type="button" class="btn-eye-toggle" data-target="currentPassword">
-                            <i class="bi bi-eye"></i>
+                        <input type="password" id="currentPassword" placeholder="Introduce tu contraseña actual" maxlength="100" autocomplete="current-password" required>
+                        <button type="button" class="btn-eye-toggle" aria-label="Mostrar contraseña" data-target="currentPassword">
+                            <i class="bi bi-eye-slash"></i>
                         </button>
                     </div>
                 </div>
@@ -63,8 +61,8 @@
                     <label for="newPassword">Nueva contraseña</label>
                     <div class="input-wrapper">
                         <i class="bi bi-key-fill field-icon"></i>
-                        <input type="password" id="newPassword" placeholder="Introduce tu nueva contraseña" minlength="8" maxlength="100" required>
-                        <button type="button" class="btn-eye-toggle" data-target="newPassword">
+                        <input type="password" id="newPassword" placeholder="Introduce tu nueva contraseña" maxlength="100" autocomplete="new-password" required>
+                        <button type="button" class="btn-eye-toggle" aria-label="Mostrar contraseña" data-target="newPassword">
                             <i class="bi bi-eye-slash"></i>
                         </button>
                     </div>
@@ -77,11 +75,14 @@
                     <li class="validation-item invalid" id="reqUpper">
                         <i class="bi bi-x-circle-fill"></i> Al menos una mayúscula
                     </li>
+                    <li class="validation-item invalid" id="reqLower">
+                        <i class="bi bi-x-circle-fill"></i> Al menos una minúscula
+                    </li>
                     <li class="validation-item invalid" id="reqNumber">
                         <i class="bi bi-x-circle-fill"></i> Al menos un número
                     </li>
                     <li class="validation-item invalid" id="reqSpecial">
-                        <i class="bi bi-x-circle-fill"></i> Un carácter especial (!@#$)
+                        <i class="bi bi-x-circle-fill"></i> Un carácter especial (ej. !@#$%)
                     </li>
                 </ul>
 
@@ -89,15 +90,15 @@
                     <label for="confirmPassword">Confirmar contraseña nueva</label>
                     <div class="input-wrapper">
                         <i class="bi bi-shield-check field-icon"></i>
-                        <input type="password" id="confirmPassword" placeholder="Repite tu nueva contraseña" minlength="8" maxlength="100" required>
-                        <button type="button" class="btn-eye-toggle" data-target="confirmPassword">
-                            <i class="bi bi-eye"></i>
+                        <input type="password" id="confirmPassword" placeholder="Repite tu nueva contraseña" maxlength="100" autocomplete="new-password" required>
+                        <button type="button" class="btn-eye-toggle" aria-label="Mostrar contraseña" data-target="confirmPassword">
+                            <i class="bi bi-eye-slash"></i>
                         </button>
                     </div>
                 </div>
 
                 <div class="text-center text-lg-start mt-2">
-                    <button type="submit" class="btn-submit-blue d-inline-flex align-items-center gap-2">
+                    <button type="submit" class="btn-submit-blue d-inline-flex align-items-center gap-2" id="btnActualizarContrasena">
                         <i class="bi bi-check2-circle"></i>
                         <span>Actualizar contraseña</span>
                     </button>
@@ -108,7 +109,7 @@
         <div class="right-panel">
             <h2>¡Hola!</h2>
             <p>Mantén tus datos, casos y progresos protegidos actualizando tu contraseña regularmente en Psyke.</p>
-            <a href="config.html" class="btn-outline-white" id="btnVolver">
+            <a href="config.html" class="btn-outline-white">
                 <i class="bi bi-arrow-left me-1"></i> Volver
             </a>
         </div>
@@ -121,8 +122,8 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.js"></script>
     <script src="../JS/services/env.js"></script>
     <script src="../JS/services/config.js"></script>
-    <script src="../JS/services/profileService.js"></script>
     <script src="../JS/services/notificacionesService.js"></script>
+    <script src="../JS/services/authService.js"></script>
     <script src="../JS/controllers/passwordController.js"></script>
 </body>
 
