@@ -25,6 +25,7 @@ body {
     -webkit-font-smoothing: antialiased;
 }
 
+/* --- SIDEBAR --- */
 .sidebar {
     background-color: var(--sidebar-bg);
     width: 280px;
@@ -62,6 +63,7 @@ body {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
+/* --- MAIN & TOPBAR --- */
 .main {
     padding: 25px 30px;
     min-height: 100vh;
@@ -81,15 +83,14 @@ body {
     font-size: 1.25rem;
 }
 
-/* --- TARJETAS DASHBOARD (ACTUALIZADO SEGÚN EL PRIMER CSS) --- */
+/* --- TARJETAS DASHBOARD --- */
 .card-dashboard {
-    border: none;
+    background: #ffffff;
+    border: 1px solid rgba(226, 232, 240, 0.8);
     border-radius: 16px;
     overflow: hidden;
     box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
-    background: #ffffff;
     transition: transform 0.2s ease, box-shadow 0.2s ease;
-    border: 1px solid rgba(226, 232, 240, 0.7);
     height: 100%;
 }
 
@@ -99,38 +100,21 @@ body {
 }
 
 .stat-header {
-    color: #ffffff;
     padding: 12px 18px;
     font-size: 0.9rem;
     font-weight: 600;
 }
 
-.stat-header.blue, .blue {
-    background: linear-gradient(135deg, #2F6DF6, #1d4ed8);
-}
-
-.stat-header.green, .green {
-    background: linear-gradient(135deg, #22c55e, #16a34a);
-}
-
-.stat-header.yellow, .yellow {
-    background: linear-gradient(135deg, #F5C451, #eab308);
-}
-
-.stat-header.red, .red {
-    background: linear-gradient(135deg, #E95A5A, #dc2626);
-}
-
 .card-dashboard h1,
 .card-dashboard h2 {
-    font-size: 2rem;
+    font-size: 2.25rem;
     font-weight: 800;
     color: #0f172a;
     letter-spacing: -0.5px;
     margin: 0;
 }
-/* ---------------------------------------------------------- */
 
+/* --- SECCIONES Y CONTENIDOS --- */
 .card-section {
     background: #ffffff;
     border-radius: 16px;
@@ -145,6 +129,7 @@ body {
     color: #0f172a;
 }
 
+/* BOX RESUMEN IA */
 .ai-summary-box {
     background: linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%);
     border: 1px solid #dbeafe !important;
@@ -158,11 +143,15 @@ body {
 .ai-summary-box::before {
     content: '';
     position: absolute;
-    top: 0; left: 0; width: 4px; height: 100%;
+    top: 0; 
+    left: 0; 
+    width: 4px; 
+    height: 100%;
     background: linear-gradient(180deg, #2563eb, #3b82f6);
     border-radius: 14px 0 0 14px;
 }
 
+/* LISTA DE PRÓXIMAS CITAS */
 .appointments-list {
     display: flex;
     flex-direction: column;
@@ -194,6 +183,7 @@ body {
     flex-shrink: 0;
 }
 
+/* CAJA DE BÚSQUEDA Y TABLAS */
 .search-box-container .form-control {
     border-radius: 10px;
     border: 1px solid #cbd5e1;
@@ -253,6 +243,7 @@ body {
     font-size: 0.95rem;
 }
 
+/* NIVELES DE RIESGO */
 .risk-high {
     color: var(--danger);
     font-weight: 600;
@@ -268,6 +259,7 @@ body {
     font-weight: 600;
 }
 
+/* BOTONES */
 .btn {
     border-radius: 10px;
     font-weight: 500;
@@ -286,48 +278,21 @@ body {
     color: #ffffff;
 }
 
-html.dark-mode .card-dashboard h1,
-html.dark-mode .card-dashboard h2 {
-    color: #f3f4f6 !important;
+.btn-user-profile {
+    background-color: #ffffff;
+    border: 1px solid #dee2e6 !important;
 }
 
-html.dark-mode .card-dashboard {
-    background: #111827 !important;
-    border-color: #1f2937 !important;
+.btn-user-profile .user-name {
+    color: #212529 !important;
+    font-weight: 500;
 }
 
-html.dark-mode .student-name {
-    color: #f3f4f6 !important;
+.btn-user-profile .chevron-icon {
+    color: #6c757d !important;
 }
 
-html.dark-mode .ai-summary-box {
-    background-color: #1f2937 !important;
-    border-color: #374151 !important;
-    color: #e5e7eb !important;
-}
-
-html.dark-mode .appointment {
-    background-color: #1f2937 !important;
-    border-color: #374151 !important;
-    color: #f3f4f6 !important;
-}
-
-html.dark-mode .appointment:hover {
-    background-color: #374151 !important;
-}
-
-html.dark-mode .appointment-avatar {
-    background-color: #374151 !important;
-}
-
-html.dark-mode .appointment-avatar i {
-    color: #9ca3af !important;
-}
-
-html.dark-mode .topbar h4 {
-    color: #f3f4f6 !important;
-}
-
+/* --- MÓVIL Y MENU HAMBURGUESA --- */
 .hamburger-btn {
     display: none;
     position: fixed;
@@ -356,6 +321,7 @@ html.dark-mode .topbar h4 {
     z-index: 999;
 }
 
+.sidebar-overlay.show,
 .sidebar-overlay.active {
     display: block;
 }
@@ -376,6 +342,7 @@ html.dark-mode .topbar h4 {
         overflow-y: auto;
     }
 
+    .sidebar.show,
     .sidebar.open {
         left: 0;
     }
@@ -392,25 +359,72 @@ html.dark-mode .topbar h4 {
     }
 }
 
-.btn-user-profile {
-    background-color: #ffffff;
-    border: 1px solid #dee2e6 !important;
+/* --- MODO OSCURO (DARK MODE) --- */
+html.dark-mode body {
+    background-color: #0b0f19;
+    color: #e2e8f0;
 }
 
-.btn-user-profile .user-name {
-    color: #212529 !important;
-    font-weight: 500;
+html.dark-mode .topbar,
+html.dark-mode .card-section {
+    background-color: #111827;
+    border-color: #1f2937;
 }
 
-.btn-user-profile .chevron-icon {
-    color: #6c757d !important;
+html.dark-mode .card-dashboard {
+    background-color: #111827;
+    border-color: #1f2937;
+}
+
+html.dark-mode .card-dashboard h1,
+html.dark-mode .card-dashboard h2 {
+    color: #f3f4f6 !important;
+}
+
+html.dark-mode .topbar h4,
+html.dark-mode .card-section h4,
+html.dark-mode .student-name {
+    color: #f3f4f6 !important;
+}
+
+html.dark-mode .ai-summary-box {
+    background: #1f2937 !important;
+    border-color: #374151 !important;
+    color: #e5e7eb !important;
+}
+
+html.dark-mode .appointment {
+    background-color: #1f2937 !important;
+    border-color: #374151 !important;
+    color: #f3f4f6 !important;
+}
+
+html.dark-mode .appointment:hover {
+    background-color: #374151 !important;
+}
+
+html.dark-mode .appointment-avatar {
+    background-color: #374151 !important;
+}
+
+html.dark-mode .appointment-avatar i {
+    color: #9ca3af !important;
+}
+
+html.dark-mode .table thead th {
+    background-color: #1f2937;
+    color: #9ca3af;
+    border-bottom-color: #374151;
+}
+
+html.dark-mode .table tbody td {
+    border-bottom-color: #1f2937;
 }
 
 [data-bs-theme="dark"] .btn-user-profile,
 [data-theme="dark"] .btn-user-profile,
 body.dark-mode .btn-user-profile,
-html.dark-mode .btn-user-profile,
-.dark .btn-user-profile {
+html.dark-mode .btn-user-profile {
     background-color: rgba(255, 255, 255, 0.05) !important;
     border-color: rgba(255, 255, 255, 0.15) !important;
 }
@@ -418,15 +432,13 @@ html.dark-mode .btn-user-profile,
 [data-bs-theme="dark"] .btn-user-profile .user-name,
 [data-theme="dark"] .btn-user-profile .user-name,
 body.dark-mode .btn-user-profile .user-name,
-html.dark-mode .btn-user-profile .user-name,
-.dark .btn-user-profile .user-name {
+html.dark-mode .btn-user-profile .user-name {
     color: #ffffff !important;
 }
 
 [data-bs-theme="dark"] .btn-user-profile .chevron-icon,
 [data-theme="dark"] .btn-user-profile .chevron-icon,
 body.dark-mode .btn-user-profile .chevron-icon,
-html.dark-mode .btn-user-profile .chevron-icon,
-.dark .btn-user-profile .chevron-icon {
+html.dark-mode .btn-user-profile .chevron-icon {
     color: rgba(255, 255, 255, 0.6) !important;
 }
