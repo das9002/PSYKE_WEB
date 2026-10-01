@@ -1,4 +1,3 @@
-
 document.addEventListener('DOMContentLoaded', () => {
 
     const estado = {
@@ -27,7 +26,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function formatearFechaLegible(fechaVal) {
-        const partes = String(fechaVal ?? '').split('T')[0].split('-');
+        if (!fechaVal) return 'Sin fecha';
+        const partes = String(fechaVal).split('T')[0].split('-');
         if (partes.length !== 3) return fechaVal;
         const meses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
         return `${partes[2]} ${meses[parseInt(partes[1], 10) - 1] || ''} ${partes[0]}`;
@@ -66,7 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (typeof obj !== 'object') return String(obj);
             return obj.nombreEspecialidad || obj.nombreGrado || obj.nombre || '';
         };
-        return nombreDe(est.especialidad) || nombreDe(est.grado);
+        return nombreDe(est.especialidad) || nombreDe(est.grado) || 'Estudiante';
     }
 
     function renderMetricas(resumen) {
@@ -212,11 +212,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function mostrarAlerta(mensaje, esErrorServidor) {
-        if (esErrorServidor) {
-            Notif.error(mensaje, 'Error del servidor');
+    function mostrarAlerta(mensaje, esErrorServidor = false) {
+        if (typeof Notif !== 'undefined' && Notif.error) {
+            Notif.error(mensaje, esErrorServidor ? 'Error del servidor' : 'No se pudo cargar el panel');
         } else {
-            Notif.error(mensaje, 'No se pudo cargar el panel');
+            console.error('[Dashboard Error]:', mensaje);
         }
     }
 
@@ -275,12 +275,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function esMismoDia(fechaVal) {
         if (!fechaVal) return false;
-        const fecha = new Date(fechaVal);
-        if (isNaN(fecha.getTime())) return false;
+        const strFecha = String(fechaVal).split('T')[0];
+        const partes = strFecha.split('-');
+        if (partes.length !== 3) return false;
+
         const hoy = new Date();
-        return fecha.getFullYear() === hoy.getFullYear() &&
-            fecha.getMonth() === hoy.getMonth() &&
-            fecha.getDate() === hoy.getDate();
+        const ano = String(hoy.getFullYear());
+        const mes = String(hoy.getMonth() + 1).padStart(2, '0');
+        const dia = String(hoy.getDate()).padStart(2, '0');
+
+        return partes[0] === ano && partes[1] === mes && partes[2] === dia;
     }
 
     function normalizarEstudiantes(lista) {
@@ -296,17 +300,34 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function cargarConteosIndividuales() {
-        const [estudiantesRes, citasRes, sesionesRes] = await DashboardService.obtenerConteosParalelos();
+        const data = await DashboardService.obtenerConteosParalelos();
 
-        const estudiantes = normalizarEstudiantes(estudiantesRes.status === 'fulfilled' ? estudiantesRes.value : []);
-        const citas = citasRes.status === 'fulfilled' && Array.isArray(citasRes.value) ? citasRes.value : [];
-        const sesiones = sesionesRes.status === 'fulfilled' && Array.isArray(sesionesRes.value) ? sesionesRes.value : [];
+        // Soporta respuesta tanto en formato de Objeto { estudiantes, citas, sesiones } como Arreglo de resultados
+        let estudiantesRaw = [];
+        let citasRaw = [];
+        let sesionesRaw = [];
+
+        if (data && typeof data === 'object') {
+            if (Array.isArray(data)) {
+                estudiantesRaw = data[0]?.status === 'fulfilled' ? data[0].value : [];
+                citasRaw = data[1]?.status === 'fulfilled' ? data[1].value : [];
+                sesionesRaw = data[2]?.status === 'fulfilled' ? data[2].value : [];
+            } else {
+                estudiantesRaw = data.estudiantes || [];
+                citasRaw = data.citas || [];
+                sesionesRaw = data.sesiones || [];
+            }
+        }
+
+        const estudiantes = normalizarEstudiantes(estudiantesRaw);
+        const citas = Array.isArray(citasRaw) ? citasRaw : [];
+        const sesiones = Array.isArray(sesionesRaw) ? sesionesRaw : [];
 
         const resumen = {
             totalEstudiantes: estudiantes.length,
-            citasHoy: citas.filter((cita) => esMismoDia(cita.fechaHoraCita)).length,
+            citasHoy: citas.filter((cita) => esMismoDia(cita.fechaHoraCita || cita.fecha)).length,
             riesgoAlto: estudiantes.filter((est) => est.riesgo === 'Alto').length,
-            seguimientosPendientes: sesiones.filter((sesion) => (sesion.estadoEstudiante || '').toLowerCase() === 'seguimiento').length,
+            seguimientosPendientes: sesiones.filter((sesion) => (sesion.estadoEstudiante || sesion.estado || '').toLowerCase() === 'seguimiento').length,
             sesionesTotales: sesiones.length,
             citasRecientes: citas.slice(0, 5),
             estudiantesRecientes: estudiantes.slice(0, 5),
@@ -335,8 +356,8 @@ document.addEventListener('DOMContentLoaded', () => {
             estado.apiDisponible = true;
 
             renderMetricas(resumen);
-            renderCitasRecientes(resumen.citasRecientes);
-            renderEstudiantesRecientes(resumen.estudiantesRecientes);
+            renderCitasRecientes(resumen.citasRecientes || []);
+            renderEstudiantesRecientes(resumen.estudiantesRecientes || []);
             renderResumenIA(resumen.resumenIA || resumen.resumen || '');
         } catch (error) {
             const status = error?.status;
@@ -353,17 +374,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (esErrorPermisos) {
                     mostrarAlerta('Acceso denegado: Permisos insuficientes para ver el panel completo.', false);
                 } else if (esErrorServidor) {
-                    mostrarAlerta('Error interno del servidor. Mostrando datos parciales.', true);
+                    mostrarAlerta('Error interno del servidor. Mostrando datos cargados en paralelo.', true);
                 }
             } catch (errorSecundario) {
                 estado.apiDisponible = false;
+                const baseUrl = typeof API_BASE_URL !== 'undefined' ? API_BASE_URL : (window.API_BASE_URL || 'servidor');
                 let mensaje;
+
                 if (esErrorPermisos) {
                     mensaje = 'Acceso denegado: Permisos insuficientes.';
                 } else if (esErrorServidor) {
                     mensaje = `Error interno del servidor (${status}). Mostrando valores en cero.`;
                 } else {
-                    mensaje = `No se pudo conectar con el servidor en ${API_BASE_URL}. Mostrando valores en cero.`;
+                    mensaje = `No se pudo conectar con el servidor en ${baseUrl}. Mostrando valores en cero.`;
                 }
                 aplicarEstadoError(mensaje);
             }
@@ -373,7 +396,9 @@ document.addEventListener('DOMContentLoaded', () => {
     function iniciar() {
         const activarToast = sessionStorage.getItem('mostrarBienvenidaToast');
         if (activarToast === 'true') {
-            Notif.exito('Bienvenido al sistema');
+            if (typeof Notif !== 'undefined' && Notif.exito) {
+                Notif.exito('Bienvenido al sistema');
+            }
             sessionStorage.removeItem('mostrarBienvenidaToast');
         }
 
