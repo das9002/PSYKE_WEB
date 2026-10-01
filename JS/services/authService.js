@@ -155,6 +155,62 @@ async function loginUsuario(credentials) {
 }
 
 /**
+ * Solicita el restablecimiento de contraseña enviando el correo a la API.
+ * @param {string} correo - Correo del usuario registrado
+ * @returns {Promise<Object>} Datos devueltos por la API
+ */
+async function recuperarContrasena(correo) {
+    if (typeof window.authFetch === 'function') {
+        const respuesta = await window.authFetch('/recuperar-contrasena', {
+            method: 'POST',
+            body: { correo }
+        });
+
+        if (!respuesta.ok) {
+            let mensaje = 'Ocurrió un error al procesar la solicitud.';
+            try {
+                const cuerpo = await respuesta.json();
+                if (cuerpo.message) mensaje = cuerpo.message;
+            } catch (e) { }
+            const error = new Error(mensaje);
+            error.status = respuesta.status;
+            throw error;
+        }
+
+        return await respuesta.json().catch(() => ({ message: 'Solicitud enviada correctamente.' }));
+    }
+
+    const baseUrl = (window.AUTH_API_URL || 'https://api-auth-1b19165bcf87.herokuapp.com/api/auth').replace(/\/+$/, '');
+
+    let respuesta;
+    try {
+        respuesta = await fetch(`${baseUrl}/recuperar-contrasena`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ correo }),
+            credentials: 'include'
+        });
+    } catch (error) {
+        const e = new Error(`No se pudo conectar con el servidor de autenticación en ${baseUrl}.`);
+        e.tipo = 'RED';
+        throw e;
+    }
+
+    if (!respuesta.ok) {
+        let mensaje = 'Ocurrió un error al procesar la solicitud.';
+        try {
+            const cuerpo = await respuesta.json();
+            if (cuerpo.message) mensaje = cuerpo.message;
+        } catch (e) { }
+        const error = new Error(mensaje);
+        error.status = respuesta.status;
+        throw error;
+    }
+
+    return await respuesta.json().catch(() => ({ message: 'Solicitud enviada correctamente.' }));
+}
+
+/**
  * Cierra la sesión activa en el cliente y notifica al servidor.
  */
 async function logoutUsuario() {
@@ -189,6 +245,7 @@ async function logoutUsuario() {
 const AuthService = {
     loginUsuario,
     logoutUsuario,
+    recuperarContrasena,
     obtenerToken,
     obtenerUsuarioActual,
     estaAutenticado,
