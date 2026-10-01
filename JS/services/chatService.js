@@ -1,53 +1,218 @@
 document.addEventListener('DOMContentLoaded', () => {
+    const INTERVALO_SINCRONIZACION = 8000;
+    const TAMANO_PAGINA = 50;
+
     let patientsData = [];
     let notificationsData = [];
     let activeChatId = null;
-    let pollingInterval = null; // Temporizador para actualización en tiempo real
+    let miUsuarioId = null;
+    let ultimoIdProcesado = 0;
+    let cargaInicialLista = false;
+    let sincronizando = false;
+    let temporizador = null;
 
-    // Funciones auxiliares de seguridad
-    function escapeHtml(str) {
-        if (str === null || str === undefined) return '';
-        return String(str)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#039;');
+    function escapeHTML(texto) {
+        const div = document.createElement('div');
+        div.textContent = texto === null || texto === undefined ? '' : String(texto);
+        return div.innerHTML.replace(/"/g, '&quot;');
     }
 
-    // 1. CARGAR ESTUDIANTES DESDE LA API
-    async function cargarPacientesDesdeAPI() {
-        try {
-            if (typeof peticionApi !== 'function') return;
-            const res = await peticionApi('/estudiantes');
-            const lista = typeof normalizarListado === 'function' 
-                ? normalizarListado(res) 
-                : (Array.isArray(res) ? res : (res?.content || []));
-            
-            if (lista && lista.length > 0) {
-                patientsData = lista.map((est, idx) => {
-                    const nombreComp = `${est.nombreCompleto || est.nombres || est.nombre || 'Estudiante'} ${est.apellidos || est.apellido || ''}`.trim();
-                    const idVal = String(est.idEstudiante || est.idUsuario || est.id || idx + 1);
-                    return {
-                        id: idVal,
-                        name: nombreComp,
-                        avatar: '../img/Logo0.png',
-                        status: 'online',
-                        lastMsg: 'Sin mensajes previos',
-                        time: '',
-                        messages: []
-                    };
-                });
-                if (patientsData.length > 0 && !activeChatId) {
-                    activeChatId = patientsData[0].id;
-                }
-            }
-        } catch (e) {
-            console.warn('[chatService] No se pudieron cargar los estudiantes desde la API:', e.message);
+    function recortar(texto, limite) {
+        const limpio = String(texto || '').replace(/\s+/g, ' ').trim();
+        return limpio.length > limite ? `${limpio.slice(0, limite)}…` : limpio;
+    }
+
+    function formatearHora(fecha) {
+        const d = new Date(fecha);
+        if (isNaN(d.getTime())) return '';
+        return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    }
+
+    function etiquetaFecha(fecha) {
+        const d = new Date(fecha);
+        if (isNaN(d.getTime())) return '';
+        if (d.toDateString() === new Date().toDateString()) return formatearHora(fecha);
+        return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+    }
+
+    function ahoraLocalISO() {
+        const d = new Date();
+        const dos = (n) => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${dos(d.getMonth() + 1)}-${dos(d.getDate())}T${dos(d.getHours())}:${dos(d.getMinutes())}:${dos(d.getSeconds())}`;
+    }
+
+    async function listarTodo(ruta, parametros = '') {
+        const acumulado = [];
+        for (let pagina = 0; ; pagina++) {
+            const res = await peticionApi(`${ruta}?page=${pagina}&size=${TAMANO_PAGINA}${parametros}`);
+            if (Array.isArray(res)) return res;
+
+            const contenido = (res && res.content) || [];
+            acumulado.push(...contenido);
+            if (!res || res.last !== false || contenido.length === 0) return acumulado;
         }
     }
 
-    // 2. CONFIGURACIÓN DE BARRA SUPERIOR Y NOTIFICACIONES
+    async function obtenerMiUsuarioId() {
+        if (miUsuarioId) return miUsuarioId;
+        const usuario = await verificarSesion();
+        const id = usuario && (usuario.idUsuario || usuario.id);
+        miUsuarioId = id ? Number(id) : null;
+        return miUsuarioId;
+    }
+
+    async function cargarPacientes() {
+        const estudiantes = await listarTodo('/estudiantes');
+        patientsData = estudiantes
+            .filter(est => est.usuario && est.usuario.idUsuario !== null && est.usuario.idUsuario !== undefined)
+            .map(est => ({
+                id: String(est.idEstudiante),
+                userId: Number(est.usuario.idUsuario),
+                name: `${est.nombres || ''} ${est.apellidos || ''}`.trim() || 'Estudiante',
+                carnet: est.codigoCarnet || '',
+                avatar: '../img/Logo0.png',
+                lastMsg: 'Sin mensajes',
+                time: '',
+                lastDate: null,
+                unread: 0,
+                messages: []
+            }));
+    }
+
+    function agregarNotificacion(paciente, titulo, descripcion, hora, idUnico) {
+        notificationsData.unshift({
+            id: idUnico,
+            type: 'message',
+            unread: true,
+            title: titulo,
+            desc: descripcion,
+            time: hora,
+            icon: 'bi-chat-left-text-fill',
+            pacienteId: paciente.id
+        });
+    }
+
+    function procesarMensajes(mensajes, anunciar) {
+        mensajes
+            .filter(m => m.idMensaje > ultimoIdProcesado)
+            .sort((a, b) => a.idMensaje - b.idMensaje)
+            .forEach(m => {
+                ultimoIdProcesado = Math.max(ultimoIdProcesado, m.idMensaje);
+
+                const emisor = m.emisor ? Number(m.emisor.idUsuario) : null;
+                const receptor = m.receptor ? Number(m.receptor.idUsuario) : null;
+                const esMio = emisor === miUsuarioId;
+                if (!esMio && receptor !== miUsuarioId) return;
+
+                const paciente = patientsData.find(p => p.userId === (esMio ? receptor : emisor));
+                if (!paciente || paciente.messages.some(x => x.id === m.idMensaje)) return;
+
+                paciente.messages.push({
+                    id: m.idMensaje,
+                    sender: esMio ? 'doctor' : 'patient',
+                    text: m.contenido,
+                    time: formatearHora(m.fechaEnvio),
+                    leido: m.leido === 1,
+                    emisorId: emisor,
+                    receptorId: receptor
+                });
+                paciente.lastMsg = `${esMio ? 'Tú: ' : ''}${m.contenido}`;
+                paciente.lastDate = m.fechaEnvio;
+                paciente.time = etiquetaFecha(m.fechaEnvio);
+
+                if (!esMio && m.leido !== 1) {
+                    paciente.unread++;
+                    if (anunciar) {
+                        agregarNotificacion(paciente, `Mensaje de ${paciente.name}`, recortar(m.contenido, 60), formatearHora(m.fechaEnvio), m.idMensaje);
+                    }
+                }
+            });
+    }
+
+    function resumirNoLeidos() {
+        patientsData.filter(p => p.unread > 0).forEach(p => {
+            const plural = p.unread === 1 ? 'mensaje sin leer' : 'mensajes sin leer';
+            agregarNotificacion(p, `Mensaje de ${p.name}`, `${p.unread} ${plural}`, p.time, `resumen-${p.id}`);
+        });
+    }
+
+    async function sincronizar() {
+        if (sincronizando) return;
+        if (typeof obtenerToken === 'function' && !obtenerToken()) return;
+        sincronizando = true;
+
+        try {
+            if (!(await obtenerMiUsuarioId())) return;
+
+            if (!cargaInicialLista) {
+                await cargarPacientes();
+                const todos = await listarTodo('/mensajes', '&sortBy=idMensaje&direction=asc');
+                procesarMensajes(todos, false);
+                resumirNoLeidos();
+                cargaInicialLista = true;
+            } else {
+                const res = await peticionApi(`/mensajes?page=0&size=${TAMANO_PAGINA}&sortBy=idMensaje&direction=desc`);
+                const recientes = Array.isArray(res) ? res : ((res && res.content) || []);
+                procesarMensajes(recientes, true);
+            }
+
+            refrescarVistas();
+        } catch (error) {
+            if (error && error.status === 403) detenerSincronizacion();
+        } finally {
+            sincronizando = false;
+        }
+    }
+
+    function iniciarSincronizacion() {
+        if (temporizador) return;
+        temporizador = setInterval(() => {
+            if (document.visibilityState === 'visible') sincronizar();
+        }, INTERVALO_SINCRONIZACION);
+    }
+
+    function detenerSincronizacion() {
+        clearInterval(temporizador);
+        temporizador = null;
+    }
+
+    function refrescarVistas() {
+        const buscador = document.getElementById('chatSearchInput');
+        renderPatientList(buscador ? buscador.value.toLowerCase() : '');
+        renderNotifications();
+
+        const paciente = patientsData.find(p => p.id === activeChatId);
+        if (paciente && chatPanel.classList.contains('active')) {
+            renderMessages(paciente);
+            marcarComoLeidos(paciente);
+        }
+    }
+
+    async function marcarComoLeidos(paciente) {
+        const pendientes = paciente.messages.filter(m => m.sender === 'patient' && !m.leido);
+        if (pendientes.length === 0) return;
+
+        pendientes.forEach(m => { m.leido = true; });
+        paciente.unread = 0;
+        notificationsData.forEach(n => {
+            if (n.pacienteId === paciente.id) n.unread = false;
+        });
+        renderNotifications();
+        renderPatientList();
+
+        await Promise.all(pendientes.map(m =>
+            peticionApi(`/mensajes/${m.id}`, {
+                method: 'PUT',
+                body: JSON.stringify({
+                    emisor: { idUsuario: m.emisorId },
+                    receptor: { idUsuario: m.receptorId },
+                    contenido: m.text,
+                    leido: 1
+                })
+            }).catch(() => { })
+        ));
+    }
+
     const bellIcon = document.querySelector('.bi-bell.fs-4');
     const chatIcon = document.querySelector('.bi-chat.fs-4');
 
@@ -81,7 +246,6 @@ document.addEventListener('DOMContentLoaded', () => {
         renderNotifications();
     }
 
-    // 3. ESTRUCTURA HTML DEL OVERLAY Y PANEL DE CHAT
     const chatOverlay = document.createElement('div');
     chatOverlay.className = 'chat-overlay';
     chatOverlay.id = 'chatOverlay';
@@ -93,10 +257,10 @@ document.addEventListener('DOMContentLoaded', () => {
     chatPanel.innerHTML = `
         <div class="chat-sidebar">
             <div class="chat-sidebar-header">
-                <h4>Pacientes / Estudiantes</h4>
+                <h4>Pacientes</h4>
                 <div class="chat-search-wrapper">
                     <i class="bi bi-search"></i>
-                    <input type="text" class="chat-search-input" id="chatSearchInput" placeholder="Buscar estudiante...">
+                    <input type="text" class="chat-search-input" id="chatSearchInput" placeholder="Buscar paciente...">
                 </div>
             </div>
             <div class="chat-patient-list" id="chatPatientList"></div>
@@ -109,9 +273,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="chat-conversation-area" id="chatConversationArea"></div>
             <form class="chat-input-area" id="chatInputForm">
                 <div class="chat-input-wrapper">
-                    <input type="text" class="chat-input-field" id="chatInputField" placeholder="Escribe un mensaje aquí..." autocomplete="off">
-                    <button type="button" class="chat-action-icon me-2"><i class="bi bi-paperclip"></i></button>
-                    <button type="button" class="chat-action-icon"><i class="bi bi-emoji-smile"></i></button>
+                    <input type="text" class="chat-input-field" id="chatInputField" placeholder="Escribe un mensaje aquí..." maxlength="4000" autocomplete="off">
                 </div>
                 <button type="submit" class="chat-send-btn"><i class="bi bi-send-fill"></i></button>
             </form>
@@ -119,7 +281,6 @@ document.addEventListener('DOMContentLoaded', () => {
     `;
     document.body.appendChild(chatPanel);
 
-    // 4. EVENT LISTENERS Y NAVEGACIÓN
     if (bellIcon) {
         bellIcon.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -170,8 +331,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const chatSearchInput = document.getElementById('chatSearchInput');
     if (chatSearchInput) {
         chatSearchInput.addEventListener('input', (e) => {
-            const query = e.target.value.toLowerCase();
-            renderPatientList(query);
+            renderPatientList(e.target.value.toLowerCase());
         });
     }
 
@@ -184,24 +344,29 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 5. FUNCIONES PRINCIPALES DEL CHAT
     async function openChat() {
-        if (patientsData.length === 0) {
-            await cargarPacientesDesdeAPI();
-        }
         chatOverlay.classList.add('active');
         chatPanel.classList.add('active');
+
+        if (!cargaInicialLista) {
+            await sincronizar();
+        }
+        iniciarSincronizacion();
+
+        if (!activeChatId || !patientsData.some(p => p.id === activeChatId)) {
+            const conMensajes = patientsData.find(p => p.messages.length > 0);
+            activeChatId = conMensajes ? conMensajes.id : (patientsData[0] ? patientsData[0].id : null);
+        }
+
         renderPatientList();
         if (activeChatId) {
-            await loadConversation(activeChatId, true);
+            loadConversation(activeChatId);
         }
-        iniciarPolling();
     }
 
     function closeChat() {
         chatOverlay.classList.remove('active');
         chatPanel.classList.remove('active');
-        detenerPolling();
     }
 
     function updateUnreadBadge() {
@@ -217,9 +382,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!listContainer) return;
 
         listContainer.innerHTML = '';
-        
+
         if (notificationsData.length === 0) {
             listContainer.innerHTML = '<div class="p-4 text-center text-muted">No tienes notificaciones nuevas</div>';
+            updateUnreadBadge();
             return;
         }
 
@@ -227,22 +393,21 @@ document.addEventListener('DOMContentLoaded', () => {
             const item = document.createElement('div');
             item.className = `notification-item ${n.unread ? 'unread' : ''}`;
             item.innerHTML = `
-                <div class="notification-item-icon ${escapeHtml(n.type)}">
-                    <i class="bi ${escapeHtml(n.icon)}"></i>
+                <div class="notification-item-icon ${n.type}">
+                    <i class="bi ${n.icon}"></i>
                 </div>
                 <div class="notification-item-content">
-                    <div class="notification-item-title">${escapeHtml(n.title)}</div>
-                    <div class="notification-item-desc">${escapeHtml(n.desc)}</div>
-                    <div class="notification-item-time">${escapeHtml(n.time)}</div>
+                    <div class="notification-item-title">${escapeHTML(n.title)}</div>
+                    <div class="notification-item-desc">${escapeHTML(n.desc)}</div>
+                    <div class="notification-item-time">${escapeHTML(n.time)}</div>
                 </div>
             `;
             item.addEventListener('click', () => {
                 n.unread = false;
                 renderNotifications();
                 updateUnreadBadge();
-                if (n.type === 'message') {
-                    openChat();
-                }
+                if (n.pacienteId) activeChatId = n.pacienteId;
+                openChat();
             });
             listContainer.appendChild(item);
         });
@@ -254,13 +419,18 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!patientContainer) return;
 
         patientContainer.innerHTML = '';
-        
-        const filteredPatients = patientsData.filter(p => 
-            p.name.toLowerCase().includes(filterQuery)
-        );
+
+        const filteredPatients = patientsData
+            .filter(p => p.name.toLowerCase().includes(filterQuery))
+            .sort((a, b) => {
+                if (a.lastDate && b.lastDate) return String(b.lastDate).localeCompare(String(a.lastDate));
+                if (a.lastDate) return -1;
+                if (b.lastDate) return 1;
+                return a.name.localeCompare(b.name);
+            });
 
         if (filteredPatients.length === 0) {
-            patientContainer.innerHTML = '<div class="p-4 text-center text-muted">No se encontraron estudiantes</div>';
+            patientContainer.innerHTML = '<div class="p-4 text-center text-muted">No se encontraron pacientes</div>';
             return;
         }
 
@@ -269,219 +439,128 @@ document.addEventListener('DOMContentLoaded', () => {
             item.className = `chat-patient-item ${p.id === activeChatId ? 'active' : ''}`;
             item.innerHTML = `
                 <div class="chat-avatar-wrapper">
-                    <img src="${escapeHtml(p.avatar)}" class="chat-avatar" alt="${escapeHtml(p.name)}">
-                    <span class="chat-status-dot ${escapeHtml(p.status)}"></span>
+                    <img src="${p.avatar}" class="chat-avatar" alt="${escapeHTML(p.name)}">
                 </div>
                 <div class="chat-patient-info">
                     <div class="chat-patient-header">
-                        <span class="chat-patient-name">${escapeHtml(p.name)}</span>
-                        <span class="chat-patient-time">${escapeHtml(p.time || '')}</span>
+                        <span class="chat-patient-name">${escapeHTML(p.name)}</span>
+                        <span class="chat-patient-time">${escapeHTML(p.time)}${p.unread > 0 ? ` <span class="badge rounded-pill bg-danger">${p.unread}</span>` : ''}</span>
                     </div>
-                    <div class="chat-last-msg">${escapeHtml(p.lastMsg)}</div>
+                    <div class="chat-last-msg">${escapeHTML(recortar(p.lastMsg, 60))}</div>
                 </div>
             `;
             item.addEventListener('click', () => {
                 activeChatId = p.id;
                 document.querySelectorAll('.chat-patient-item').forEach(el => el.classList.remove('active'));
                 item.classList.add('active');
-                loadConversation(p.id, true);
+                loadConversation(p.id);
             });
             patientContainer.appendChild(item);
         });
     }
 
-    // 6. CARGAR MENSAJES REALES DESDE EL BACKEND
-    async function loadConversation(patientId, forceScroll = false) {
-        const patient = patientsData.find(p => p.id === String(patientId));
+    function loadConversation(patientId) {
+        const patient = patientsData.find(p => p.id === patientId);
         if (!patient) return;
 
         const activeUserContainer = document.getElementById('chatActiveUser');
         if (activeUserContainer) {
             activeUserContainer.innerHTML = `
-                <img src="${escapeHtml(patient.avatar)}" class="chat-avatar" alt="${escapeHtml(patient.name)}">
+                <img src="${patient.avatar}" class="chat-avatar" alt="${escapeHTML(patient.name)}">
                 <div>
-                    <h5 class="chat-active-name">${escapeHtml(patient.name)}</h5>
-                    <span class="chat-active-status ${patient.status === 'offline' ? 'offline' : ''}">
-                        <i class="bi bi-circle-fill fs-8 me-1"></i> ${patient.status === 'online' ? 'En línea' : 'Desconectado'}
-                    </span>
+                    <h5 class="chat-active-name">${escapeHTML(patient.name)}</h5>
+                    <span class="chat-active-status offline">${patient.carnet ? `Carnet: ${escapeHTML(patient.carnet)}` : 'Estudiante'}</span>
                 </div>
             `;
         }
 
-        await obtenerMensajesDelServidor(patientId, forceScroll);
+        renderMessages(patient);
+        marcarComoLeidos(patient);
     }
 
-    async function obtenerMensajesDelServidor(studentId, forceScroll = false) {
-        try {
-            if (typeof peticionApi !== 'function') return;
-
-            const res = await peticionApi(`/mensajes/${studentId}`);
-            const listaMensajes = typeof normalizarListado === 'function' 
-                ? normalizarListado(res) 
-                : (Array.isArray(res) ? res : (res?.content || []));
-
-            const patient = patientsData.find(p => p.id === String(studentId));
-            if (!patient) return;
-
-            // Obtener ID del usuario activo para comparar el emisor de los mensajes
-            const usuarioSesion = JSON.parse(
-                localStorage.getItem('usuario') || 
-                sessionStorage.getItem('usuario') || 
-                '{}'
-            );
-            const myId = usuarioSesion.idUsuario || usuarioSesion.id || usuarioSesion.USU_idUsuario;
-
-            const nuevosMensajes = listaMensajes.map(m => {
-                // Mapear emisor desde el objeto MensajesPrivadosDTO (m.emisor.idUsuario o fallback)
-                const emisorObj = m.emisor;
-                const emisorId = (typeof emisorObj === 'object' && emisorObj !== null) 
-                    ? (emisorObj.idUsuario || emisorObj.id) 
-                    : (m.idEmisor || m.emisorId || m.emisor);
-
-                const esMio = (myId && String(emisorId) === String(myId)) || 
-                             m.esDoctor || m.emisor === 'doctor' || m.remitente === 'doctor' || m.sender === 'doctor';
-                
-                const fechaMsg = m.fechaEnvio || m.fecha;
-                const horaFormat = fechaMsg 
-                    ? new Date(fechaMsg).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
-                    : (m.time || 'Hoy');
-
-                return {
-                    id: m.idMensaje || m.id || null,
-                    sender: esMio ? 'doctor' : 'patient',
-                    text: m.contenido || m.mensaje || m.text || '',
-                    time: horaFormat
-                };
-            });
-
-            const numMensajesAnteriores = patient.messages.length;
-            patient.messages = nuevosMensajes;
-
-            if (patient.messages.length > 0) {
-                const ultimo = patient.messages[patient.messages.length - 1];
-                patient.lastMsg = (ultimo.sender === 'doctor' ? 'Tú: ' : '') + ultimo.text;
-                patient.time = ultimo.time;
-            }
-
-            if (forceScroll || numMensajesAnteriores !== patient.messages.length) {
-                renderMessages(patient, forceScroll);
-                
-                const activeSearch = document.getElementById('chatSearchInput')?.value.trim();
-                if (!activeSearch) {
-                    renderPatientList();
-                }
-            }
-        } catch (e) {
-            console.error('[chatService] Error al obtener mensajes del servidor:', e);
-        }
-    }
-
-    function renderMessages(patient, forceScroll = false) {
+    function renderMessages(patient) {
         const conversationArea = document.getElementById('chatConversationArea');
         if (!conversationArea) return;
 
-        const isAtBottom = conversationArea.scrollHeight - conversationArea.scrollTop <= conversationArea.clientHeight + 100;
-
         conversationArea.innerHTML = '';
-        
+
+        if (patient.messages.length === 0) {
+            conversationArea.innerHTML = '<div class="p-4 text-center text-muted">Aún no hay mensajes con este estudiante.</div>';
+            return;
+        }
+
         patient.messages.forEach(msg => {
             const bubble = document.createElement('div');
             bubble.className = `chat-msg-bubble ${msg.sender === 'doctor' ? 'sent' : 'received'}`;
             bubble.innerHTML = `
-                ${escapeHtml(msg.text)}
-                <span class="chat-msg-time">${escapeHtml(msg.time)}</span>
+                ${escapeHTML(msg.text)}
+                <span class="chat-msg-time">${escapeHTML(msg.time)}</span>
             `;
             conversationArea.appendChild(bubble);
         });
 
-        if (forceScroll || isAtBottom) {
-            setTimeout(() => {
-                conversationArea.scrollTop = conversationArea.scrollHeight;
-            }, 50);
-        }
+        setTimeout(() => {
+            conversationArea.scrollTop = conversationArea.scrollHeight;
+        }, 50);
     }
 
-    // 7. ENVIAR MENSAJE AL SERVIDOR (CORREGIDO PARA MensajesPrivadosDTO)
     async function handleSendMessage(e) {
         e.preventDefault();
         const inputField = document.getElementById('chatInputField');
         if (!inputField) return;
 
         const text = inputField.value.trim();
-        if (!text || !activeChatId) return;
+        if (!text) return;
 
-        // 1. Obtener ID del usuario activo (Emisor)
-        const usuarioSesion = JSON.parse(
-            localStorage.getItem('usuario') || 
-            sessionStorage.getItem('usuario') || 
-            '{}'
-        );
-        const rawEmisorId = usuarioSesion.idUsuario || usuarioSesion.id || usuarioSesion.USU_idUsuario;
+        const patient = patientsData.find(p => p.id === activeChatId);
+        if (!patient || !miUsuarioId) return;
 
-        if (!rawEmisorId) {
-            console.error('[chatService] No se encontró el ID del usuario logueado en la sesión.');
-            alert('Sesión no válida: No se pudo identificar al emisor del mensaje.');
-            return;
-        }
-
-        inputField.value = '';
-
+        inputField.disabled = true;
         try {
-            if (typeof peticionApi === 'function') {
-                const idEmisor = parseInt(rawEmisorId, 10);
-                const idReceptor = parseInt(activeChatId, 10);
+            const creado = await peticionApi('/mensajes', {
+                method: 'POST',
+                body: JSON.stringify({
+                    emisor: { idUsuario: miUsuarioId },
+                    receptor: { idUsuario: patient.userId },
+                    contenido: text,
+                    fechaEnvio: ahoraLocalISO(),
+                    leido: 0
+                })
+            });
 
-                // Payload ajustado a MensajesPrivadosDTO: emisor y receptor como objetos Usuario
-                const payload = {
-                    emisor: { 
-                        idUsuario: idEmisor,
-                        id: idEmisor 
-                    },
-                    receptor: { 
-                        idUsuario: idReceptor,
-                        id: idReceptor 
-                    },
-                    contenido: text
-                };
+            const fecha = (creado && creado.fechaEnvio) || ahoraLocalISO();
+            ultimoIdProcesado = Math.max(ultimoIdProcesado, (creado && creado.idMensaje) || 0);
+            patient.messages.push({
+                id: creado ? creado.idMensaje : null,
+                sender: 'doctor',
+                text,
+                time: formatearHora(fecha),
+                leido: false,
+                emisorId: miUsuarioId,
+                receptorId: patient.userId
+            });
+            patient.lastMsg = `Tú: ${text}`;
+            patient.lastDate = fecha;
+            patient.time = etiquetaFecha(fecha);
 
-                await peticionApi('/mensajes', {
-                    method: 'POST',
-                    body: JSON.stringify(payload)
-                });
+            inputField.value = '';
+            renderMessages(patient);
+            renderPatientList();
+        } catch (error) {
+            if (typeof Notif !== 'undefined') {
+                Notif.error(error.message || 'No se pudo enviar el mensaje.', 'Mensaje no enviado');
             }
-
-            // Recargar la lista de mensajes y forzar scroll al final
-            await obtenerMensajesDelServidor(activeChatId, true);
-
-        } catch (err) {
-            console.error('[chatService] Error al enviar mensaje:', err);
-            if (err.response) {
-                console.error('[chatService] Detalle del error de validación backend:', err.response);
-            }
-            alert('No se pudo enviar el mensaje. Revisa la consola para más detalles.');
+        } finally {
+            inputField.disabled = false;
+            inputField.focus();
         }
     }
 
-    // 8. CONSULTA PERIÓDICA EN TIEMPO REAL (POLLING CADA 3 SEGUNDOS)
-    function iniciarPolling() {
-        detenerPolling();
-        pollingInterval = setInterval(() => {
-            if (activeChatId && chatPanel.classList.contains('active')) {
-                obtenerMensajesDelServidor(activeChatId, false);
-            }
-        }, 3000);
-    }
-
-    function detenerPolling() {
-        if (pollingInterval) {
-            clearInterval(pollingInterval);
-            pollingInterval = null;
-        }
-    }
-
-    // NAVEGACIÓN DESDE HASH (#openChat)
     if (window.location.hash === '#openChat') {
         history.replaceState("", document.title, window.location.pathname + window.location.search);
         openChat();
     }
+
+    sincronizar().then(iniciarSincronizacion);
 });
+
