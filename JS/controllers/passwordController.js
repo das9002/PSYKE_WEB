@@ -1,6 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
 
-    // 1. Visibilidad de contraseña
+    // 1. Visibilidad de contraseña (Ojito)
     const eyeButtons = document.querySelectorAll('.btn-eye-toggle');
     eyeButtons.forEach(btn => {
         btn.addEventListener('click', () => {
@@ -90,73 +90,99 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // Obtener el ID del usuario autenticado vía /auth/me
+            // 3.1 Obtener ID del usuario desde /auth/me
             let idUsuario = null;
+            let datosSesion = {};
             try {
                 const authBaseUrl = window.AUTH_API_URL || window.ENV?.API_BASE_URL || 'https://api-auth-1b19165bcf87.herokuapp.com/api/auth';
                 const respAuth = await fetch(`${authBaseUrl}/me`, {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    }
+                    headers: { 'Authorization': `Bearer ${token}` }
                 });
 
                 if (respAuth.ok) {
-                    const authData = await respAuth.json();
-                    idUsuario = authData.idUsuario || authData.id;
+                    datosSesion = await respAuth.json();
+                    idUsuario = datosSesion.idUsuario || datosSesion.id;
                 } else if (respAuth.status === 401) {
                     mostrarMensaje('Su sesión ha expirado.', 'error');
                     setTimeout(() => window.location.href = '../HTML/login.html', 2000);
                     return;
                 }
             } catch (err) {
-                console.error('Error al verificar sesión auth:', err);
+                console.error('Error al obtener /auth/me:', err);
             }
 
             if (!idUsuario) {
-                mostrarMensaje('No se pudo determinar el ID del usuario en sesión.', 'error');
+                mostrarMensaje('No se pudo obtener el ID del usuario.', 'error');
                 return;
             }
 
-            // Obtener el usuario COMPLETO desde ProfileService o API para no perder datos obligatorios
-            let perfilCompleto = null;
+            // 3.2 Obtener datos del perfil completo desde el backend
+            const apiServiceUrl = window.ENV?.API_SERVICE_URL || 'https://api-service-4d465a47b94c.herokuapp.com/api';
+            let usuarioActual = {};
+
             try {
-                if (typeof ProfileService.obtenerPerfil === 'function') {
-                    perfilCompleto = await ProfileService.obtenerPerfil(idUsuario);
-                } else {
-                    const apiBaseUrl = window.ENV?.API_SERVICE_URL || 'https://api-service-4d465a47b94c.herokuapp.com/api';
-                    const respPerfil = await fetch(`${apiBaseUrl}/usuarios/${idUsuario}`, {
-                        headers: { 'Authorization': `Bearer ${token}` }
-                    });
-                    if (respPerfil.ok) {
-                        perfilCompleto = await respPerfil.json();
-                    }
+                const resUser = await fetch(`${apiServiceUrl}/usuarios/${idUsuario}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (resUser.ok) {
+                    usuarioActual = await resUser.json();
                 }
-            } catch (err) {
-                console.error('Error al obtener perfil completo:', err);
+            } catch (e) {
+                console.warn('No se pudo consultar GET /usuarios/', e);
             }
 
-            if (!perfilCompleto) {
-                mostrarMensaje('No se pudieron obtener los datos completos del perfil.', 'error');
-                return;
+            // 3.3 Normalizar el campo tipoUsuario (Soporta ADMIN, ESTUDIANTE y PSICOLOGO)
+            let tipoBruto = (usuarioActual.tipoUsuario || datosSesion.tipoUsuario || 'PSICOLOGO').toString().toUpperCase().trim();
+            tipoBruto = tipoBruto.normalize("NFD").replace(/[\u0300-\u036f]/g, ""); // Remueve tildes ('PSICÓLOGO' -> 'PSICOLOGO')
+
+            let tipoUsuarioValido = 'PSICOLOGO';
+            if (tipoBruto.includes('ADMIN')) {
+                tipoUsuarioValido = 'ADMIN';
+            } else if (tipoBruto.includes('ESTUDIANTE') || tipoBruto.includes('ALUMNO')) {
+                tipoUsuarioValido = 'ESTUDIANTE';
+            } else if (tipoBruto.includes('PSICOLOGO')) {
+                tipoUsuarioValido = 'PSICOLOGO';
             }
 
-            // Unir perfil completo + la nueva contraseña
+            // 3.4 Construir el Payload correcto y completo
             const payload = {
-                ...perfilCompleto,
-                contrasena: nPass
+                ...datosSesion,
+                ...usuarioActual,
+                idUsuario: idUsuario,
+                tipoUsuario: tipoUsuarioValido,
+                contrasena: nPass,
+                password: nPass
             };
 
-            console.log('Payload completo enviado:', payload);
-
+            // 3.5 Enviar actualización a la API
             try {
-                await ProfileService.actualizarPerfil(idUsuario, payload);
-                mostrarMensaje('¡Tu contraseña ha sido actualizada con éxito!', 'exito');
-                passwordForm.reset();
+                const response = await fetch(`${apiServiceUrl}/usuarios/${idUsuario}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await response.json().catch(() => ({}));
+
+                if (response.ok) {
+                    mostrarMensaje('¡Tu contraseña ha sido actualizada con éxito!', 'exito');
+                    passwordForm.reset();
+                } else {
+                    console.error('Detalles del error:', data);
+                    let detalleErrores = '';
+                    if (data.details) {
+                        detalleErrores = Object.entries(data.details)
+                            .map(([campo, msg]) => `• ${campo}: ${msg}`)
+                            .join('\n');
+                    }
+                    mostrarMensaje(`Error al actualizar:\n${detalleErrores || data.message || 'Error de validación'}`, 'error');
+                }
             } catch (error) {
-                console.error('Error al actualizar:', error);
-                mostrarMensaje('No se pudo actualizar la contraseña: ' + error.message, 'error');
+                console.error('Error de red al actualizar contraseña:', error);
+                mostrarMensaje('Error de conexión: ' + error.message, 'error');
             }
         });
     }
