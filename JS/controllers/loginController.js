@@ -73,12 +73,29 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
 
                 try {
-                    // Intenta consumir el servicio si está declarado en AuthService, o realiza la petición directas
+                    // 1. Intenta consumir AuthService si existe la función
                     if (typeof AuthService !== 'undefined' && typeof AuthService.recuperarContrasena === 'function') {
                         await AuthService.recuperarContrasena(correo);
-                    } else {
-                        const baseUrl = (typeof CONFIG !== 'undefined' && CONFIG.API_URL) ? CONFIG.API_URL : '';
-                        const response = await fetch(`${baseUrl}/auth/recuperar-contrasena`, {
+                    } 
+                    // 2. Usa authFetch de config.js (incluye automáticamente AUTH_API_URL)
+                    else if (typeof authFetch === 'function') {
+                        const response = await authFetch('/recuperar-contrasena', {
+                            method: 'POST',
+                            body: { correo }
+                        });
+
+                        if (!response.ok) {
+                            const errorData = await response.json().catch(() => ({}));
+                            throw new Error(errorData.message || 'No se pudo enviar la solicitud.');
+                        }
+                    } 
+                    // 3. Fallback directo a la URL de Auth en Heroku/Local
+                    else {
+                        const authUrl = (typeof AUTH_API_URL !== 'undefined') 
+                            ? AUTH_API_URL 
+                            : 'https://api-auth-1b19165bcf87.herokuapp.com/api/auth';
+
+                        const response = await fetch(`${authUrl}/recuperar-contrasena`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ correo })
