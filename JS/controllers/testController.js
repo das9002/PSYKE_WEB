@@ -110,11 +110,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function fechaResolucionDe(r) {
-        return r?.fechaResolucion ?? r?.fecha ?? r?.fechaRespuesta ?? '';
+        const f = r?.fechaResolucion ?? r?.fecha ?? r?.fechaRespuesta ?? '';
+        if (!f) return '';
+        try {
+            const d = new Date(f);
+            return isNaN(d.getTime()) ? f : d.toLocaleString();
+        } catch {
+            return f;
+        }
     }
 
     function respuestasDe(r) {
-        return Array.isArray(r?.respuestas) ? r.respuestas : Array.isArray(r?.detalleRespuestas) ? r.detalleRespuestas : [];
+        if (Array.isArray(r?.detalles) && r.detalles.length > 0) return r.detalles;
+        if (Array.isArray(r?.respuestas) && r.respuestas.length > 0) return r.respuestas;
+        if (Array.isArray(r?.detalleRespuestas) && r.detalleRespuestas.length > 0) return r.detalleRespuestas;
+        return Array.isArray(r?.detalles) ? r.detalles : Array.isArray(r?.respuestas) ? r.respuestas : [];
     }
 
     function estadoDe(r) {
@@ -122,7 +132,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function textoPregunta(p) {
-        return p?.texto ?? p?.textoPregunta ?? p?.enunciado ?? p?.pregunta ?? '';
+        return p?.textoPregunta ?? p?.texto ?? p?.enunciado ?? p?.pregunta ?? '';
     }
 
     function tipoPregunta(p) {
@@ -130,7 +140,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function textoRespuesta(resp) {
-        return resp?.respuesta ?? resp?.texto ?? resp?.valor ?? '';
+        return resp?.contenidoTexto ?? resp?.respuesta ?? resp?.texto ?? resp?.valor ?? resp?.respuestaSeleccionada ?? '';
     }
 
     function idEstudianteDe(est) {
@@ -138,7 +148,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function textoPreguntaRespuesta(resp) {
-        return resp?.pregunta ?? resp?.enunciado ?? textoPregunta(resp);
+        if (typeof resp?.pregunta === 'object' && resp?.pregunta !== null) {
+            return textoPregunta(resp.pregunta);
+        }
+        return resp?.textoPregunta ?? (typeof resp?.pregunta === 'string' ? resp.pregunta : '') ?? resp?.enunciado ?? textoPregunta(resp);
     }
 
     const tablaTestsBody = el('tablaTestsBody');
@@ -597,7 +610,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Lista extendida de valores permitidos en el frontend para evitar rechazos en la validación
     const TIPOS_RESPUESTA_VALIDOS = [
         'Escala Likert', 'ESCALA', 'escala',
         'Opcion multiple', 'Opción Múltiple', 'Opción múltiple', 'OPCION_MULTIPLE', 'opcion_multiple',
@@ -818,8 +830,11 @@ document.addEventListener('DOMContentLoaded', () => {
             cuerpoEl.innerHTML = html;
         }
 
-        const modal = new bootstrap.Modal(el('modalVerPreguntas'));
-        modal.show();
+        const modalEl = el('modalVerPreguntas') || el('modalPreguntas');
+        if (modalEl) {
+            const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+            modal.show();
+        }
     };
 
     function renderTablaRespondidos(filtroCuestionarioId = null) {
@@ -839,7 +854,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         lista.forEach(r => {
             const idR = idRespondido(r);
-            const cuestionario = estado.cuestionarios.find(c => Number(idCuestionario(c)) === Number(r?.cuestionario?.idCuestionario ?? r?.cuestionarioId));
+            const cuestionario = estado.cuestionarios.find(c => Number(idCuestionario(c)) === Number(r?.cuestionario?.idCuestionario ?? r?.cuestionarioId)) || r?.cuestionario;
             const tr = document.createElement('tr');
 
             tr.innerHTML = `
@@ -886,38 +901,70 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (!r) return;
 
-        const cuestionario = estado.cuestionarios.find(c => Number(idCuestionario(c)) === Number(r?.cuestionario?.idCuestionario ?? r?.cuestionarioId));
-        const tituloEl = el('tituloModalRespuestas');
-        const cuerpoEl = el('cuerpoModalRespuestas');
+        let listadoResp = respuestasDe(r);
 
-        if (tituloEl) tituloEl.textContent = `Respuestas de: ${nombreEstudianteDe(r)}`;
+        // Si la lista de respuestas está vacía, intentamos solicitar los detalles explícitamente a la API
+        if (listadoResp.length === 0 && typeof TestService?.listarDetallesPorTest === 'function') {
+            try {
+                const detallesExtra = await TestService.listarDetallesPorTest(respId);
+                if (Array.isArray(detallesExtra) && detallesExtra.length > 0) {
+                    r.detalles = detallesExtra;
+                    listadoResp = detallesExtra;
+                }
+            } catch (err) {
+                console.warn('No se pudieron obtener detalles extra de respuestas:', err);
+            }
+        }
+
+        const cuestionario = estado.cuestionarios.find(c => Number(idCuestionario(c)) === Number(r?.cuestionario?.idCuestionario ?? r?.cuestionarioId)) || r?.cuestionario;
+        
+        const tituloEl = el('modalEstudianteNombre') || el('tituloModalRespuestas');
+        const cuerpoEl = el('contenedorRespuestas') || el('cuerpoModalRespuestas');
+
+        if (tituloEl) {
+            if (tituloEl.id === 'modalEstudianteNombre') {
+                tituloEl.textContent = nombreEstudianteDe(r);
+            } else {
+                tituloEl.textContent = `Respuestas de: ${nombreEstudianteDe(r)}`;
+            }
+        }
+
         if (cuerpoEl) {
             let html = `
-                <div class="p-3 bg-light rounded-3 mb-3 border">
+                <div class="p-3 bg-light rounded-3 mb-3 border" id="modalInfoCuestionario">
                     <div class="fw-bold text-dark">${escapeHTML(nombreCuestionario(cuestionario))}</div>
                     <div class="small text-muted">Estudiante: <strong>${escapeHTML(nombreEstudianteDe(r))}</strong>${gradoDe(r) ? ` (${escapeHTML(gradoDe(r))})` : ''} &bull; Fecha: ${escapeHTML(fechaResolucionDe(r))}</div>
                 </div>
                 <h6 class="fw-bold mb-3">Detalle de Respuestas Registradas</h6>
-                <div class="list-group">
             `;
 
-            respuestasDe(r).forEach((resp, idx) => {
+            if (listadoResp.length === 0) {
                 html += `
-                    <div class="list-group-item p-3 mb-2 rounded-3 border">
-                        <div class="fw-bold text-primary mb-1">P${idx + 1}: ${escapeHTML(textoPreguntaRespuesta(resp))}</div>
-                        <div class="p-2 bg-white rounded border text-dark fw-medium">
-                            <i class="bi bi-chat-right-quote text-muted me-1"></i>${escapeHTML(textoRespuesta(resp))}
+                    <div class="alert alert-warning text-center my-3">
+                        <i class="bi bi-exclamation-triangle me-2"></i>No se encontraron respuestas registradas para este test.
+                    </div>`;
+            } else {
+                html += `<div class="list-group">`;
+                listadoResp.forEach((resp, idx) => {
+                    html += `
+                        <div class="list-group-item p-3 mb-2 rounded-3 border">
+                            <div class="fw-bold text-primary mb-1">P${idx + 1}: ${escapeHTML(textoPreguntaRespuesta(resp))}</div>
+                            <div class="p-2 bg-white rounded border text-dark fw-medium">
+                                <i class="bi bi-chat-right-quote text-muted me-1"></i>${escapeHTML(textoRespuesta(resp))}
+                            </div>
                         </div>
-                    </div>
-                `;
-            });
-
-            html += `</div>`;
+                    `;
+                });
+                html += `</div>`;
+            }
             cuerpoEl.innerHTML = html;
         }
 
-        const modal = new bootstrap.Modal(el('modalRespuestas'));
-        modal.show();
+        const modalEl = el('modalVerRespuestas') || el('modalRespuestas');
+        if (modalEl) {
+            const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+            modal.show();
+        }
     };
 
     function renderTablaSinResponder(filtroCuestionarioId = null) {
@@ -995,7 +1042,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Badge "Sin Responder" del catálogo
     window.verSinResponderTest = function (idCuestionario) {
         cargarTestsRespondidos()
             .then(cargarEstudiantes)
@@ -1005,14 +1051,12 @@ document.addEventListener('DOMContentLoaded', () => {
             });
     };
 
-    // Notificación de recordatorio
     window.recordarEstudiante = function (nombreEstudiante) {
         Notif.informar(
             `Se ha enviado el recordatorio de resolución del cuestionario a ${nombreEstudiante} mediante el módulo de notificaciones.`
         );
     };
 
-    // Mensajes de error
     function mensajeErrorAmigable(error) {
         if (error?.status === 400) {
             return `Revise los datos enviados: ${error.message}`;
@@ -1029,11 +1073,9 @@ document.addEventListener('DOMContentLoaded', () => {
         return error.message || 'Ocurrió un error inesperado.';
     }
 
-    // Carga inicial
     cargarCatalogo();
     cargarPsicologos();
 
-    // Menú hamburguesa móvil
     const hamburgerBtn = el('hamburgerBtn');
     const sidebar = document.querySelector('.sidebar');
     const overlay = el('sidebarOverlay');
