@@ -164,13 +164,15 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        const contrasenaTemporal = ContrasenaValidaciones.generarTemporal();
+
         const payload = {
             codigoCarnet: carnet,
             nombres: datos.nombres,
             apellidos: datos.apellidos,
             usuario: {
                 correo,
-                contrasena: 'Estudiante2026*',
+                contrasena: contrasenaTemporal,
                 tipoUsuario: 'ESTUDIANTE',
                 estadoCuenta: 'ACTIVO'
             },
@@ -191,12 +193,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             await EstudiantesService.crear(payload);
-            Notif.credenciales(
-                '¡Estudiante registrado con éxito!',
-                `Se generaron las credenciales de acceso:<br><br><strong>Usuario:</strong> ${correo}<br><strong>Contraseña:</strong> <code>Estudiante2026*</code>`
-            ).then(() => {
-                window.location.href = '../HTML/estudiante.html';
-            });
+            await Notif.credencialesTemporales(
+                'Estudiante registrado',
+                correo,
+                contrasenaTemporal,
+                'Entrega estas credenciales al estudiante para que ingrese a la app móvil. Por seguridad no se vuelven a mostrar; si las pierde, el administrador puede asignarle una nueva.'
+            );
+            window.location.href = '../HTML/estudiante.html';
         } catch (error) {
             Notif.error(mensajeErrorAmigable(error), 'No se pudo guardar el estudiante');
         }

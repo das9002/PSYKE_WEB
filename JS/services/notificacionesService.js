@@ -95,6 +95,47 @@
             return modal({ icon: 'success', title: titulo, html, confirmButtonColor: COLORES.exito, confirmButtonText: 'Aceptar' });
         },
 
+        credencialesTemporales(titulo, usuario, contrasena, nota) {
+            const escapar = (valor) => String(valor ?? '').replace(/[&<>"']/g, c => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            }[c]));
+
+            return modal({
+                icon: 'success',
+                title: titulo,
+                confirmButtonColor: COLORES.exito,
+                confirmButtonText: 'Listo',
+                allowOutsideClick: false,
+                html: `
+                    <div class="psyke-credenciales">
+                        <div class="psyke-credencial-fila">
+                            <span>Usuario</span>
+                            <strong>${escapar(usuario)}</strong>
+                        </div>
+                        <div class="psyke-credencial-fila">
+                            <span>Contraseña</span>
+                            <code id="psykeContrasenaTemporal">${escapar(contrasena)}</code>
+                        </div>
+                        <button type="button" class="psyke-btn-copiar" id="psykeBtnCopiar">
+                            <i class="bi bi-clipboard"></i> Copiar credenciales
+                        </button>
+                        <p class="psyke-credencial-nota">${escapar(nota)}</p>
+                    </div>`,
+                didOpen: (popup) => {
+                    const boton = popup.querySelector('#psykeBtnCopiar');
+                    if (!boton) return;
+                    boton.addEventListener('click', async () => {
+                        try {
+                            await navigator.clipboard.writeText(`Usuario: ${usuario}\nContraseña: ${contrasena}`);
+                            boton.innerHTML = '<i class="bi bi-clipboard-check"></i> Copiado';
+                        } catch (e) {
+                            boton.textContent = 'No se pudo copiar, cópialas manualmente';
+                        }
+                    });
+                }
+            });
+        },
+
         confirmar(titulo, texto, botonConfirmar = 'Sí, continuar', opciones = {}) {
             return modal({
                 icon: opciones.icono || 'question',

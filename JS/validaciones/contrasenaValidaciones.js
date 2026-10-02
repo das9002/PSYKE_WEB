@@ -51,5 +51,24 @@ const ContrasenaValidaciones = (() => {
         });
     }
 
-    return { cumpleRequisitos, pintarRequisitos, validarNueva, activarOjos };
+    function generarTemporal(longitud = 10) {
+        const grupos = ['ABCDEFGHJKLMNPQRSTUVWXYZ', 'abcdefghijkmnpqrstuvwxyz', '23456789', '!@#$%*?'];
+        const todos = grupos.join('');
+        const aleatorio = (max) => {
+            const valores = new Uint32Array(1);
+            crypto.getRandomValues(valores);
+            return valores[0] % max;
+        };
+
+        const caracteres = grupos.map(grupo => grupo[aleatorio(grupo.length)]);
+        while (caracteres.length < longitud) caracteres.push(todos[aleatorio(todos.length)]);
+
+        for (let i = caracteres.length - 1; i > 0; i--) {
+            const j = aleatorio(i + 1);
+            [caracteres[i], caracteres[j]] = [caracteres[j], caracteres[i]];
+        }
+        return caracteres.join('');
+    }
+
+    return { cumpleRequisitos, pintarRequisitos, validarNueva, activarOjos, generarTemporal };
 })();

@@ -325,25 +325,39 @@
                     </div>
 
                     <div class="mb-3">
-                        <label class="custom-form-label"><i class="bi bi-card-heading text-primary me-1"></i>Usuario / Carnet</label>
+                        <label class="custom-form-label"><i class="bi bi-card-heading text-primary me-1"></i>Carnet</label>
                         <input type="text" class="form-control bg-light" id="credEstCarnet" readonly disabled>
                     </div>
 
                     <div class="mb-3">
-                        <label class="custom-form-label"><i class="bi bi-lock-fill text-primary me-1"></i>Contraseña / PIN de Acceso</label>
+                        <label class="custom-form-label"><i class="bi bi-envelope-fill text-primary me-1"></i>Usuario de la app móvil</label>
+                        <input type="text" class="form-control bg-light" id="credEstCorreo" readonly disabled>
+                    </div>
+
+                    <div class="mb-2" id="bloqueNuevaPassEst">
+                        <label class="custom-form-label" for="credEstPass"><i class="bi bi-lock-fill text-primary me-1"></i>Nueva contraseña</label>
                         <div class="input-group">
-                            <input type="password" class="form-control" id="credEstPass">
-                            <button class="btn btn-outline-secondary" type="button" id="btnTogglePassEst">
-                                <i class="bi bi-eye" id="iconEyeEst"></i>
+                            <input type="password" class="form-control" id="credEstPass" maxlength="100" autocomplete="new-password" placeholder="Escribe una o usa Generar">
+                            <button class="btn btn-outline-secondary" type="button" id="btnTogglePassEst" aria-label="Mostrar contraseña">
+                                <i class="bi bi-eye-slash" id="iconEyeEst"></i>
+                            </button>
+                            <button class="btn btn-outline-primary" type="button" id="btnGenerarPassEst">
+                                <i class="bi bi-magic me-1"></i>Generar
                             </button>
                         </div>
-                        <small class="text-muted mt-1 d-block"><i class="bi bi-pencil-square me-1"></i>Puedes modificar la contraseña del estudiante y guardarla.</small>
+                        <small class="text-muted mt-1 d-block">Mínimo 8 caracteres con mayúscula, minúscula, número y un carácter especial.</small>
+                    </div>
+
+                    <div class="alert alert-info small mb-0 mt-3" role="note">
+                        <i class="bi bi-shield-lock me-1"></i>
+                        Las contraseñas se guardan cifradas, por eso nadie puede verlas.
+                        <span id="textoPermisoPassEst">Si el estudiante la olvidó, asígnale una nueva y entrégasela.</span>
                     </div>
                 </div>
                 <div class="modal-footer justify-content-between">
                     <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cerrar</button>
                     <button type="button" class="btn btn-primary-custom" id="btnGuardarPassEst">
-                        <i class="bi bi-check2-circle me-1"></i> Guardar Nueva Contraseña
+                        <i class="bi bi-check2-circle me-1"></i> Asignar contraseña
                     </button>
                 </div>
             </div>
@@ -360,6 +374,7 @@
     <script src="../JS/services/notificacionesService.js"></script>
     <script src="../JS/services/navbarService.js"></script>
     <script src="../JS/services/estudiantesService.js"></script>
+    <script src="../JS/validaciones/contrasenaValidaciones.js"></script>
     <script src="../JS/validaciones/estudiantesValidaciones.js"></script>
     <script src="../JS/controllers/estudiantesController.js"></script>
 </body>

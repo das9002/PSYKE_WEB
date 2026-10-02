@@ -129,3 +129,86 @@ html.dark-mode .swal2-timer-progress-bar {
 html.dark-mode .psyke-alerta-subtitulo {
     color: #f3f4f6;
 }
+
+.psyke-credenciales {
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.psyke-credencial-fila {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px 14px;
+    border-radius: 12px;
+    background: #f1f5f9;
+}
+
+.psyke-credencial-fila span {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #64748b;
+}
+
+.psyke-credencial-fila strong {
+    color: #0f172a;
+    word-break: break-all;
+}
+
+.psyke-credencial-fila code {
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: #1d4ed8;
+    background: none;
+    padding: 0;
+}
+
+.psyke-btn-copiar {
+    align-self: flex-start;
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+    color: #334155;
+    border-radius: 10px;
+    padding: 6px 14px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.psyke-btn-copiar:hover {
+    background: #f8fafc;
+}
+
+.psyke-credencial-nota {
+    margin: 0;
+    font-size: 0.82rem;
+    color: #64748b;
+    line-height: 1.45;
+}
+
+html.dark-mode .psyke-credencial-fila {
+    background: #1f2937;
+}
+
+html.dark-mode .psyke-credencial-fila strong {
+    color: #f3f4f6;
+}
+
+html.dark-mode .psyke-credencial-fila code {
+    color: #60a5fa;
+}
+
+html.dark-mode .psyke-btn-copiar {
+    background: #111827;
+    border-color: #374151;
+    color: #d1d5db;
+}
+
+html.dark-mode .psyke-credencial-nota {
+    color: #9ca3af;
+}

@@ -1,6 +1,37 @@
 document.addEventListener('DOMContentLoaded', () => {
     const formLogin = document.getElementById('loginForm');
     const linkOlvide = document.getElementById('forgotPasswordLink');
+    const inputCorreo = document.getElementById('loginEmail');
+    const inputClave = document.getElementById('loginPassword');
+    const btnVerPassword = document.getElementById('btnVerPassword');
+
+    function limpiarCampos() {
+        if (inputCorreo) inputCorreo.value = '';
+        if (inputClave) {
+            inputClave.value = '';
+            inputClave.type = 'password';
+        }
+        if (btnVerPassword) {
+            btnVerPassword.querySelector('i').className = 'fa-solid fa-eye-slash';
+            btnVerPassword.setAttribute('aria-label', 'Mostrar contraseña');
+            btnVerPassword.title = 'Mostrar contraseña';
+        }
+    }
+
+    limpiarCampos();
+    window.addEventListener('pageshow', limpiarCampos);
+
+    if (btnVerPassword && inputClave) {
+        btnVerPassword.addEventListener('click', () => {
+            const mostrar = inputClave.type === 'password';
+            inputClave.type = mostrar ? 'text' : 'password';
+            btnVerPassword.querySelector('i').className = mostrar ? 'fa-solid fa-eye' : 'fa-solid fa-eye-slash';
+            const texto = mostrar ? 'Ocultar contraseña' : 'Mostrar contraseña';
+            btnVerPassword.setAttribute('aria-label', texto);
+            btnVerPassword.title = texto;
+            inputClave.focus();
+        });
+    }
 
     if (formLogin) {
         formLogin.addEventListener('submit', async (evento) => {

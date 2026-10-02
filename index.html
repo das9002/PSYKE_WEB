@@ -37,15 +37,20 @@
     <div class="container" id="container">
 
         <div class="form-container sign-in">
-            <form id="loginForm">
+            <form id="loginForm" autocomplete="off">
                 <h1>Inicia Sesión</h1>
                 <div class="social-icons">
                     <a href="#" class="icon"><i class="fa-brands fa-google-plus-g" style="color:rgb(30,26,26)"></i></a>
                 </div>
                 <span>o usa tu correo</span>
-                <input type="email" id="loginEmail" placeholder="Correo" required />
+                <input type="email" id="loginEmail" name="psyke-correo" placeholder="Correo" autocomplete="off" autocapitalize="off" spellcheck="false" required />
                 <span class="error-msg">El correo es requerido</span>
-                <input type="password" id="loginPassword" placeholder="Contraseña" required />
+                <div class="campo-password">
+                    <input type="password" id="loginPassword" name="psyke-clave" placeholder="Contraseña" autocomplete="new-password" required />
+                    <button type="button" class="btn-ver-password" id="btnVerPassword" aria-label="Mostrar contraseña" title="Mostrar contraseña">
+                        <i class="fa-solid fa-eye-slash"></i>
+                    </button>
+                </div>
                 <span class="error-msg">La contraseña es requerida</span>
                 
                 <a href="HTML/recuperarContrasena.html" id="forgotPasswordLink">¿Olvidaste tu contraseña?</a>
