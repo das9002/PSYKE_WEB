@@ -58,10 +58,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (boton) boton.disabled = true;
 
             try {
-                sessionStorage.removeItem('psyke_redirecting');
                 await AuthService.loginUsuario(credenciales);
-                sessionStorage.setItem('mostrarBienvenidaToast', 'true');
-                window.location.href = 'HTML/inicio.html';
+                window.location.href = 'HTML/inicio.html?bienvenida=1';
             } catch (error) {
                 const titulo = error.tipo === 'RED' ? 'Sin conexión' : 'No se pudo iniciar sesión';
                 Notif.error(error.message, titulo);

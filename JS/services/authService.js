@@ -1,55 +1,8 @@
 (function (global) {
     'use strict';
 
-    const AUTH_URL_DEFECTO = 'https://api-auth-1b19165bcf87.herokuapp.com/api/auth';
-
     function urlAuth() {
-        return (global.AUTH_API_URL || AUTH_URL_DEFECTO).replace(/\/+$/, '');
-    }
-
-    function decodificarToken(token) {
-        try {
-            if (!token) return null;
-            const base64Url = token.split('.')[1];
-            if (!base64Url) return null;
-
-            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-            const json = decodeURIComponent(
-                atob(base64)
-                    .split('')
-                    .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-                    .join('')
-            );
-            return JSON.parse(json);
-        } catch (e) {
-            return null;
-        }
-    }
-
-    function leerToken() {
-        if (typeof global.obtenerToken === 'function') {
-            return global.obtenerToken();
-        }
-        return localStorage.getItem('psyke_token') || sessionStorage.getItem('psyke_token');
-    }
-
-    function obtenerUsuarioActual() {
-        try {
-            const raw = localStorage.getItem('psyke_user') || localStorage.getItem('user');
-            return raw ? JSON.parse(raw) : null;
-        } catch (e) {
-            return null;
-        }
-    }
-
-    function estaAutenticado() {
-        const token = leerToken();
-        if (!token) return false;
-        const payload = decodificarToken(token);
-        if (payload && payload.exp) {
-            return payload.exp > Math.floor(Date.now() / 1000);
-        }
-        return true;
+        return String(global.AUTH_API_URL || '').replace(/\/+$/, '');
     }
 
     async function leerMensajeError(respuesta, mensajePorDefecto) {
@@ -78,18 +31,6 @@
         }
     }
 
-    function guardarSesion(token, usuario) {
-        if (token) {
-            localStorage.setItem('psyke_token', token);
-            localStorage.setItem('token', token);
-        }
-        if (usuario) {
-            const json = JSON.stringify(usuario);
-            localStorage.setItem('psyke_user', json);
-            localStorage.setItem('user', json);
-        }
-    }
-
     async function loginUsuario(credenciales) {
         const respuesta = await postLogin(credenciales.correo, credenciales.contrasena);
 
@@ -103,7 +44,6 @@
         }
 
         const datos = await respuesta.json();
-        const token = datos.token || datos.accessToken;
         const usuario = {
             idUsuario: datos.idUsuario,
             correo: datos.correo,
@@ -116,8 +56,7 @@
             throw error;
         }
 
-        guardarSesion(token, usuario);
-        return { datos, usuario, token };
+        return { datos, usuario };
     }
 
     async function verificarContrasenaActual(correo, contrasena) {
@@ -131,15 +70,11 @@
             throw error;
         }
 
-        const datos = await respuesta.json().catch(() => null);
-        const token = datos && (datos.token || datos.accessToken);
-        if (token) guardarSesion(token, null);
         return true;
     }
 
     async function obtenerSesion() {
         const respuesta = await fetch(`${urlAuth()}/me`, {
-            headers: leerToken() ? { 'Authorization': `Bearer ${leerToken()}` } : {},
             credentials: 'include'
         }).catch(() => null);
 
@@ -167,7 +102,8 @@
             respuesta = await fetch(`${urlAuth()}${ruta}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(cuerpo)
+                body: JSON.stringify(cuerpo),
+                credentials: 'include'
             });
         } catch (e) {
             const error = new Error('No se pudo conectar con el servidor. Revisa tu conexión.');
@@ -202,11 +138,9 @@
     }
 
     async function logoutUsuario() {
-        const token = leerToken();
         try {
             await fetch(`${urlAuth()}/logout`, {
                 method: 'POST',
-                headers: token ? { 'Authorization': `Bearer ${token}` } : {},
                 credentials: 'include'
             });
         } catch (e) { }
@@ -214,10 +148,6 @@
         if (typeof global.cerrarSesionGlobal === 'function') {
             global.cerrarSesionGlobal({ voluntario: true });
         } else {
-            localStorage.removeItem('psyke_token');
-            localStorage.removeItem('token');
-            localStorage.removeItem('psyke_user');
-            localStorage.removeItem('user');
             global.location.replace(/\/(HTML|btnsEstudiante)\//i.test(global.location.pathname) ? '../index.html' : 'index.html');
         }
     }
@@ -229,9 +159,6 @@
         solicitarCodigoRecuperacion,
         verificarCodigoRecuperacion,
         restablecerContrasena,
-        obtenerSesion,
-        obtenerUsuarioActual,
-        estaAutenticado,
-        decodificarToken
+        obtenerSesion
     };
 })(window);

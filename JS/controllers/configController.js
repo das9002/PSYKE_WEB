@@ -37,10 +37,10 @@ document.addEventListener('DOMContentLoaded', () => {
         switchOscuro.addEventListener('change', (e) => {
             if (e.target.checked) {
                 document.documentElement.classList.add('dark-mode');
-                localStorage.setItem('psyke_dark_mode', 'enabled');
+                Preferencias.guardar('psyke_dark_mode', 'enabled');
             } else {
                 document.documentElement.classList.remove('dark-mode');
-                localStorage.setItem('psyke_dark_mode', 'disabled');
+                Preferencias.guardar('psyke_dark_mode', 'disabled');
             }
         });
     }
@@ -69,7 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function showCookiePreferencesModal() {
-        const savedPrefs = localStorage.getItem('psyke_cookie_preferences');
+        const savedPrefs = Preferencias.leer('psyke_cookie_preferences');
         let currentPrefs = { preferences: true, analytics: true };
 
         if (savedPrefs) {
@@ -130,7 +130,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const prefCheckbox = document.getElementById('cookiePrefSwitch');
                 const analCheckbox = document.getElementById('cookieAnalSwitch');
 
-                localStorage.setItem('psyke_cookie_preferences', JSON.stringify({
+                Preferencias.guardar('psyke_cookie_preferences', JSON.stringify({
                     preferences: prefCheckbox.checked,
                     analytics: analCheckbox.checked
                 }));

@@ -4,7 +4,7 @@
 
 // 1. Inicialización inmediata del Modo Oscuro (Evita el destello/FOUC al cargar)
 (function aplicarModoOscuro() {
-    if (localStorage.getItem('psyke_dark_mode') === 'enabled') {
+    if (/(?:^|;\s*)psyke_dark_mode=enabled(?:;|$)/.test(document.cookie)) {
         document.documentElement.classList.add('dark-mode');
     }
 })();

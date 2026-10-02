@@ -394,12 +394,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function iniciar() {
-        const activarToast = sessionStorage.getItem('mostrarBienvenidaToast');
-        if (activarToast === 'true') {
+        const parametros = new URLSearchParams(window.location.search);
+        if (parametros.get('bienvenida') === '1') {
             if (typeof Notif !== 'undefined' && Notif.exito) {
                 Notif.exito('Bienvenido al sistema');
             }
-            sessionStorage.removeItem('mostrarBienvenidaToast');
+            parametros.delete('bienvenida');
+            const consulta = parametros.toString();
+            history.replaceState(null, document.title, window.location.pathname + (consulta ? `?${consulta}` : '') + window.location.hash);
         }
 
         cargarDashboard();

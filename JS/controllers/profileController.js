@@ -15,11 +15,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     let sesion = null;
     let psicologo = null;
 
-    if (typeof obtenerToken === 'function' && !obtenerToken()) {
-        window.location.replace('../index.html');
-        return;
-    }
-
     function iniciales(nombres, apellidos) {
         const n = (nombres || '').trim();
         const a = (apellidos || '').trim();

@@ -3,47 +3,32 @@
 
     var env = global.PSYKE_ENV || {};
     var esLocal = global.location && (global.location.hostname === 'localhost' || global.location.hostname === '127.0.0.1');
-    var defaultApi = esLocal ? 'http://localhost:8080/api' : 'https://api-service-4d465a47b94c.herokuapp.com/api';
-    var defaultAuth = esLocal ? 'http://localhost:8081/api/auth' : 'https://api-auth-1b19165bcf87.herokuapp.com/api/auth';
+    var origen = global.location ? global.location.origin : '';
+    var defaultApi = esLocal ? 'http://localhost:8080/api' : origen + '/proxy/api';
+    var defaultAuth = esLocal ? 'http://localhost:8081/api/auth' : origen + '/proxy/auth';
 
     var API_BASE_URL = (env.api || defaultApi).replace(/\/+$/, '');
     var AUTH_API_URL = (env.auth || defaultAuth).replace(/\/+$/, '');
 
-    var REDIRECT_FLAG = 'psyke_redirecting';
     var sesionCerradaEnCurso = false;
+    var usuarioSesion = null;
+    var sesionPendiente = null;
 
-    // Obtiene el token sin importar bajo qué nombre o almacenamiento se guardó
-    function obtenerToken() {
-        var claves = ['psyke_token', 'token', 'jwt', 'access_token', 'auth_token', 'psyke_jwt'];
-        for (var i = 0; i < claves.length; i++) {
-            var val = localStorage.getItem(claves[i]) || sessionStorage.getItem(claves[i]);
-            if (val) {
-                val = String(val).trim();
-                // Eliminar comillas dobles si se guardó vía JSON.stringify
-                if (val.startsWith('"') && val.endsWith('"')) {
-                    val = val.substring(1, val.length - 1);
-                }
-                if (val && val !== 'null' && val !== 'undefined') {
-                    return val;
-                }
-            }
+    var Preferencias = {
+        leer: function (clave) {
+            var patron = new RegExp('(?:^|;\\s*)' + clave + '=([^;]*)');
+            var encontrado = document.cookie.match(patron);
+            return encontrado ? decodeURIComponent(encontrado[1]) : null;
+        },
+        guardar: function (clave, valor) {
+            var unAnio = 60 * 60 * 24 * 365;
+            var seguro = global.location && global.location.protocol === 'https:' ? '; Secure' : '';
+            document.cookie = clave + '=' + encodeURIComponent(valor) + '; Max-Age=' + unAnio + '; Path=/; SameSite=Lax' + seguro;
         }
-        return null;
-    }
+    };
 
-    // Obtiene los datos de usuario guardados localmente
     function obtenerUsuario() {
-        var claves = ['psyke_user', 'user', 'currentUser', 'psyke_usuario', 'usuario'];
-        for (var i = 0; i < claves.length; i++) {
-            var raw = localStorage.getItem(claves[i]) || sessionStorage.getItem(claves[i]);
-            if (raw) {
-                try {
-                    var parsed = JSON.parse(raw);
-                    if (parsed && typeof parsed === 'object') return parsed;
-                } catch (e) { }
-            }
-        }
-        return null;
+        return usuarioSesion;
     }
 
     function normalizarRuta(ruta) {
@@ -83,22 +68,8 @@
         var voluntario = Boolean(opciones && opciones.voluntario);
         if (sesionCerradaEnCurso) return;
         sesionCerradaEnCurso = true;
-
-        var yaRedirigido = sessionStorage.getItem(REDIRECT_FLAG);
-        var preferencias = ['psyke_dark_mode', 'psyke_cookie_preferences'].map(function (clave) {
-            return [clave, localStorage.getItem(clave)];
-        });
-
-        localStorage.clear();
-        sessionStorage.clear();
-
-        preferencias.forEach(function (par) {
-            if (par[1] !== null) localStorage.setItem(par[0], par[1]);
-        });
-
-        if (yaRedirigido && !voluntario) return;
-
-        sessionStorage.setItem(REDIRECT_FLAG, '1');
+        usuarioSesion = null;
+        sesionPendiente = null;
 
         if (typeof Notif !== 'undefined') {
             if (voluntario) {
@@ -137,11 +108,6 @@
             headers['Content-Type'] = 'application/json';
         }
 
-        var token = obtenerToken();
-        if (token) {
-            headers['Authorization'] = 'Bearer ' + token;
-        }
-
         if (opciones.headers) {
             Object.assign(headers, opciones.headers);
         }
@@ -152,7 +118,7 @@
                 method: opciones.method || 'GET',
                 headers: headers,
                 body: body,
-                credentials: 'include', // Incluir credenciales CORS
+                credentials: 'include',
                 signal: opciones.signal
             });
         } catch (error) {
@@ -224,11 +190,6 @@
             headers['Content-Type'] = 'application/json';
         }
 
-        var token = obtenerToken();
-        if (token) {
-            headers['Authorization'] = 'Bearer ' + token;
-        }
-
         if (opciones.headers) {
             Object.assign(headers, opciones.headers);
         }
@@ -237,31 +198,28 @@
             method: opciones.method || 'GET',
             headers: headers,
             body: body,
-            credentials: 'include' // Incluir credenciales CORS
+            credentials: 'include'
         });
     }
 
-    async function verificarSesion() {
-        var token = obtenerToken();
-        if (!token) return null;
+    function verificarSesion() {
+        if (usuarioSesion) return Promise.resolve(usuarioSesion);
+        if (sesionPendiente) return sesionPendiente;
 
-        try {
-            var respuesta = await authFetch('/me');
-            if (respuesta.ok) {
-                var datosUsuario = await respuesta.json();
-                if (datosUsuario) {
-                    try {
-                        localStorage.setItem('psyke_user', JSON.stringify(datosUsuario));
-                    } catch (e) { }
-                }
-                return datosUsuario;
-            }
-        } catch (e) {
-            // Ignorar errores temporales de red
-        }
+        sesionPendiente = authFetch('/me')
+            .then(function (respuesta) {
+                return respuesta.ok ? respuesta.json() : null;
+            })
+            .catch(function () {
+                return null;
+            })
+            .then(function (datos) {
+                usuarioSesion = datos || null;
+                sesionPendiente = null;
+                return usuarioSesion;
+            });
 
-        // Respaldo de seguridad: si /me falla temporalmente pero los datos locales existen, no expulsar
-        return obtenerUsuario();
+        return sesionPendiente;
     }
 
     async function listarTodo(ruta, tamano) {
@@ -295,7 +253,6 @@
     // Exposición global de utilidades
     global.API_BASE_URL = API_BASE_URL;
     global.AUTH_API_URL = AUTH_API_URL;
-    global.obtenerToken = obtenerToken;
     global.obtenerUsuario = obtenerUsuario;
     global.normalizarRuta = normalizarRuta;
     global.cerrarSesionGlobal = cerrarSesionGlobal;
@@ -304,5 +261,6 @@
     global.peticionApi = peticionApi;
     global.listarTodo = listarTodo;
     global.verificarSesion = verificarSesion;
+    global.Preferencias = Preferencias;
     global.normalizarListado = normalizarListado;
 })(window);

@@ -9,10 +9,9 @@ document.addEventListener('DOMContentLoaded', () => {
         return '../index.html';
     }
 
-    if (typeof obtenerToken === 'function' && !obtenerToken()) {
-        window.location.replace(rutaLogin());
-        return;
-    }
+    verificarSesion().then(usuario => {
+        if (!usuario) window.location.replace(rutaLogin());
+    });
 
     ContrasenaValidaciones.activarOjos();
     ContrasenaValidaciones.pintarRequisitos('');

@@ -1,0 +1,22 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    {
+      "source": "/proxy/auth/:path*",
+      "destination": "https://api-auth-1b19165bcf87.herokuapp.com/api/auth/:path*"
+    },
+    {
+      "source": "/proxy/api/:path*",
+      "destination": "https://api-service-4d465a47b94c.herokuapp.com/api/:path*"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/proxy/:path*",
+      "headers": [
+        { "key": "x-vercel-enable-rewrite-caching", "value": "0" },
+        { "key": "Cache-Control", "value": "no-store" }
+      ]
+    }
+  ]
+}

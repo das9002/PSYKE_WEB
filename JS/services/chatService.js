@@ -149,7 +149,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function sincronizar() {
         if (sincronizando && Date.now() - inicioSincronizacion < LIMITE_ESPERA) return;
-        if (typeof obtenerToken === 'function' && !obtenerToken()) return;
         sincronizando = true;
         inicioSincronizacion = Date.now();
 

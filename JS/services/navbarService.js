@@ -7,43 +7,6 @@
     let usuarioCache = null;
     let sesionVerificada = false;
 
-    function getStoredToken() {
-        if (typeof window.obtenerToken === 'function') {
-            return window.obtenerToken();
-        }
-        const claves = ['psyke_token', 'token', 'jwt', 'access_token', 'auth_token'];
-        for (let i = 0; i < claves.length; i++) {
-            let val = localStorage.getItem(claves[i]) || sessionStorage.getItem(claves[i]);
-            if (val) {
-                val = String(val).trim();
-                if (val.startsWith('"') && val.endsWith('"')) {
-                    val = val.substring(1, val.length - 1);
-                }
-                if (val && val !== 'null' && val !== 'undefined') {
-                    return val;
-                }
-            }
-        }
-        return null;
-    }
-
-    function getStoredUser() {
-        if (typeof window.obtenerUsuario === 'function') {
-            return window.obtenerUsuario();
-        }
-        const claves = ['psyke_user', 'user', 'currentUser', 'usuario'];
-        for (let i = 0; i < claves.length; i++) {
-            const raw = localStorage.getItem(claves[i]) || sessionStorage.getItem(claves[i]);
-            if (raw) {
-                try {
-                    const parsed = JSON.parse(raw);
-                    if (parsed && typeof parsed === 'object') return parsed;
-                } catch (e) { }
-            }
-        }
-        return null;
-    }
-
     function resolveLoginPage() {
         return /\/(HTML|btnsEstudiante)\//i.test(window.location.pathname) ? '../index.html' : 'index.html';
     }
@@ -59,71 +22,20 @@
             return usuarioCache;
         }
 
-        const token = getStoredToken();
-        const usuarioLocal = getStoredUser();
+        const datos = typeof window.verificarSesion === 'function' ? await window.verificarSesion() : null;
+        if (!datos) return null;
 
-        if (!token && !usuarioLocal) {
-            return null;
-        }
+        const rawRol = datos.tipoUsuario || datos.rol || (Array.isArray(datos.roles) ? datos.roles[0] : '');
+        const rol = String(rawRol).replace('ROLE_', '').toUpperCase();
+        if (rol !== 'ADMIN' && rol !== 'PSICOLOGO') return null;
 
-        try {
-            const baseUrl = (window.AUTH_API_URL || 'https://api-auth-1b19165bcf87.herokuapp.com/api/auth').replace(/\/+$/, '');
-            const headers = { 'Content-Type': 'application/json' };
-            
-            if (token) {
-                headers['Authorization'] = `Bearer ${token}`;
-            }
-
-            let respuesta;
-            if (typeof window.authFetch === 'function') {
-                respuesta = await window.authFetch('/me');
-            } else {
-                respuesta = await fetch(`${baseUrl}/me`, {
-                    method: 'GET',
-                    headers: headers,
-                    credentials: 'include'
-                });
-            }
-
-            if (respuesta && respuesta.ok) {
-                const datos = await respuesta.json();
-                
-                const rawRol = datos.tipoUsuario || datos.rol || (Array.isArray(datos.roles) ? datos.roles[0] : '');
-                const rol = String(rawRol).replace('ROLE_', '').toUpperCase();
-
-                if (rol === 'ADMIN' || rol === 'PSICOLOGO') {
-                    usuarioCache = {
-                        nombre: datos.nombre || (datos.correo ? datos.correo.split('@')[0] : 'Usuario'),
-                        email: datos.correo || datos.email || '',
-                        rol: rol
-                    };
-                    sesionVerificada = true;
-                    return usuarioCache;
-                } else {
-                    console.warn('[navbarService] Rol no autorizado para la versión web:', rol);
-                    return null;
-                }
-            }
-        } catch (e) {
-            console.error('[navbarService] Error de red al verificar sesión:', e);
-        }
-
-        if (usuarioLocal) {
-            const rawRolLocal = usuarioLocal.tipoUsuario || usuarioLocal.rol || (Array.isArray(usuarioLocal.roles) ? usuarioLocal.roles[0] : '');
-            const rolLocal = String(rawRolLocal).replace('ROLE_', '').toUpperCase();
-
-            if (rolLocal === 'ADMIN' || rolLocal === 'PSICOLOGO') {
-                usuarioCache = {
-                    nombre: usuarioLocal.nombre || (usuarioLocal.correo ? usuarioLocal.correo.split('@')[0] : 'Usuario'),
-                    email: usuarioLocal.correo || usuarioLocal.email || '',
-                    rol: rolLocal
-                };
-                sesionVerificada = true;
-                return usuarioCache;
-            }
-        }
-
-        return null;
+        usuarioCache = {
+            nombre: datos.nombre || (datos.correo ? datos.correo.split('@')[0] : 'Usuario'),
+            email: datos.correo || datos.email || '',
+            rol
+        };
+        sesionVerificada = true;
+        return usuarioCache;
     }
 
     function buildMenu() {
@@ -187,11 +99,8 @@
         }
 
         try {
-            const baseUrl = (window.AUTH_API_URL || 'https://api-auth-1b19165bcf87.herokuapp.com/api/auth').replace(/\/+$/, '');
-            const token = getStoredToken();
-            await fetch(`${baseUrl}/logout`, {
+            await fetch(`${String(window.AUTH_API_URL || '').replace(/\/+$/, '')}/logout`, {
                 method: 'POST',
-                headers: token ? { 'Authorization': `Bearer ${token}` } : {},
                 credentials: 'include'
             });
         } catch (e) { }
@@ -199,8 +108,6 @@
         if (typeof window.cerrarSesionGlobal === 'function') {
             window.cerrarSesionGlobal({ voluntario: true });
         } else {
-            localStorage.clear();
-            sessionStorage.clear();
             window.location.replace(resolveLoginPage());
         }
     }
