@@ -17,6 +17,31 @@
         return enBtns ? '../HTML/' + nombre : nombre;
     }
 
+    function nombreDePsicologo(psi) {
+        if (!psi) return '';
+        return `${psi.nombresCompletos ?? ''} ${psi.apellidosCompletos ?? ''}`.replace(/\s+/g, ' ').trim();
+    }
+
+    async function nombreVisible(datos, rol) {
+        if (datos.nombre) return datos.nombre;
+
+        if (typeof window.listarTodo === 'function') {
+            try {
+                const psicologos = await window.listarTodo('/psicologos');
+                const correo = String(datos.correo || '').toLowerCase();
+                const propio = psicologos.find(p =>
+                    (datos.idUsuario && Number(p?.usuario?.idUsuario) === Number(datos.idUsuario)) ||
+                    (correo && String(p?.usuario?.correo || '').toLowerCase() === correo)
+                );
+                const nombre = nombreDePsicologo(propio);
+                if (nombre) return nombre;
+            } catch (e) { }
+        }
+
+        if (rol === 'ADMIN') return 'Administrador';
+        return datos.correo ? datos.correo.split('@')[0] : 'Usuario';
+    }
+
     async function verificarSesionYObtenerUsuario() {
         if (sesionVerificada && usuarioCache) {
             return usuarioCache;
@@ -30,7 +55,7 @@
         if (rol !== 'ADMIN' && rol !== 'PSICOLOGO') return null;
 
         usuarioCache = {
-            nombre: datos.nombre || (datos.correo ? datos.correo.split('@')[0] : 'Usuario'),
+            nombre: await nombreVisible(datos, rol),
             email: datos.correo || datos.email || '',
             rol
         };

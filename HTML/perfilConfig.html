@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Psyke - Editar Perfil</title>
+    <title>Psyke - Mi Perfil</title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -38,45 +38,50 @@
             <div class="avatar-circle" id="avatarCircle">--</div>
         </div>
 
+        <div class="perfil-encabezado">
+            <h1 class="perfil-nombre" id="perfilNombre">Cargando...</h1>
+            <span class="perfil-rol" id="perfilRol"></span>
+        </div>
+
         <div class="form-center-box">
-            <form id="editProfileForm" novalidate>
+            <div class="section-label text-uppercase">Información Personal</div>
 
-                <div class="section-label text-uppercase">Información Personal</div>
+            <div class="alert alert-info d-none small" id="avisoSinPerfil" role="status">
+                Tu cuenta no tiene un perfil de psicólogo asociado, por eso no hay nombres registrados.
+            </div>
 
-                <div class="alert alert-info d-none small" id="avisoSinPerfil" role="status">
-                    Tu cuenta no tiene un perfil de psicólogo asociado, por eso no hay nombres que editar.
+            <div class="custom-form-group">
+                <div class="custom-form-field">
+                    <span class="perfil-etiqueta">Nombres</span>
+                    <span class="perfil-valor" id="verNombres">—</span>
                 </div>
-
-                <div class="custom-form-group">
-                    <div class="custom-form-field">
-                        <label for="inputNombre">Nombres</label>
-                        <input type="text" id="inputNombre" placeholder="Tus nombres" maxlength="100" autocomplete="given-name" required disabled>
-                    </div>
-                    <div class="custom-form-field">
-                        <label for="inputApellido">Apellidos</label>
-                        <input type="text" id="inputApellido" placeholder="Tus apellidos" maxlength="100" autocomplete="family-name" required disabled>
-                    </div>
+                <div class="custom-form-field">
+                    <span class="perfil-etiqueta">Apellidos</span>
+                    <span class="perfil-valor" id="verApellidos">—</span>
                 </div>
+            </div>
 
-                <div class="section-label text-uppercase">Datos de la Cuenta</div>
-                <div class="custom-form-group">
-                    <div class="custom-form-field">
-                        <label for="inputEmail">Correo Institucional</label>
-                        <input type="email" id="inputEmail" class="email-underlined" readonly>
-                    </div>
-                    <div class="custom-form-field">
-                        <label for="inputRol">Rol</label>
-                        <input type="text" id="inputRol" readonly>
-                    </div>
+            <div class="section-label text-uppercase">Datos de la Cuenta</div>
+            <div class="custom-form-group">
+                <div class="custom-form-field">
+                    <span class="perfil-etiqueta">Correo Institucional</span>
+                    <span class="perfil-valor email-underlined" id="verCorreo">—</span>
                 </div>
-
-                <div class="text-center mt-4">
-                    <button type="submit" class="btn-guardar" id="btnGuardarPerfil" disabled>
-                        <i class="bi bi-floppy me-1"></i> Guardar Cambios
-                    </button>
+                <div class="custom-form-field">
+                    <span class="perfil-etiqueta">Rol</span>
+                    <span class="perfil-valor" id="verRol">—</span>
                 </div>
+                <div class="custom-form-field">
+                    <span class="perfil-etiqueta">Estado de la cuenta</span>
+                    <span class="perfil-valor" id="verEstadoCuenta">—</span>
+                </div>
+            </div>
 
-            </form>
+            <div class="text-center mt-4">
+                <a href="cambiocontrasena.html" class="btn-guardar d-inline-flex align-items-center gap-2 text-decoration-none">
+                    <i class="bi bi-shield-lock"></i> Cambiar contraseña
+                </a>
+            </div>
         </div>
 
     </div>

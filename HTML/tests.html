@@ -217,39 +217,75 @@
 
             <!-- Vista: Tests Respondidos -->
             <div id="vista-tests-respondidos" class="container-fluid p-0 d-none">
-                <div class="mb-3">
-                    <h5 class="fw-bold text-dark mb-1">Historial de Tests Respondidos</h5>
-                    <p class="text-muted small">Registro de cuestionarios completados por los estudiantes con sus respuestas detalladas.</p>
+
+                <div id="respondidosNivelCuestionarios">
+                    <div class="mb-3">
+                        <h5 class="fw-bold text-dark mb-1">Respuestas por Cuestionario</h5>
+                        <p class="text-muted small">Elige un cuestionario para ver qué estudiantes lo respondieron y revisar sus respuestas.</p>
+                    </div>
+                    <div class="row g-3" id="gridCuestionariosRespondidos"></div>
                 </div>
-                <div class="table-card">
-                    <div class="table-responsive">
-                        <table class="table align-middle table-hover">
-                            <thead>
-                                <tr>
-                                    <th>Estudiante</th>
-                                    <th>Cuestionario Resuelto</th>
-                                    <th>Fecha de Resolución</th>
-                                    <th class="text-center">Estado</th>
-                                    <th class="text-center">Detalle de Respuestas</th>
-                                </tr>
-                            </thead>
-                            <tbody id="tablaRespondidosBody">
-                            </tbody>
-                        </table>
+
+                <div id="respondidosNivelEstudiantes" class="d-none">
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                        <div>
+                            <h5 class="fw-bold text-dark mb-1" id="tituloCuestionarioRespuestas">Cuestionario</h5>
+                            <p class="text-muted small mb-0" id="resumenCuestionarioRespuestas"></p>
+                        </div>
+                        <button class="btn-volver-lista" id="btnVolverCuestionariosRespondidos" type="button">
+                            <i class="bi bi-arrow-left"></i>
+                            <span>Volver a cuestionarios</span>
+                        </button>
                     </div>
 
-                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mt-3 pt-3 border-top" id="paginacionRespondidos">
-                        <div class="text-muted small" id="infoPaginacionRespondidos">
-                            Mostrando <strong>0</strong> - <strong>0</strong> de <strong>0</strong> tests respondidos
+                    <div class="row g-2 mb-3 filtros-respuestas">
+                        <div class="col-12 col-md-6">
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                                <input type="text" id="buscarEstudianteRespuestas" class="form-control" placeholder="Buscar estudiante por nombre o carnet...">
+                            </div>
                         </div>
-                        <div class="d-flex align-items-center gap-2">
-                            <button class="btn btn-sm btn-outline-primary px-3 rounded-pill" id="btnPrevRespondidos" title="Página anterior" disabled>
-                                <i class="bi bi-chevron-left me-1"></i> Anterior
-                            </button>
-                            <span class="small fw-semibold px-2" id="indicadorPaginaRespondidos">Página 1 de 1</span>
-                            <button class="btn btn-sm btn-outline-primary px-3 rounded-pill" id="btnNextRespondidos" title="Página siguiente" disabled>
-                                Siguiente <i class="bi bi-chevron-right ms-1"></i>
-                            </button>
+                        <div class="col-6 col-md-3">
+                            <select id="filtroGradoRespuestas" class="form-select" aria-label="Filtrar por grado">
+                                <option value="">Todos los grados</option>
+                            </select>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <select id="filtroSeccionRespuestas" class="form-select" aria-label="Filtrar por sección">
+                                <option value="">Todas las secciones</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="table-card">
+                        <div class="table-responsive">
+                            <table class="table align-middle table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Estudiante</th>
+                                        <th>Grado y Sección</th>
+                                        <th>Fecha de Resolución</th>
+                                        <th class="text-center">Respuestas</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tablaRespondidosBody">
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mt-3 pt-3 border-top" id="paginacionRespondidos">
+                            <div class="text-muted small" id="infoPaginacionRespondidos">
+                                Mostrando <strong>0</strong> - <strong>0</strong> de <strong>0</strong> estudiantes
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <button class="btn btn-sm btn-outline-primary px-3 rounded-pill" id="btnPrevRespondidos" title="Página anterior" disabled>
+                                    <i class="bi bi-chevron-left me-1"></i> Anterior
+                                </button>
+                                <span class="small fw-semibold px-2" id="indicadorPaginaRespondidos">Página 1 de 1</span>
+                                <button class="btn btn-sm btn-outline-primary px-3 rounded-pill" id="btnNextRespondidos" title="Página siguiente" disabled>
+                                    Siguiente <i class="bi bi-chevron-right ms-1"></i>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>

@@ -9,17 +9,6 @@ const ProfileService = {
             if (!respuesta || respuesta.last !== false || lista.length === 0) return null;
         }
         return null;
-    },
-
-    actualizarPsicologo(idPsicologo, idUsuario, nombres, apellidos) {
-        return apiFetch(`/psicologos/${idPsicologo}`, {
-            method: 'PUT',
-            body: {
-                usuario: { idUsuario: Number(idUsuario) },
-                nombresCompletos: nombres,
-                apellidosCompletos: apellidos
-            }
-        });
     }
 };
 

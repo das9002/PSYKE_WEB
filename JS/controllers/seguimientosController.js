@@ -337,9 +337,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (elCarnet) elCarnet.textContent = est.codigoCarnet ?? '';
         if (elEspecialidad) elEspecialidad.textContent = est.especialidad?.nombreEspecialidad ?? 'General';
         if (elPsicologo) {
-            const psiSesion = ultimaSesion?.psicologo;
-            const psiNombre = psiSesion ? nombrePsicologo(psiSesion) : '';
-            elPsicologo.textContent = psiNombre ? `Lic. ${psiNombre}` : 'Sin asignar';
+            const idPropio = idPsicologoDeSesion();
+            const psiCuenta = idPropio ? estado.psicologos.find(p => Number(p.idPsicologo) === Number(idPropio)) : null;
+            const psiACargo = psiCuenta || ultimaSesion?.psicologo;
+            elPsicologo.textContent = psiACargo ? (nombrePsicologo(psiACargo) || 'Sin asignar') : 'Sin asignar';
         }
         if (elAvatar) elAvatar.textContent = obtenerIniciales(est.nombres, est.apellidos);
         if (elResumen) elResumen.value = expediente.resumenCaso ?? '';

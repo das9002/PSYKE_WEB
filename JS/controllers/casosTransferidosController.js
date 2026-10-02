@@ -58,16 +58,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function formatearFechaDisplay(fechaISO) {
         const partes = String(fechaISO ?? '').split('-');
-        if (partes.length !== 3) return fechaISO || 'Sin fecha';
+        if (partes.length !== 3) return fechaISO || 'Sin fecha registrada';
         return `${partes[2]} ${MESES[parseInt(partes[1], 10) - 1] || ''} ${partes[0]}`;
     }
 
-    function formatearFechaISO(fecha) {
-        const f = String(fecha ?? '').trim();
-        if (/^\d{4}-\d{2}-\d{2}$/.test(f)) return f;
-        const d = new Date(f);
-        if (isNaN(d.getTime())) return '';
-        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    function normalizarFecha(valor) {
+        if (Array.isArray(valor) && valor.length >= 3) {
+            return `${valor[0]}-${String(valor[1]).padStart(2, '0')}-${String(valor[2]).padStart(2, '0')}`;
+        }
+        return String(valor ?? '').slice(0, 10);
+    }
+
+    function esPsicologoDestino(c) {
+        if (estado.usuarioSesion?.tipoUsuario !== 'PSICOLOGO') return false;
+        const psiLog = estado.psicologoLogueado;
+        if (psiLog && c.idPsicologoDestino && Number(c.idPsicologoDestino) === Number(psiLog.idPsicologo ?? psiLog.id)) {
+            return true;
+        }
+        const correo = estado.usuarioSesion?.correo;
+        return Boolean(c.psicologoDestinoCorreo && correo && c.psicologoDestinoCorreo.toLowerCase() === correo.toLowerCase());
     }
 
     function adaptarTransferenciaApi(t) {
@@ -94,8 +103,7 @@ document.addEventListener('DOMContentLoaded', () => {
             idPsicologoDestino: destino?.idPsicologo ?? t.idPsicologoDestino,
             psicologoDestinoCorreo: destino?.usuario?.correo ?? destino?.correo,
             psicologoDestino: nombrePsicologo(destino) || '',
-            institucionDestino: t.institucionDestino ?? '',
-            fechaTransferencia: String(t.fechaTransferencia ?? '').slice(0, 10),
+            fechaTransferencia: normalizarFecha(t.fechaTransferencia),
             // motivoJustificacion en el DTO del backend
             motivoTransferencia: t.motivoJustificacion ?? t.motivoTransferencia ?? '',
             notasTransferencia: t.notasTransferencia ?? t.situacionEstudiante ?? '',
@@ -136,7 +144,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function destinoLegible(c) {
         if (c.psicologoDestino) return `Psicólogo: ${c.psicologoDestino}`;
-        if (c.institucionDestino) return `Institución: ${c.institucionDestino}`;
         return 'Por definir';
     }
 
@@ -184,17 +191,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let lista = typeof normalizarListado === 'function' ? normalizarListado(estado.transferencias) : (Array.isArray(estado.transferencias) ? estado.transferencias.slice() : (estado.transferencias?.content?.slice() || []));
 
         if (estado.usuarioSesion?.tipoUsuario === 'PSICOLOGO') {
-            const psiLog = estado.psicologoLogueado;
-            lista = lista.filter(c => {
-                let esDestino = false;
-                if (psiLog && c.idPsicologoDestino) {
-                    esDestino = Number(c.idPsicologoDestino) === Number(psiLog.idPsicologo ?? psiLog.id);
-                }
-                if (!esDestino && c.psicologoDestinoCorreo && estado.usuarioSesion?.correo) {
-                    esDestino = c.psicologoDestinoCorreo.toLowerCase() === estado.usuarioSesion.correo.toLowerCase();
-                }
-                return esDestino;
-            });
+            lista = lista.filter(esPsicologoDestino);
         }
 
         if (estado.filtroActual === 'pendientes') {
@@ -230,8 +227,17 @@ document.addEventListener('DOMContentLoaded', () => {
             const badgeClinicoHTML = renderBadgeClinico(c.estadoClinico);
             const badgeTransfer = datosBadgeTransferencia(c.estadoTransferencia);
 
+            const puedeResponder = esPsicologoDestino(c);
             let botonesHTML = '';
-            if (c.estadoTransferencia === 'PENDIENTE') {
+            if (c.estadoTransferencia === 'PENDIENTE' && !puedeResponder) {
+                botonesHTML = `
+                    <div class="d-flex align-items-center mt-3 pt-3 border-top w-100">
+                        <span class="text-muted small fw-bold d-flex align-items-center gap-1">
+                            <i class="bi bi-hourglass-split"></i> Esperando respuesta del psicólogo de destino
+                        </span>
+                    </div>
+                `;
+            } else if (c.estadoTransferencia === 'PENDIENTE') {
                 botonesHTML = `
                     <div class="d-flex align-items-center justify-content-end gap-2 mt-3 pt-3 border-top w-100">
                         <button class="btn-rechazar" onclick="abrirConfirmarRechazo(${c.id})">
@@ -286,9 +292,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             <div class="d-flex flex-column align-items-end gap-2">
                                 <span class="badge-transfer-status ${badgeTransfer.clase}">${badgeTransfer.texto}</span>
                                 <div class="d-flex gap-1">
-                                    <button class="btn btn-sm btn-outline-primary" title="Editar caso" onclick="abrirFormulario(${c.id})">
+                                    ${puedeResponder ? `<button class="btn btn-sm btn-outline-primary" title="Editar caso" onclick="abrirFormulario(${c.id})">
                                         <i class="bi bi-pencil"></i>
-                                    </button>
+                                    </button>` : ''}
                                     <button class="btn btn-sm btn-outline-danger" title="Eliminar caso" onclick="abrirConfirmarEliminar(${c.id})">
                                         <i class="bi bi-trash3"></i>
                                     </button>
@@ -316,9 +322,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             </div>
                         </div>
 
-                        <div class="small text-muted mb-2">
+                        ${c.notasTransferencia ? `<div class="small text-muted mb-2">
                             <strong>Situación actual:</strong> ${escapeHTML(c.notasTransferencia)}
-                        </div>
+                        </div>` : ''}
                     </div>
 
                     ${botonesHTML}
@@ -330,42 +336,6 @@ document.addEventListener('DOMContentLoaded', () => {
         actualizarMetricas();
     }
 
-
-    async function obtenerOCrearExpediente(idEstudiante) {
-        try {
-            const expedientes = await CasosTransferidosService.listarExpedientes();
-            const existente = Array.isArray(expedientes)
-                ? expedientes.find(exp => Number(exp.estudiante?.idEstudiante ?? exp.idEstudiante) === Number(idEstudiante))
-                : null;
-            if (existente) return existente.idExpediente;
-        } catch (_) { /* continúa para crear */ }
-        // Crear expediente si no existe
-        const nuevo = await CasosTransferidosService.crearExpediente({
-            estudiante: { idEstudiante: Number(idEstudiante) }
-        });
-        return nuevo.idExpediente;
-    }
-
-    async function construirPayloadDesdeFormulario(datos) {
-        // Obtener o crear el expediente del estudiante (requisito del FK en BD)
-        const idExpediente = await obtenerOCrearExpediente(datos.idEstudiante);
-
-        // Construir payload alineado con TranferenciaCasoDTO
-        const payload = {
-            expediente: { idExpediente: Number(idExpediente) },
-            psicologoOrigen: { idPsicologo: Number(datos.idPsicologoEmisor) },
-            motivoJustificacion: datos.motivoTransferencia,
-            estadoAprobacion: datos.estadoTransferencia
-        };
-
-        if (CasosTransferidosValidaciones.esIdValido(datos.idPsicologoDestino)) {
-            payload.psicologoDestino = { idPsicologo: Number(datos.idPsicologoDestino) };
-        }
-        if (estado.enEdicion) {
-            payload.idTransferencia = Number(estado.enEdicion);
-        }
-        return payload;
-    }
 
     function construirPayloadDesdeRegistro(c) {
         // Payload alineado con TranferenciaCasoDTO del backend
@@ -383,44 +353,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
-    function cargarSelectoresFormulario() {
-        const selEstudiante = el('selEstudianteTransferencia');
-        const selEmisor = el('selPsicologoEmisorTransferencia');
-        const selDestino = el('selPsicologoDestinoTransferencia');
-
-        if (selEstudiante) {
-            selEstudiante.innerHTML = '<option value="">Seleccionar estudiante</option>';
-            estado.estudiantes.forEach(est => {
-                const opt = document.createElement('option');
-                opt.value = est.idEstudiante;
-                opt.textContent = `${est.nombres ?? ''} ${est.apellidos ?? ''}`.trim()
-                    + (est.codigoCarnet ? ` — ${est.codigoCarnet}` : '');
-                selEstudiante.appendChild(opt);
-            });
-        }
-
-        if (selEmisor) {
-            selEmisor.innerHTML = '<option value="">Seleccionar psicólogo</option>';
-            estado.psicologos.forEach(psi => {
-                const opt = document.createElement('option');
-                opt.value = psi.idPsicologo;
-                opt.textContent = nombrePsicologo(psi);
-                selEmisor.appendChild(opt);
-            });
-        }
-
-        if (selDestino) {
-            selDestino.innerHTML = '<option value="">No aplica (destino externo)</option>';
-            estado.psicologos.forEach(psi => {
-                const opt = document.createElement('option');
-                opt.value = psi.idPsicologo;
-                opt.textContent = nombrePsicologo(psi);
-                selDestino.appendChild(opt);
-            });
-        }
-    }
-
-
     function crearModalFormulario() {
         const modalEl = document.createElement('div');
         modalEl.className = 'modal fade';
@@ -434,24 +366,35 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="modal-header">
                         <h5 class="modal-title fw-bold d-flex align-items-center gap-2" id="modalTransferenciaLabel">
                             <i class="bi bi-arrow-left-right text-primary"></i>
-                            <span>Registrar Transferencia de Caso</span>
+                            <span>Editar Transferencia de Caso</span>
                         </h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                     </div>
                     <form id="formTransferencia" novalidate>
                         <div class="modal-body">
+                            <p class="small text-muted mb-3">
+                                <i class="bi bi-lock-fill me-1"></i>Los datos de la transferencia los registró el psicólogo que la realizó y no se pueden modificar. Solo puedes cambiar el estado.
+                            </p>
                             <div class="row g-3">
                                 <div class="col-12 col-md-6">
-                                    <label class="custom-form-label">Estudiante *</label>
-                                    <select class="form-select" id="selEstudianteTransferencia"></select>
+                                    <label class="custom-form-label">Estudiante</label>
+                                    <input type="text" class="form-control" id="verEstudianteTransferencia" readonly disabled>
                                 </div>
                                 <div class="col-12 col-md-6">
-                                    <label class="custom-form-label">Fecha de transferencia *</label>
-                                    <input type="date" class="form-control" id="inputFechaTransferencia">
+                                    <label class="custom-form-label">Fecha de transferencia</label>
+                                    <input type="text" class="form-control" id="verFechaTransferencia" readonly disabled>
                                 </div>
                                 <div class="col-12 col-md-6">
-                                    <label class="custom-form-label">Psicólogo que transfiere *</label>
-                                    <select class="form-select" id="selPsicologoEmisorTransferencia"></select>
+                                    <label class="custom-form-label">Psicólogo que transfiere</label>
+                                    <input type="text" class="form-control" id="verPsicologoEmisorTransferencia" readonly disabled>
+                                </div>
+                                <div class="col-12 col-md-6">
+                                    <label class="custom-form-label">Psicólogo de destino</label>
+                                    <input type="text" class="form-control" id="verPsicologoDestinoTransferencia" readonly disabled>
+                                </div>
+                                <div class="col-12">
+                                    <label class="custom-form-label">Motivo de la transferencia</label>
+                                    <textarea class="form-control" rows="3" id="verMotivoTransferencia" readonly disabled></textarea>
                                 </div>
                                 <div class="col-12 col-md-6">
                                     <label class="custom-form-label">Estado *</label>
@@ -461,32 +404,12 @@ document.addEventListener('DOMContentLoaded', () => {
                                         <option value="RECHAZADA">Rechazada</option>
                                     </select>
                                 </div>
-                                <div class="col-12 col-md-6">
-                                    <label class="custom-form-label">Psicólogo de destino (interno)</label>
-                                    <select class="form-select" id="selPsicologoDestinoTransferencia"></select>
-                                </div>
-                                <div class="col-12 col-md-6">
-                                    <label class="custom-form-label">Institución / entidad externa de destino</label>
-                                    <input type="text" class="form-control" id="inputInstitucionDestino"
-                                        placeholder="Ej. Hospital San Rafael, Clínica Integral...">
-                                </div>
-                                <div class="col-12">
-                                    <label class="custom-form-label">Motivo de la transferencia *</label>
-                                    <textarea class="form-control" rows="3" id="textareaMotivoTransferencia"
-                                        placeholder="Detalle la razón clínica por la que se transfiere el caso..."></textarea>
-                                </div>
-                                <div class="col-12">
-                                    <label class="custom-form-label">Notas / situación del estudiante *</label>
-                                    <textarea class="form-control" rows="3" id="textareaNotasTransferencia"
-                                        placeholder="Diagnóstico y situación actual del estudiante..."></textarea>
-                                </div>
                             </div>
                         </div>
                         <div class="modal-footer">
-                            <button type="button" class="btn btn-light" id="btnLimpiarFormTransferencia">Limpiar</button>
                             <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
                             <button type="submit" class="btn btn-primary-custom" id="btnGuardarTransferencia">
-                                <i class="bi bi-check2-circle"></i> Guardar Transferencia
+                                <i class="bi bi-check2-circle"></i> Guardar cambios
                             </button>
                         </div>
                     </form>
@@ -505,12 +428,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function mostrarErrores(errores) {
         const mapa = {
-            estudiante: 'selEstudianteTransferencia',
-            psicologoEmisor: 'selPsicologoEmisorTransferencia',
-            destino: 'inputInstitucionDestino',
-            fecha: 'inputFechaTransferencia',
-            motivo: 'textareaMotivoTransferencia',
-            notas: 'textareaNotasTransferencia',
             estado: 'selectEstadoTransferencia'
         };
 
@@ -538,26 +455,25 @@ document.addEventListener('DOMContentLoaded', () => {
         if (estadoSelect) estadoSelect.value = 'PENDIENTE';
         limpiarErrores();
         estado.enEdicion = null;
-        const titulo = document.querySelector('#modalTransferenciaLabel span');
-        if (titulo) titulo.textContent = 'Registrar Transferencia de Caso';
     }
 
     window.abrirFormulario = function (id) {
-        estado.enEdicion = id || null;
+        const c = estado.transferencias.find(item => Number(item.id) === Number(id));
+        if (!c) return;
 
-        const c = id ? estado.transferencias.find(item => Number(item.id) === Number(id)) : null;
+        if (!esPsicologoDestino(c)) {
+            Notif.info('Solo el psicólogo que recibe el caso puede cambiar el estado de la transferencia.');
+            return;
+        }
 
-        const titulo = document.querySelector('#modalTransferenciaLabel span');
-        if (titulo) titulo.textContent = c ? 'Editar Transferencia de Caso' : 'Registrar Transferencia de Caso';
+        estado.enEdicion = c.id;
 
-        if (el('selEstudianteTransferencia')) el('selEstudianteTransferencia').value = c?.idEstudiante ?? '';
-        if (el('selPsicologoEmisorTransferencia')) el('selPsicologoEmisorTransferencia').value = c?.idPsicologoEmisor ?? '';
-        if (el('selPsicologoDestinoTransferencia')) el('selPsicologoDestinoTransferencia').value = c?.idPsicologoDestino ?? '';
-        if (el('inputInstitucionDestino')) el('inputInstitucionDestino').value = c?.institucionDestino ?? '';
-        if (el('inputFechaTransferencia')) el('inputFechaTransferencia').value = formatearFechaISO(c?.fechaTransferencia) || '';
-        if (el('textareaMotivoTransferencia')) el('textareaMotivoTransferencia').value = c?.motivoTransferencia ?? '';
-        if (el('textareaNotasTransferencia')) el('textareaNotasTransferencia').value = c?.notasTransferencia ?? '';
-        if (el('selectEstadoTransferencia')) el('selectEstadoTransferencia').value = c?.estadoTransferencia ?? 'PENDIENTE';
+        el('verEstudianteTransferencia').value = c.carnet ? `${c.estudianteNombre} — ${c.carnet}` : c.estudianteNombre;
+        el('verFechaTransferencia').value = formatearFechaDisplay(c.fechaTransferencia);
+        el('verPsicologoEmisorTransferencia').value = c.psicologoEmisor || 'Sin asignar';
+        el('verPsicologoDestinoTransferencia').value = c.psicologoDestino || 'Sin asignar';
+        el('verMotivoTransferencia').value = c.motivoTransferencia || '';
+        el('selectEstadoTransferencia').value = c.estadoTransferencia || 'PENDIENTE';
 
         limpiarErrores();
 
@@ -579,20 +495,18 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         limpiarErrores();
 
-        const datos = {
-            idEstudiante: el('selEstudianteTransferencia')?.value,
-            idPsicologoEmisor: el('selPsicologoEmisorTransferencia')?.value,
-            idPsicologoDestino: el('selPsicologoDestinoTransferencia')?.value,
-            institucionDestino: el('inputInstitucionDestino')?.value.trim(),
-            fechaTransferencia: el('inputFechaTransferencia')?.value,
-            motivoTransferencia: el('textareaMotivoTransferencia')?.value.trim(),
-            notasTransferencia: el('textareaNotasTransferencia')?.value.trim(),
-            estadoTransferencia: el('selectEstadoTransferencia')?.value || 'PENDIENTE'
-        };
+        const c = estado.transferencias.find(item => Number(item.id) === Number(estado.enEdicion));
+        if (!c) return;
 
-        const validacion = CasosTransferidosValidaciones.validarTransferencia(datos);
-        if (!validacion.valido) {
-            mostrarErrores(validacion.errores);
+        const nuevoEstado = el('selectEstadoTransferencia')?.value;
+        if (!ESTADOS_VALIDOS.includes(nuevoEstado)) {
+            mostrarErrores({ estado: 'Seleccione un estado válido.' });
+            return;
+        }
+
+        const modal = bootstrap.Modal.getInstance(el('modalFormTransferencia'));
+        if (nuevoEstado === c.estadoTransferencia) {
+            if (modal) modal.hide();
             return;
         }
 
@@ -600,26 +514,15 @@ document.addEventListener('DOMContentLoaded', () => {
         if (btnGuardar) { btnGuardar.disabled = true; btnGuardar.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Guardando...'; }
 
         try {
-            // construirPayloadDesdeFormulario es async: obtiene/crea el expediente
-            const payload = await construirPayloadDesdeFormulario(datos);
-
-            if (estado.enEdicion) {
-                await CasosTransferidosService.actualizar(estado.enEdicion, payload);
-            } else {
-                await CasosTransferidosService.crear(payload);
-            }
-
+            const payload = construirPayloadDesdeRegistro({ ...c, estadoTransferencia: nuevoEstado });
+            await CasosTransferidosService.actualizar(c.id, payload);
             await recargarTransferencias();
-            resetearFormulario();
-
-            const modal = bootstrap.Modal.getInstance(el('modalFormTransferencia'));
             if (modal) modal.hide();
-
-            Notif.exito('¡Transferencia de caso guardada exitosamente!');
+            Notif.exito('Estado de la transferencia actualizado.');
         } catch (error) {
             Notif.error(mensajeErrorAmigable(error), 'No se pudo guardar la transferencia');
         } finally {
-            if (btnGuardar) { btnGuardar.disabled = false; btnGuardar.innerHTML = '<i class="bi bi-check2-circle"></i> Guardar Transferencia'; }
+            if (btnGuardar) { btnGuardar.disabled = false; btnGuardar.innerHTML = '<i class="bi bi-check2-circle"></i> Guardar cambios'; }
         }
     }
 
@@ -714,13 +617,13 @@ document.addEventListener('DOMContentLoaded', () => {
                             </p>
                             <hr class="my-2">
                             <p class="mb-1 small"><strong>Motivo clínico:</strong> ${escapeHTML(c.motivoTransferencia)}</p>
-                            <p class="mb-0 small"><strong>Diagnóstico y situación:</strong> ${escapeHTML(c.notasTransferencia)}</p>
+                            ${c.notasTransferencia ? `<p class="mb-0 small"><strong>Diagnóstico y situación:</strong> ${escapeHTML(c.notasTransferencia)}</p>` : ''}
                         </div>
                         <div class="d-flex justify-content-end gap-2 flex-wrap">
-                            <button class="btn btn-outline-primary btn-sm d-inline-flex align-items-center gap-1" onclick="abrirFormulario(${c.id})">
+                            ${esPsicologoDestino(c) ? `<button class="btn btn-outline-primary btn-sm d-inline-flex align-items-center gap-1" onclick="abrirFormulario(${c.id})">
                                 <i class="bi bi-pencil"></i> Editar Caso
-                            </button>
-                            <a href="seguimientos.html" class="btn btn-primary btn-sm d-inline-flex align-items-center gap-1">
+                            </button>` : ''}
+                            <a href="seguimientos.html${c.idEstudiante ? `?estudiante=${c.idEstudiante}` : ''}" class="btn btn-primary btn-sm d-inline-flex align-items-center gap-1">
                                 <i class="bi bi-graph-up-arrow"></i> Ir a Seguimiento de Casos
                             </a>
                             <a href="citas.html" class="btn btn-outline-primary btn-sm d-inline-flex align-items-center gap-1">
@@ -777,7 +680,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             Notif.error(mensaje);
         }
-        cargarSelectoresFormulario();
         renderCasos();
     }
 
@@ -802,11 +704,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         el('formTransferencia')?.addEventListener('submit', manejarSubmit);
-        el('btnLimpiarFormTransferencia')?.addEventListener('click', resetearFormulario);
 
-        document.querySelectorAll('#formTransferencia input, #formTransferencia select, #formTransferencia textarea')
+        document.querySelectorAll('#formTransferencia select')
             .forEach(campo => {
-                campo.addEventListener('input', () => {
+                campo.addEventListener('change', () => {
                     if (campo.classList.contains('is-invalid')) {
                         campo.classList.remove('is-invalid');
                         const fb = campo.nextElementSibling;
