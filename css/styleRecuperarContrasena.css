@@ -36,12 +36,12 @@
 
 .pasos-recuperacion .paso.activo {
     color: #ffffff;
-    border-color: #2F6DF6;
-    background: rgba(47, 109, 246, 0.12);
+    border-color: #1a73e8;
+    background: rgba(26, 115, 232, 0.12);
 }
 
 .pasos-recuperacion .paso.activo span {
-    background: #2F6DF6;
+    background: #1a73e8;
     color: #ffffff;
 }
 

@@ -43,7 +43,10 @@ document.addEventListener('DOMContentLoaded', () => {
         respondidosCargados: false,
         estudiantesCargados: false,
         cuestionarioEditandoId: null,
-        cargandoCatalogo: false
+        cargandoCatalogo: false,
+        paginaActualRespondidos: 1,
+        limiteRespondidos: 10,
+        listaRespondidosFiltrada: []
     };
 
     function el(id) {
@@ -269,6 +272,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     if (tabRespondidos) tabRespondidos.addEventListener('click', () => {
+        estado.paginaActualRespondidos = 1;
         activarPestana(tabRespondidos, vistaRespondidos);
         cargarTestsRespondidos().then(() => renderTablaRespondidos());
     });
@@ -837,6 +841,22 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    function actualizarPaginacionRespondidosUI(inicio, fin, total, paginaActual, totalPaginas) {
+        const info = el('infoPaginacionRespondidos');
+        const ind = el('indicadorPaginaRespondidos');
+        const btnPrev = el('btnPrevRespondidos');
+        const btnNext = el('btnNextRespondidos');
+
+        if (info) {
+            info.innerHTML = total === 0
+                ? 'Mostrando <strong>0</strong> - <strong>0</strong> de <strong>0</strong> tests respondidos'
+                : `Mostrando <strong>${inicio}</strong> - <strong>${fin}</strong> de <strong>${total}</strong> tests respondidos`;
+        }
+        if (ind) ind.textContent = `Página ${paginaActual} de ${totalPaginas}`;
+        if (btnPrev) btnPrev.disabled = paginaActual <= 1;
+        if (btnNext) btnNext.disabled = paginaActual >= totalPaginas;
+    }
+
     function renderTablaRespondidos(filtroCuestionarioId = null) {
         const tbody = el('tablaRespondidosBody');
         if (!tbody) return;
@@ -846,13 +866,29 @@ document.addEventListener('DOMContentLoaded', () => {
         if (filtroCuestionarioId !== null) {
             lista = lista.filter(r => Number(r?.cuestionario?.idCuestionario ?? r?.cuestionarioId) === Number(filtroCuestionarioId));
         }
+        estado.listaRespondidosFiltrada = lista;
 
-        if (lista.length === 0) {
+        const totalItems = lista.length;
+        const totalPaginas = Math.ceil(totalItems / estado.limiteRespondidos) || 1;
+
+        if (estado.paginaActualRespondidos > totalPaginas) {
+            estado.paginaActualRespondidos = totalPaginas;
+        }
+        if (estado.paginaActualRespondidos < 1) {
+            estado.paginaActualRespondidos = 1;
+        }
+
+        const inicio = (estado.paginaActualRespondidos - 1) * estado.limiteRespondidos;
+        const fin = Math.min(inicio + estado.limiteRespondidos, totalItems);
+        const respondidosPagina = lista.slice(inicio, fin);
+
+        if (totalItems === 0) {
             mostrarFilaVacia(tbody, 5, 'No hay tests respondidos registrados aún.');
+            actualizarPaginacionRespondidosUI(0, 0, 0, 1, 1);
             return;
         }
 
-        lista.forEach(r => {
+        respondidosPagina.forEach(r => {
             const idR = idRespondido(r);
             const cuestionario = estado.cuestionarios.find(c => Number(idCuestionario(c)) === Number(r?.cuestionario?.idCuestionario ?? r?.cuestionarioId)) || r?.cuestionario;
             const tr = document.createElement('tr');
@@ -881,14 +917,32 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
             tbody.appendChild(tr);
         });
+
+        actualizarPaginacionRespondidosUI(inicio + 1, fin, totalItems, estado.paginaActualRespondidos, totalPaginas);
     }
 
     window.verRespondidosTest = function (idCuestionario) {
+        estado.paginaActualRespondidos = 1;
         cargarTestsRespondidos().then(() => {
             activarPestana(tabRespondidos, vistaRespondidos);
             renderTablaRespondidos(idCuestionario);
         });
     };
+
+    el('btnPrevRespondidos')?.addEventListener('click', () => {
+        if (estado.paginaActualRespondidos > 1) {
+            estado.paginaActualRespondidos--;
+            renderTablaRespondidos();
+        }
+    });
+
+    el('btnNextRespondidos')?.addEventListener('click', () => {
+        const totalPaginas = Math.ceil(estado.listaRespondidosFiltrada.length / estado.limiteRespondidos) || 1;
+        if (estado.paginaActualRespondidos < totalPaginas) {
+            estado.paginaActualRespondidos++;
+            renderTablaRespondidos();
+        }
+    });
 
     window.verDetalleRespuestas = async function (respId) {
         let r = estado.testsRespondidos.find(item => Number(idRespondido(item)) === Number(respId));

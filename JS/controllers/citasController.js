@@ -11,7 +11,10 @@ document.addEventListener('DOMContentLoaded', () => {
         modoEdicion: false,
         idEnEdicion: null,
         usuarioSesion: null,
-        psicologoLogueado: null
+        psicologoLogueado: null,
+        paginaActual: 1,
+        limitePorPagina: 10,
+        listaFiltradaActual: []
     };
 
     async function obtenerUsuarioSesion() {
@@ -204,16 +207,47 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function actualizarPaginacionCitasUI(inicio, fin, total, paginaActual, totalPaginas) {
+        const info = el('infoPaginacionCitas');
+        const ind = el('indicadorPaginaCitas');
+        const btnPrev = el('btnPrevCitas');
+        const btnNext = el('btnNextCitas');
+
+        if (info) {
+            info.innerHTML = total === 0
+                ? 'Mostrando <strong>0</strong> - <strong>0</strong> de <strong>0</strong> citas'
+                : `Mostrando <strong>${inicio}</strong> - <strong>${fin}</strong> de <strong>${total}</strong> citas`;
+        }
+        if (ind) ind.textContent = `Página ${paginaActual} de ${totalPaginas}`;
+        if (btnPrev) btnPrev.disabled = paginaActual <= 1;
+        if (btnNext) btnNext.disabled = paginaActual >= totalPaginas;
+    }
+
     function renderTabla(lista = estado.citas) {
         const tbody = el('tablaCitas');
         if (!tbody) return;
 
         const filtrados = aplicarFiltro(lista);
+        estado.listaFiltradaActual = filtrados;
+
+        const totalItems = filtrados.length;
+        const totalPaginas = Math.ceil(totalItems / estado.limitePorPagina) || 1;
+
+        if (estado.paginaActual > totalPaginas) {
+            estado.paginaActual = totalPaginas;
+        }
+        if (estado.paginaActual < 1) {
+            estado.paginaActual = 1;
+        }
+
+        const inicio = (estado.paginaActual - 1) * estado.limitePorPagina;
+        const fin = Math.min(inicio + estado.limitePorPagina, totalItems);
+        const citasPagina = filtrados.slice(inicio, fin);
 
         tbody.innerHTML = '';
         if (el('contadorMostrados')) el('contadorMostrados').textContent = filtrados.length;
 
-        if (filtrados.length === 0) {
+        if (totalItems === 0) {
             const mensaje = estado.citas.length > 0
                 ? 'No se encontraron citas en esta categoría.'
                 : 'No hay citas registradas en el sistema';
@@ -224,11 +258,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         ${mensaje}
                     </td>
                 </tr>`;
+            actualizarPaginacionCitasUI(0, 0, 0, 1, 1);
             actualizarMetricas();
             return;
         }
 
-        filtrados.forEach((cita, indice) => {
+        citasPagina.forEach((cita, indiceRelativo) => {
+            const indiceGlobal = inicio + indiceRelativo;
             const id = idCita(cita);
             const est = estadoCita(cita);
             const nombre = nombreEstudiante(cita);
@@ -238,7 +274,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td><div class="barra-estado ${colorBarraEstado(est)}"></div></td>
-                <td class="fw-bold text-muted">#${indice + 1}</td>
+                <td class="fw-bold text-muted">#${indiceGlobal + 1}</td>
                 <td>
                     <div class="d-flex align-items-center gap-2">
                         <div class="student-avatar-badge">${escapeHTML(iniciales(nombre))}</div>
@@ -281,6 +317,7 @@ document.addEventListener('DOMContentLoaded', () => {
             tbody.appendChild(tr);
         });
 
+        actualizarPaginacionCitasUI(inicio + 1, fin, totalItems, estado.paginaActual, totalPaginas);
         actualizarMetricas();
     }
 
@@ -966,6 +1003,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     el('buscarEstudiante')?.addEventListener('input', (e) => {
+        estado.paginaActual = 1;
         estado.textoBusqueda = e.target.value.trim();
         renderTabla();
     });
@@ -975,9 +1013,25 @@ document.addEventListener('DOMContentLoaded', () => {
             document.querySelectorAll('.citas-filter-nav .nav-link-custom')
                 .forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
+            estado.paginaActual = 1;
             estado.filtro = btn.dataset.filter;
             renderTabla();
         });
+    });
+
+    el('btnPrevCitas')?.addEventListener('click', () => {
+        if (estado.paginaActual > 1) {
+            estado.paginaActual--;
+            renderTabla();
+        }
+    });
+
+    el('btnNextCitas')?.addEventListener('click', () => {
+        const totalPaginas = Math.ceil(estado.listaFiltradaActual.length / estado.limitePorPagina) || 1;
+        if (estado.paginaActual < totalPaginas) {
+            estado.paginaActual++;
+            renderTabla();
+        }
     });
 
     const hamburgerBtn = el('hamburgerBtn');

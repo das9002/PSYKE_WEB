@@ -372,6 +372,13 @@ document.addEventListener('DOMContentLoaded', () => {
         chatOverlay.classList.add('active');
         chatPanel.classList.add('active');
 
+        if (typeof window.ocultarBotonCloudee === 'function') {
+            window.ocultarBotonCloudee();
+        } else {
+            const btnAI = document.getElementById('btnAIAssistant');
+            if (btnAI) btnAI.style.display = 'none';
+        }
+
         await sincronizar();
         iniciarSincronizacion();
         programarSincronizacion();
@@ -390,6 +397,16 @@ document.addEventListener('DOMContentLoaded', () => {
     function closeChat() {
         chatOverlay.classList.remove('active');
         chatPanel.classList.remove('active');
+
+        if (typeof window.mostrarBotonCloudee === 'function') {
+            window.mostrarBotonCloudee();
+        } else {
+            const btnAI = document.getElementById('btnAIAssistant');
+            const aiPanel = document.getElementById('aiAssistantPanel');
+            if (btnAI && (!aiPanel || !aiPanel.classList.contains('active'))) {
+                btnAI.style.display = 'flex';
+            }
+        }
     }
 
     function updateUnreadBadge() {

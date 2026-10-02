@@ -302,3 +302,10 @@ html.dark-mode .ai-input-field {
 html.dark-mode .btn-icon:hover {
     background-color: rgba(47, 109, 246, 0.2);
 }
+
+#btnAIAssistant.hidden {
+    display: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+}

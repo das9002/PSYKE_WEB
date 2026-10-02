@@ -9,7 +9,10 @@ document.addEventListener('DOMContentLoaded', () => {
         modoEdicion: false,
         idEnEdicion: null,
         credencial: null,
-        usuarioSesion: null
+        usuarioSesion: null,
+        paginaActual: 1,
+        limitePorPagina: 10,
+        listaFiltradaActual: []
     };
 
     async function obtenerUsuarioSesion() {
@@ -110,22 +113,54 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function actualizarPaginacionEstudiantesUI(inicio, fin, total, paginaActual, totalPaginas) {
+        const info = el('infoPaginacionEstudiantes');
+        const ind = el('indicadorPaginaEstudiantes');
+        const btnPrev = el('btnPrevEstudiantes');
+        const btnNext = el('btnNextEstudiantes');
+
+        if (info) {
+            info.innerHTML = total === 0
+                ? 'Mostrando <strong>0</strong> - <strong>0</strong> de <strong>0</strong> estudiantes'
+                : `Mostrando <strong>${inicio}</strong> - <strong>${fin}</strong> de <strong>${total}</strong> estudiantes`;
+        }
+        if (ind) ind.textContent = `Página ${paginaActual} de ${totalPaginas}`;
+        if (btnPrev) btnPrev.disabled = paginaActual <= 1;
+        if (btnNext) btnNext.disabled = paginaActual >= totalPaginas;
+    }
+
     function renderTabla(lista = estado.estudiantes) {
         const tbody = el('tablaEstudiantesBody');
         const noResults = el('noResultsEstudiantes');
         if (!tbody) return;
 
         const estudiantes = typeof normalizarListado === 'function' ? normalizarListado(lista) : (Array.isArray(lista) ? lista : (lista?.content || []));
+        estado.listaFiltradaActual = estudiantes;
+
+        const totalItems = estudiantes.length;
+        const totalPaginas = Math.ceil(totalItems / estado.limitePorPagina) || 1;
+
+        if (estado.paginaActual > totalPaginas) {
+            estado.paginaActual = totalPaginas;
+        }
+        if (estado.paginaActual < 1) {
+            estado.paginaActual = 1;
+        }
+
+        const inicio = (estado.paginaActual - 1) * estado.limitePorPagina;
+        const fin = Math.min(inicio + estado.limitePorPagina, totalItems);
+        const estudiantesPagina = estudiantes.slice(inicio, fin);
 
         tbody.innerHTML = '';
 
-        if (estudiantes.length === 0) {
+        if (totalItems === 0) {
             if (noResults) noResults.classList.remove('d-none');
+            actualizarPaginacionEstudiantesUI(0, 0, 0, 1, 1);
             return;
         }
         if (noResults) noResults.classList.add('d-none');
 
-        estudiantes.forEach((est) => {
+        estudiantesPagina.forEach((est) => {
             const id = idEstudiante(est);
             const tr = document.createElement('tr');
 
@@ -171,6 +206,8 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
             tbody.appendChild(tr);
         });
+
+        actualizarPaginacionEstudiantesUI(inicio + 1, fin, totalItems, estado.paginaActual, totalPaginas);
     }
 
     function llenarSelect(select, opciones, valorPredeterminado) {
@@ -719,6 +756,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (buscar) {
             buscar.addEventListener('input', (e) => {
+                estado.paginaActual = 1;
                 const texto = e.target.value.toLowerCase().trim();
                 const filtrados = estado.estudiantes.filter(est =>
                     (est.nombres || '').toLowerCase().includes(texto) ||
@@ -730,6 +768,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 renderTabla(filtrados);
             });
         }
+
+        el('btnPrevEstudiantes')?.addEventListener('click', () => {
+            if (estado.paginaActual > 1) {
+                estado.paginaActual--;
+                renderTabla(estado.listaFiltradaActual);
+            }
+        });
+
+        el('btnNextEstudiantes')?.addEventListener('click', () => {
+            const totalPaginas = Math.ceil(estado.listaFiltradaActual.length / estado.limitePorPagina) || 1;
+            if (estado.paginaActual < totalPaginas) {
+                estado.paginaActual++;
+                renderTabla(estado.listaFiltradaActual);
+            }
+        });
     }
 
     el('btnAbrirModalAgregar')?.addEventListener('click', window.abrirModalAgregar);

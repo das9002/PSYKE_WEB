@@ -146,11 +146,37 @@
         return document.getElementById('aiAssistantPanel');
     }
 
+    function ocultarBotonCloudee() {
+        const floatBtn = document.getElementById('btnAIAssistant');
+        if (floatBtn) {
+            floatBtn.classList.add('hidden');
+            floatBtn.style.display = 'none';
+        }
+    }
+
+    function mostrarBotonCloudee() {
+        const floatBtn = document.getElementById('btnAIAssistant');
+        const aiPanel = obtenerPanel();
+        const chatPanel = document.getElementById('chatPanel');
+
+        const aiActive = aiPanel && aiPanel.classList.contains('active');
+        const chatActive = chatPanel && chatPanel.classList.contains('active');
+
+        if (floatBtn && !aiActive && !chatActive) {
+            floatBtn.classList.remove('hidden');
+            floatBtn.style.display = 'flex';
+        }
+    }
+
+    window.ocultarBotonCloudee = ocultarBotonCloudee;
+    window.mostrarBotonCloudee = mostrarBotonCloudee;
+
     function abrirAsistente() {
         const overlay = obtenerOverlay();
         const panel = obtenerPanel();
         if (overlay) overlay.classList.add('active');
         if (panel) panel.classList.add('active');
+        ocultarBotonCloudee();
         renderCloudeeAvatar('neutral');
         const input = document.getElementById('aiInputField');
         if (input) setTimeout(() => input.focus(), 300);
@@ -161,6 +187,7 @@
         const panel = obtenerPanel();
         if (overlay) overlay.classList.remove('active');
         if (panel) panel.classList.remove('active');
+        mostrarBotonCloudee();
     }
 
     function agregarMensaje(texto, tipo) {
@@ -266,6 +293,14 @@
             if (e.key === 'Escape') {
                 cerrarAsistente();
             }
+        });
+
+        document.addEventListener('show.bs.modal', () => {
+            ocultarBotonCloudee();
+        });
+
+        document.addEventListener('hidden.bs.modal', () => {
+            mostrarBotonCloudee();
         });
     }
 

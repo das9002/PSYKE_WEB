@@ -518,3 +518,22 @@ html.dark-mode .swal2-cancel {
 html.dark-mode .swal2-cancel:hover {
     background-color: #374151 !important;
 }
+
+html.dark-mode #infoPaginacionPsicologos,
+html.dark-mode #infoPaginacionCitas,
+html.dark-mode #infoPaginacionEstudiantes,
+html.dark-mode #infoPaginacionRespondidos {
+    color: #9ca3af !important;
+}
+
+html.dark-mode #infoPaginacionPsicologos strong,
+html.dark-mode #infoPaginacionCitas strong,
+html.dark-mode #infoPaginacionEstudiantes strong,
+html.dark-mode #infoPaginacionRespondidos strong,
+html.dark-mode #indicadorPaginaPsicologos,
+html.dark-mode #indicadorPaginaCitas,
+html.dark-mode #indicadorPaginaEstudiantes,
+html.dark-mode #indicadorPaginaRespondidos {
+    color: #f3f4f6 !important;
+}
+

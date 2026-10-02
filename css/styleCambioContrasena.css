@@ -1,13 +1,13 @@
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
 
 :root {
-    --bg-gradient: radial-gradient(circle at top left, #141C4D, #2F6DF6, #1d4ed8);
+    --bg-gradient: linear-gradient(135deg, #4b46ef 0%, #4338e0 100%);
     --card-dark-bg: #111827;
     --input-dark-bg: #1f2937;
     --input-border: #374151;
-    --gradient-right: linear-gradient(145deg, #2F6DF6 0%, #1e56d4 50%, #141C4D 100%);
-    --btn-blue: #2F6DF6;
-    --btn-blue-hover: #1e56d4;
+    --gradient-right: linear-gradient(135deg, #1a73e8, #7c3aed);
+    --btn-blue: #1a73e8;
+    --btn-blue-hover: #1557b0;
     --font-base: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 }
 
@@ -18,7 +18,7 @@
 
 body {
     background: var(--bg-gradient);
-    background-color: #2F6DF6;
+    background-color: #4b46ef;
     font-family: var(--font-base);
     min-height: 100vh;
     margin: 0;
@@ -42,7 +42,7 @@ body {
 .floating-sphere {
     position: absolute;
     border-radius: 50%;
-    background: radial-gradient(circle at 30% 30%, #38bdf8, #2563eb);
+    background: radial-gradient(circle at 30% 30%, #8a3fd6, #241b6b);
     box-shadow: inset -10px -10px 20px rgba(0,0,0,0.5), 10px 10px 20px rgba(0,0,0,0.3);
     z-index: 1;
     animation: float 6s ease-in-out infinite;
