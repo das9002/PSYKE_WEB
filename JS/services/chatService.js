@@ -21,6 +21,21 @@ document.addEventListener('DOMContentLoaded', () => {
         return div.innerHTML.replace(/"/g, '&quot;');
     }
 
+    const COLORES_AVATAR = ['#2563EB', '#059669', '#7C3AED', '#DB2777', '#D97706', '#0891B2'];
+
+    function inicialesDe(nombres, apellidos) {
+        const primera = (texto) => String(texto || '').trim().charAt(0).toUpperCase();
+        return `${primera(nombres)}${primera(apellidos)}` || 'ES';
+    }
+
+    function colorAvatar(id) {
+        return COLORES_AVATAR[Math.abs(Number(id) || 0) % COLORES_AVATAR.length];
+    }
+
+    function avatarHTML(paciente) {
+        return `<div class="chat-avatar chat-avatar-iniciales" style="background-color: ${paciente.color}" aria-hidden="true">${escapeHTML(paciente.iniciales)}</div>`;
+    }
+
     function recortar(texto, limite) {
         const limpio = String(texto || '').replace(/\s+/g, ' ').trim();
         return limpio.length > limite ? `${limpio.slice(0, limite)}…` : limpio;
@@ -74,7 +89,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 userId: Number(est.usuario.idUsuario),
                 name: `${est.nombres || ''} ${est.apellidos || ''}`.trim() || 'Estudiante',
                 carnet: est.codigoCarnet || '',
-                avatar: '../img/Logo0.png',
+                iniciales: inicialesDe(est.nombres, est.apellidos),
+                color: colorAvatar(est.idEstudiante),
                 lastMsg: 'Sin mensajes',
                 time: '',
                 lastDate: null,
@@ -509,7 +525,7 @@ document.addEventListener('DOMContentLoaded', () => {
             item.className = `chat-patient-item ${p.id === activeChatId ? 'active' : ''}`;
             item.innerHTML = `
                 <div class="chat-avatar-wrapper">
-                    <img src="${p.avatar}" class="chat-avatar" alt="${escapeHTML(p.name)}">
+                    ${avatarHTML(p)}
                 </div>
                 <div class="chat-patient-info">
                     <div class="chat-patient-header">
@@ -536,7 +552,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const activeUserContainer = document.getElementById('chatActiveUser');
         if (activeUserContainer) {
             activeUserContainer.innerHTML = `
-                <img src="${patient.avatar}" class="chat-avatar" alt="${escapeHTML(patient.name)}">
+                ${avatarHTML(patient)}
                 <div>
                     <h5 class="chat-active-name">${escapeHTML(patient.name)}</h5>
                     <span class="chat-active-status offline">${patient.carnet ? `Carnet: ${escapeHTML(patient.carnet)}` : 'Estudiante'}</span>
@@ -626,10 +642,29 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    if (window.location.hash === '#openChat') {
-        history.replaceState("", document.title, window.location.pathname + window.location.search);
-        openChat();
+    function ocultarChat() {
+        if (chatIcon) {
+            const contenedor = chatIcon.closest('button') || chatIcon.closest('.icono-con-badge') || chatIcon;
+            contenedor.style.display = 'none';
+        }
+        if (sidebarChatLink) {
+            (sidebarChatLink.closest('li') || sidebarChatLink).style.display = 'none';
+        }
+        chatPanel.remove();
+        chatOverlay.remove();
     }
 
-    sincronizar().then(iniciarSincronizacion);
+    verificarSesion().then((usuario) => {
+        if (usuario && String(usuario.tipoUsuario).toUpperCase() === 'ADMIN') {
+            ocultarChat();
+            return;
+        }
+
+        if (window.location.hash === '#openChat') {
+            history.replaceState("", document.title, window.location.pathname + window.location.search);
+            openChat();
+        }
+
+        sincronizar().then(iniciarSincronizacion);
+    });
 });

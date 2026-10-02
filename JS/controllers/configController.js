@@ -30,6 +30,15 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    if (typeof verificarSesion === 'function') {
+        verificarSesion().then((usuario) => {
+            if (usuario && String(usuario.tipoUsuario).toUpperCase() === 'ADMIN') {
+                const opcionMensajes = document.getElementById('switchMensajes')?.closest('.settings-item');
+                if (opcionMensajes) opcionMensajes.style.display = 'none';
+            }
+        });
+    }
+
     const switchOscuro = document.getElementById('switchOscuro'); 
     if (switchOscuro) {
         switchOscuro.checked = document.documentElement.classList.contains('dark-mode');

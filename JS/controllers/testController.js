@@ -636,6 +636,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 opt.textContent = `Lic. ${psi.nombresCompletos ?? ''} ${psi.apellidosCompletos ?? ''}`.trim() || `Psicólogo #${psi.idPsicologo}`;
                 selectCreador.appendChild(opt);
             });
+
+            const usuario = typeof verificarSesion === 'function' ? await verificarSesion() : null;
+            const propio = usuario && estado.psicologos.find(p => Number(p.usuario?.idUsuario) === Number(usuario.idUsuario));
+            if (propio) {
+                selectCreador.value = String(propio.idPsicologo);
+                selectCreador.disabled = String(usuario.tipoUsuario).toUpperCase() === 'PSICOLOGO';
+            }
         } catch (error) {
             Notif.error(mensajeErrorAmigable(error), 'No se pudieron cargar los psicólogos');
         }

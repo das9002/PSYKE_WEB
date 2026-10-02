@@ -333,6 +333,18 @@ html.dark-mode .chat-patient-item.active {
     height: 44px;
     border-radius: 50%;
     object-fit: cover;
+    flex-shrink: 0;
+}
+
+.chat-avatar-iniciales {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    font-weight: 700;
+    font-size: 0.95rem;
+    letter-spacing: 0.02em;
+    user-select: none;
 }
 
 .chat-status-dot {
