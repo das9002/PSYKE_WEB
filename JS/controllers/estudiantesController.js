@@ -215,6 +215,10 @@ document.addEventListener('DOMContentLoaded', () => {
         actualizarPaginacionEstudiantesUI(inicio + 1, fin, totalItems, estado.paginaActual, totalPaginas);
     }
 
+    function ordenNatural(a, b) {
+        return String(a ?? '').localeCompare(String(b ?? ''), 'es', { numeric: true, sensitivity: 'base' });
+    }
+
     function llenarSelect(select, opciones, valorPredeterminado) {
         if (!select) return;
         select.innerHTML = '';
@@ -278,7 +282,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 return /[123]/.test(String(g.nombreGrado || ''));
             });
             if (filtrados.length > 0) {
-                opcionesGrado = filtrados.map(g => ({ value: g.idGrado, texto: g.nombreGrado }));
+                opcionesGrado = filtrados
+                    .sort((a, b) => ordenNatural(a.nombreGrado, b.nombreGrado))
+                    .map(g => ({ value: g.idGrado, texto: g.nombreGrado }));
             }
         }
         if (opcionesGrado.length === 0) {
@@ -297,7 +303,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
             if (filtrados.length > 0) {
-                opcionesSeccion = filtrados.map(s => ({ value: s.idSeccion, texto: `Sección "${s.nombreSeccion}"` }));
+                opcionesSeccion = filtrados
+                    .sort((a, b) => ordenNatural(a.nombreSeccion, b.nombreSeccion))
+                    .map(s => ({ value: s.idSeccion, texto: `Sección "${s.nombreSeccion}"` }));
             }
         }
         if (opcionesSeccion.length === 0) {

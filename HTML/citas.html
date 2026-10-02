@@ -249,6 +249,7 @@
                                 <label for="estudianteSelect" class="custom-form-label">
                                     <i class="bi bi-person-fill me-1 text-primary"></i> Estudiante <span class="text-danger">*</span>
                                 </label>
+                                <input type="search" class="form-control mb-2" id="buscarEstudianteCita" placeholder="Buscar por nombre o carnet..." autocomplete="off">
                                 <select class="form-select" id="estudianteSelect" required>
                                     <option value="" selected disabled>Seleccionar estudiante</option>
                                 </select>
@@ -268,6 +269,7 @@
                                     <i class="bi bi-calendar3 me-1 text-primary"></i> Fecha de Cita <span class="text-danger">*</span>
                                 </label>
                                 <input type="date" class="form-control" id="fechaCita" required>
+                                <small class="form-text text-muted" id="fechaCitaAyuda">Solo de lunes a viernes</small>
                             </div>
 
                             <div class="col-md-6">
@@ -277,6 +279,7 @@
                                 <select class="form-select" id="horaCita" required>
                                     <option value="" selected disabled>Seleccionar hora</option>
                                 </select>
+                                <small class="form-text text-muted">Horario de atención: 8:00 AM a 3:30 PM</small>
                             </div>
 
                             <div class="col-md-6">

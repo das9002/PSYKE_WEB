@@ -229,6 +229,7 @@
                                     <i class="bi bi-calendar3 text-primary me-1"></i> Fecha de Atención <span class="text-danger">*</span>
                                 </label>
                                 <input type="date" class="form-control" id="fechaCitaSeg" required>
+                                <small class="form-text text-muted" id="fechaCitaSegAyuda"></small>
                             </div>
 
                             <div class="col-md-4">
@@ -247,6 +248,7 @@
                                     <i class="bi bi-calendar2-check text-primary me-1"></i> Cita Vinculada (Opcional)
                                 </label>
                                 <input type="text" class="form-control" id="citaVinculadaSeg" placeholder="Ej. CIT-104" maxlength="20">
+                                <small class="form-text text-muted" id="citaVinculadaSegAyuda"></small>
                             </div>
 
                             <div class="col-md-6">
@@ -316,11 +318,11 @@
     <script>
         (function () {
             const hoy = new Date();
-            const fechaMin = hoy.getFullYear() + '-' +
+            const fechaMax = hoy.getFullYear() + '-' +
                 String(hoy.getMonth() + 1).padStart(2, '0') + '-' +
                 String(hoy.getDate()).padStart(2, '0');
             const fechaCitaSeg = document.getElementById('fechaCitaSeg');
-            if (fechaCitaSeg) fechaCitaSeg.setAttribute('min', fechaMin);
+            if (fechaCitaSeg) fechaCitaSeg.setAttribute('max', fechaMax);
         })();
     </script>
 </body>

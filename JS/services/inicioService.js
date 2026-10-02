@@ -57,7 +57,7 @@ const DashboardService = {
             totalCitas: citas.length,
             totalSesiones: sesiones.length,
             citasPendientes: citas.filter(c => (c.estado || c.estadoConfirmacion) === 'PENDIENTE').length,
-            casosCriticos: sesiones.filter(s => s.marcadorCritico === true || s.esCritico === true).length,
+            casosCriticos: sesiones.filter(s => s.marcadorCritico === 'SI' || s.marcadorCritico === true || s.esCritico === true).length,
             esFallback: true // Flag informativo para la interfaz si se requiere mostrar una advertencia
         };
     }

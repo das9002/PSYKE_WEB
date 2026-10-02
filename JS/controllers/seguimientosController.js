@@ -7,8 +7,91 @@ document.addEventListener('DOMContentLoaded', () => {
         psicologos: [],
         apiDisponible: false,
         expedienteSeleccionado: null,
-        sesionEnEdicion: null
+        sesionEnEdicion: null,
+        citas: [],
+        usuarioSesion: null
     };
+
+    function idPsicologoDeSesion() {
+        const usuario = estado.usuarioSesion;
+        if (!usuario) return null;
+        const psicologo = estado.psicologos.find(p => Number(p.usuario?.idUsuario) === Number(usuario.idUsuario));
+        return psicologo ? psicologo.idPsicologo : null;
+    }
+
+    function fechaDeCita(cita) {
+        return String(cita.fechaHoraCita ?? cita.fecha ?? '').split('T')[0];
+    }
+
+    function horaDeCita(cita) {
+        const hora = String(cita.fechaHoraCita ?? '').split('T')[1] || '';
+        return hora.slice(0, 5);
+    }
+
+    function describirFecha(fechaISO) {
+        if (!fechaISO) return '';
+        const hoy = SeguimientosValidaciones.hoyLocal();
+        const ayer = new Date();
+        ayer.setDate(ayer.getDate() - 1);
+        const ayerISO = `${ayer.getFullYear()}-${String(ayer.getMonth() + 1).padStart(2, '0')}-${String(ayer.getDate()).padStart(2, '0')}`;
+        if (fechaISO === hoy) return 'Hoy';
+        if (fechaISO === ayerISO) return 'Ayer';
+        return formatearFechaDisplay(fechaISO);
+    }
+
+    function buscarCitaDelDia(fechaISO) {
+        const idEstudiante = estado.expedienteSeleccionado?.estudiante?.idEstudiante;
+        if (!idEstudiante || !fechaISO) return null;
+        const idPsicologo = Number(el('psicologoCitaSeg')?.value) || null;
+
+        return estado.citas
+            .filter(c => Number(c.estudiante?.idEstudiante) === Number(idEstudiante))
+            .filter(c => fechaDeCita(c) === fechaISO)
+            .filter(c => String(c.estadoConfirmacion ?? c.estado ?? '').toUpperCase() !== 'CANCELADA')
+            .sort((a, b) => {
+                const mismoA = Number(a.psicologo?.idPsicologo) === idPsicologo ? 0 : 1;
+                const mismoB = Number(b.psicologo?.idPsicologo) === idPsicologo ? 0 : 1;
+                return mismoA - mismoB || horaDeCita(a).localeCompare(horaDeCita(b));
+            })[0] || null;
+    }
+
+    function actualizarAyudaFecha() {
+        const ayuda = el('fechaCitaSegAyuda');
+        if (ayuda) ayuda.textContent = describirFecha(el('fechaCitaSeg')?.value);
+    }
+
+    function autocompletarCita() {
+        const campo = el('citaVinculadaSeg');
+        const ayuda = el('citaVinculadaSegAyuda');
+        if (!campo || campo.dataset.manual === '1') return;
+
+        const fecha = el('fechaCitaSeg')?.value;
+        const cita = buscarCitaDelDia(fecha);
+        campo.value = cita ? `CIT-${cita.idCita}` : '';
+        if (ayuda) {
+            const dia = describirFecha(fecha).toLowerCase();
+            ayuda.textContent = cita
+                ? `Cita de ${dia === 'hoy' || dia === 'ayer' ? dia : `el ${dia}`}${horaDeCita(cita) ? ` a las ${horaDeCita(cita)}` : ''}`
+                : 'No hay cita registrada para esta fecha';
+        }
+    }
+
+    function prepararNuevoRegistro() {
+        const fechaInput = el('fechaCitaSeg');
+        if (fechaInput && !fechaInput.value) fechaInput.value = SeguimientosValidaciones.hoyLocal();
+
+        const idPropio = idPsicologoDeSesion();
+        const select = el('psicologoCitaSeg');
+        if (select && idPropio && select.querySelector(`option[value="${idPropio}"]`)) {
+            select.value = String(idPropio);
+        }
+
+        const campoCita = el('citaVinculadaSeg');
+        if (campoCita) delete campoCita.dataset.manual;
+
+        actualizarAyudaFecha();
+        autocompletarCita();
+    }
 
     const MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 
@@ -266,7 +349,7 @@ document.addEventListener('DOMContentLoaded', () => {
             elBadge.innerHTML = generarBadgeEstado(estadoDeTarjeta(expediente));
         }
 
-        cargarSelectorPsicologo(ultimaSesion?.psicologo?.idPsicologo);
+        cargarSelectorPsicologo(idPsicologoDeSesion() ?? ultimaSesion?.psicologo?.idPsicologo);
         renderTablaHistorial();
 
         const vistaLista = el('vista-lista-estudiantes');
@@ -348,14 +431,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td class="text-center">${criticoHTML}</td>
                 <td class="text-center">
                     <div class="acciones">
-                        <button class="btn-accion btn-ver" title="Ver Detalle" onclick="verDetalleSesion(${s.idSesion})">
+                        <button class="btn-accion btn-ver" title="Ver detalle de la sesión" onclick="verDetalleSesion(${s.idSesion})">
                             <i class="bi bi-eye"></i>
-                        </button>
-                        <button class="btn-accion" title="Editar Registro" onclick="abrirEditarSesion(${s.idSesion})">
-                            <i class="bi bi-pencil"></i>
-                        </button>
-                        <button class="btn-accion btn-eliminar" title="Eliminar Registro" onclick="eliminarSesion(${s.idSesion})">
-                            <i class="bi bi-trash3"></i>
                         </button>
                     </div>
                 </td>
@@ -438,7 +515,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (el('estadoCitaSeg')) el('estadoCitaSeg').value = s.estadoEstudiante || 'Seguimiento';
         if (el('psicologoCitaSeg')) el('psicologoCitaSeg').value = s.psicologo?.idPsicologo ?? '';
         if (el('marcadorCriticoSeg')) el('marcadorCriticoSeg').value = s.marcadorCritico || 'NO';
-        if (el('citaVinculadaSeg')) el('citaVinculadaSeg').value = s.cita?.idCita ? `CIT-${s.cita.idCita}` : '';
+        if (el('citaVinculadaSeg')) {
+            el('citaVinculadaSeg').value = s.cita?.idCita ? `CIT-${s.cita.idCita}` : '';
+            el('citaVinculadaSeg').dataset.manual = '1';
+        }
+        if (el('citaVinculadaSegAyuda')) el('citaVinculadaSegAyuda').textContent = '';
+        actualizarAyudaFecha();
         if (el('procesoCitaSeg')) el('procesoCitaSeg').value = s.tipoProceso || '';
         if (el('observacionCitaSeg')) el('observacionCitaSeg').value = s.notasAnotaciones || '';
 
@@ -515,6 +597,7 @@ document.addEventListener('DOMContentLoaded', () => {
         limpiarErrores();
         estado.sesionEnEdicion = null;
         restaurarTituloModal();
+        prepararNuevoRegistro();
     }
 
     async function recargarSesiones() {
@@ -614,12 +697,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function cargarDatos() {
         try {
-            const [expedientes, psicologos] = await Promise.all([
+            const [expedientes, psicologos, citas, usuario] = await Promise.all([
                 SeguimientosService.listarExpedientes(),
-                SeguimientosService.listarPsicologos()
+                SeguimientosService.listarPsicologos(),
+                SeguimientosService.listarCitas().catch(() => []),
+                typeof verificarSesion === 'function' ? verificarSesion() : Promise.resolve(null)
             ]);
             estado.expedientes = expedientes ?? [];
             estado.psicologos = psicologos ?? [];
+            estado.citas = citas ?? [];
+            estado.usuarioSesion = usuario;
             estado.apiDisponible = true;
         } catch (error) {
             const status = error?.status;
@@ -638,6 +725,12 @@ document.addEventListener('DOMContentLoaded', () => {
             Notif.error(mensaje);
         }
         renderListaEstudiantes();
+
+        const idEstudianteUrl = new URLSearchParams(window.location.search).get('estudiante');
+        if (idEstudianteUrl && estado.expedientes.some(exp => Number(exp.estudiante?.idEstudiante) === Number(idEstudianteUrl))) {
+            history.replaceState(null, document.title, window.location.pathname);
+            await window.abrirDetalleEstudiante(Number(idEstudianteUrl));
+        }
     }
 
     function iniciar() {
@@ -647,6 +740,17 @@ document.addEventListener('DOMContentLoaded', () => {
         el('btnVolverLista')?.addEventListener('click', volverALista);
         el('btnGuardarResumen')?.addEventListener('click', guardarResumen);
         el('formNuevoRegistro')?.addEventListener('submit', manejarSubmitRegistro);
+
+        el('fechaCitaSeg')?.addEventListener('change', () => {
+            actualizarAyudaFecha();
+            autocompletarCita();
+        });
+        el('psicologoCitaSeg')?.addEventListener('change', autocompletarCita);
+        el('citaVinculadaSeg')?.addEventListener('input', (e) => {
+            e.target.dataset.manual = '1';
+            const ayuda = el('citaVinculadaSegAyuda');
+            if (ayuda) ayuda.textContent = '';
+        });
 
         const btnLimpiarModal = el('btnLimpiarModal');
         if (btnLimpiarModal) {
@@ -669,10 +773,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const modalRegistro = el('modalNuevoRegistro');
         if (modalRegistro) {
             modalRegistro.addEventListener('show.bs.modal', () => {
-                const fechaInput = el('fechaCitaSeg');
-                if (fechaInput && !fechaInput.value && !estado.sesionEnEdicion) {
-                    fechaInput.value = SeguimientosValidaciones.hoyLocal();
-                }
+                if (!estado.sesionEnEdicion) prepararNuevoRegistro();
             });
             modalRegistro.addEventListener('hidden.bs.modal', () => {
                 resetearFormulario();
