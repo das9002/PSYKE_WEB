@@ -64,7 +64,7 @@ body {
 }
 
 .main {
-    padding: 25px 30px;
+    padding: 25px 30px 110px;
     min-height: 100vh;
 }
 
@@ -519,7 +519,7 @@ html.dark-mode .card-dashboard h2 {
     }
 
     .main {
-        padding: 80px 16px 20px 16px;
+        padding: 80px 16px 100px 16px;
         width: 100%;
     }
 

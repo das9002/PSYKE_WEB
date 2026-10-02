@@ -130,6 +130,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     paciente.unread++;
                     if (anunciar) {
                         agregarNotificacion(paciente, `Mensaje de ${paciente.name}`, recortar(m.contenido, 60), formatearHora(m.fechaEnvio), m.idMensaje);
+                        const conversacionAbierta = chatPanel.classList.contains('active') && activeChatId === paciente.id;
+                        if (!conversacionAbierta && typeof Notif !== 'undefined') {
+                            Notif.info(recortar(m.contenido, 80), `Nuevo mensaje de ${paciente.name}`);
+                        }
                     }
                 }
             });
@@ -240,16 +244,31 @@ document.addEventListener('DOMContentLoaded', () => {
     const bellIcon = document.querySelector('.bi-bell.fs-4');
     const chatIcon = document.querySelector('.bi-chat.fs-4');
 
+    function envolverIconoConBadge(icono, idBadge, claseBadge) {
+        const contenedor = document.createElement('span');
+        contenedor.className = 'icono-con-badge';
+        if (icono.classList.contains('me-3')) {
+            icono.classList.remove('me-3');
+            contenedor.classList.add('me-3');
+        }
+        icono.parentNode.insertBefore(contenedor, icono);
+        contenedor.appendChild(icono);
+
+        const badge = document.createElement('span');
+        badge.className = claseBadge;
+        badge.id = idBadge;
+        badge.style.display = 'none';
+        contenedor.appendChild(badge);
+    }
+
     if (bellIcon) {
         bellIcon.classList.add('clickable-icon');
-        const badge = document.createElement('span');
-        badge.className = 'unread-badge';
-        badge.id = 'bellUnreadBadge';
-        bellIcon.parentNode.insertBefore(badge, bellIcon.nextSibling);
+        envolverIconoConBadge(bellIcon, 'bellUnreadBadge', 'unread-badge');
     }
 
     if (chatIcon) {
         chatIcon.classList.add('clickable-icon');
+        envolverIconoConBadge(chatIcon, 'chatUnreadBadge', 'unread-count-badge');
     }
 
     const topbarRight = bellIcon ? bellIcon.closest('div') : null;
@@ -306,7 +325,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.body.appendChild(chatPanel);
 
     if (bellIcon) {
-        bellIcon.addEventListener('click', (e) => {
+        (bellIcon.closest('button') || bellIcon).addEventListener('click', (e) => {
             e.stopPropagation();
             const dropdown = document.getElementById('notificationDropdown');
             if (dropdown) {
@@ -317,7 +336,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const openChatButtons = [];
-    if (chatIcon) openChatButtons.push(chatIcon);
+    if (chatIcon) openChatButtons.push(chatIcon.closest('button') || chatIcon);
     const sidebarChatLink = document.getElementById('sidebarChatLink');
     if (sidebarChatLink) openChatButtons.push(sidebarChatLink);
 
@@ -414,6 +433,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const badge = document.getElementById('bellUnreadBadge');
         if (badge) {
             badge.style.display = hasUnread ? 'block' : 'none';
+        }
+
+        const totalSinLeer = patientsData.reduce((suma, p) => suma + (p.unread || 0), 0);
+        const badgeChat = document.getElementById('chatUnreadBadge');
+        if (badgeChat) {
+            badgeChat.textContent = totalSinLeer > 99 ? '99+' : String(totalSinLeer);
+            badgeChat.style.display = totalSinLeer > 0 ? 'inline-flex' : 'none';
+        }
+        if (chatIcon) {
+            chatIcon.title = totalSinLeer > 0
+                ? `Mensajes (${totalSinLeer} sin leer)`
+                : 'Mensajes';
         }
     }
 

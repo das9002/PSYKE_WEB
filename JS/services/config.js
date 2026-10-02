@@ -264,6 +264,30 @@
         return obtenerUsuario();
     }
 
+    async function listarTodo(ruta, tamano) {
+        var porPagina = tamano || 50;
+        var separador = String(ruta).indexOf('?') === -1 ? '?' : '&';
+        var base = ruta + separador + 'size=' + porPagina + '&page=';
+
+        var primera = await apiFetch(base + '0');
+        if (!primera || Array.isArray(primera) || typeof primera !== 'object' || !Array.isArray(primera.content)) {
+            return normalizarListado(primera);
+        }
+
+        var totalPaginas = Number(primera.totalPages != null ? primera.totalPages : (primera.page && primera.page.totalPages)) || 1;
+        totalPaginas = Math.min(totalPaginas, 200);
+        if (totalPaginas <= 1) return primera.content.slice();
+
+        var pendientes = [];
+        for (var p = 1; p < totalPaginas; p++) {
+            pendientes.push(apiFetch(base + p));
+        }
+        var resto = await Promise.all(pendientes);
+        return resto.reduce(function (acumulado, pagina) {
+            return acumulado.concat(normalizarListado(pagina));
+        }, primera.content.slice());
+    }
+
     function peticionApi(ruta, opciones) {
         return apiFetch(ruta, opciones);
     }
@@ -278,6 +302,7 @@
     global.apiFetch = apiFetch;
     global.authFetch = authFetch;
     global.peticionApi = peticionApi;
+    global.listarTodo = listarTodo;
     global.verificarSesion = verificarSesion;
     global.normalizarListado = normalizarListado;
 })(window);

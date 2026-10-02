@@ -43,7 +43,7 @@ function normalizarListado(respuesta) {
 const CitasService = {
 
     listar() {
-        return peticionApi('/citas').then(normalizarListado);
+        return listarTodo('/citas');
     },
 
     obtenerPorId(id) {

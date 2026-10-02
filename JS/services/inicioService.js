@@ -27,9 +27,9 @@ const DashboardService = {
      */
     async obtenerConteosParalelos() {
         const resultados = await Promise.allSettled([
-            peticionApi('/estudiantes'),
-            peticionApi('/citas'),
-            peticionApi('/sesiones')
+            listarTodo('/estudiantes'),
+            listarTodo('/citas'),
+            listarTodo('/sesiones')
         ]);
 
         const normalizar = typeof normalizarListado === 'function' 

@@ -31,7 +31,7 @@ const TestService = {
     // ==========================================
     async listarCuestionarios() {
         try {
-            const lista = await peticionApi('/cuestionarios');
+            const lista = await listarTodo('/cuestionarios');
             return procesarListado(lista);
         } catch (error) {
             const mensaje = error?.status === 500
@@ -49,7 +49,7 @@ const TestService = {
     },
 
     async buscarCuestionarios(termino) {
-        const res = await peticionApi(`/cuestionarios?search=${encodeURIComponent(termino)}`);
+        const res = await listarTodo(`/cuestionarios?search=${encodeURIComponent(termino)}`);
         return procesarListado(res);
     },
 
@@ -75,7 +75,7 @@ const TestService = {
     // PREGUNTAS
     // ==========================================
     async listarPreguntas() {
-        const res = await peticionApi('/preguntas');
+        const res = await listarTodo('/preguntas');
         return procesarListado(res);
     },
 
@@ -106,7 +106,7 @@ const TestService = {
     // TESTS RESPONDIDOS
     // ==========================================
     async listarTestsRespondidos() {
-        const res = await peticionApi('/tests-respondidos');
+        const res = await listarTodo('/tests-respondidos');
         return procesarListado(res);
     },
 
@@ -115,7 +115,7 @@ const TestService = {
     },
 
     async listarPorCuestionario(idCuestionario) {
-        const res = await peticionApi(`/tests-respondidos?cuestionarioId=${idCuestionario}`);
+        const res = await listarTodo(`/tests-respondidos?cuestionarioId=${idCuestionario}`);
         return procesarListado(res);
     },
 
