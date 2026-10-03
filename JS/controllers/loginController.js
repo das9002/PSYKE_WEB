@@ -21,6 +21,14 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        const btnSubmit = formLogin.querySelector('button[type="submit"]');
+        const textoOriginal = btnSubmit ? btnSubmit.innerHTML : 'Inicia Sesión';
+
+        if (btnSubmit) {
+            btnSubmit.disabled = true;
+            btnSubmit.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Iniciando...';
+        }
+
         try {
             sessionStorage.removeItem('psyke_redirecting');
 
@@ -29,6 +37,10 @@ document.addEventListener('DOMContentLoaded', () => {
             sessionStorage.setItem('mostrarBienvenidaToast', 'true');
             window.location.href = 'HTML/inicio.html';
         } catch (error) {
+            if (btnSubmit) {
+                btnSubmit.disabled = false;
+                btnSubmit.innerHTML = textoOriginal;
+            }
             Notif.error(error.message || 'Credenciales inválidas o servicio fuera de línea', 'Error de inicio de sesión');
         }
     });

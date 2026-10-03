@@ -6,8 +6,7 @@ async function loginUsuario(credentials) {
 
     let respuesta;
     try {
-        // CORREGIDO: Se agregó la ruta completa /api/auth/login
-        respuesta = await fetch(`${AUTH_API_URL}/api/auth/login`, {
+        respuesta = await fetch(`${AUTH_API_URL}/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(credencialesConOrigen),
@@ -39,8 +38,7 @@ async function loginUsuario(credentials) {
     const rol = datos?.tipoUsuario || datos?.usuario?.tipoUsuario || datos?.rol;
     if (rol === 'ESTUDIANTE') {
         try {
-            // CORREGIDO: Se agregó la ruta completa /api/auth/logout
-            await fetch(`${AUTH_API_URL}/api/auth/logout`, {
+            await fetch(`${AUTH_API_URL}/logout`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include'

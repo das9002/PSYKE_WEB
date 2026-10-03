@@ -162,6 +162,19 @@
                 </div>
 
                 <div class="mb-4">
+                    <div class="settings-category text-uppercase mb-2">Gestión Académica</div>
+                    <div class="settings-group">
+                        <a href="#" class="settings-item" id="btnGestionCatalogos">
+                            <div class="item-label">
+                                <i class="bi bi-journals text-primary"></i>
+                                <span>Grados, Secciones y Especialidades</span>
+                            </div>
+                            <i class="bi bi-chevron-right text-muted small"></i>
+                        </a>
+                    </div>
+                </div>
+
+                <div class="mb-4">
                     <div class="settings-category text-uppercase mb-2">Privacidad</div>
                     <div class="settings-group">
                         <a href="#" class="settings-item" id="cookiePrefsBtn">
@@ -200,7 +213,77 @@
     <script src="../JS/services/chatService.js"></script>
     <script src="../JS/services/notificacionesService.js"></script>
     <script src="../JS/services/navbarService.js"></script>
+    <script src="../JS/services/estudiantesService.js"></script>
     <script src="../JS/controllers/configController.js"></script>
+
+    <!-- Modal Gestión de Catálogos -->
+    <div class="modal fade" id="modalCatalogos" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold d-flex align-items-center gap-2">
+                        <i class="bi bi-journals text-primary"></i>
+                        <span>Gestión de Grados, Secciones y Especialidades</span>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <ul class="nav nav-tabs mb-3" id="tabCatalogos" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="tab-grados-tab" data-bs-toggle="tab" data-bs-target="#tab-grados" type="button">Grados</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="tab-secciones-tab" data-bs-toggle="tab" data-bs-target="#tab-secciones" type="button">Secciones</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="tab-especialidades-tab" data-bs-toggle="tab" data-bs-target="#tab-especialidades" type="button">Especialidades</button>
+                        </li>
+                    </ul>
+                    <div class="tab-content" id="tabCatalogosContent">
+                        <!-- TAB GRADOS -->
+                        <div class="tab-pane fade show active" id="tab-grados" role="tabpanel">
+                            <form id="formGrado" class="row g-2 mb-3">
+                                <div class="col-8 col-sm-9">
+                                    <input type="text" id="inputNombreGrado" class="form-control" placeholder="Nombre del Grado (Ej. 1° Año Bachillerato)" required>
+                                </div>
+                                <div class="col-4 col-sm-3">
+                                    <button type="submit" class="btn btn-primary w-100"><i class="bi bi-plus-lg"></i> Agregar</button>
+                                </div>
+                            </form>
+                            <ul class="list-group" id="listaGrados"></ul>
+                        </div>
+                        <!-- TAB SECCIONES -->
+                        <div class="tab-pane fade" id="tab-secciones" role="tabpanel">
+                            <form id="formSeccion" class="row g-2 mb-3">
+                                <div class="col-8 col-sm-9">
+                                    <input type="text" id="inputNombreSeccion" class="form-control" placeholder="Nombre de Sección (Ej. A-1)" required>
+                                </div>
+                                <div class="col-4 col-sm-3">
+                                    <button type="submit" class="btn btn-primary w-100"><i class="bi bi-plus-lg"></i> Agregar</button>
+                                </div>
+                            </form>
+                            <ul class="list-group" id="listaSecciones"></ul>
+                        </div>
+                        <!-- TAB ESPECIALIDADES -->
+                        <div class="tab-pane fade" id="tab-especialidades" role="tabpanel">
+                            <form id="formEspecialidad" class="row g-2 mb-3">
+                                <div class="col-8 col-sm-9">
+                                    <input type="text" id="inputNombreEspecialidad" class="form-control" placeholder="Nombre de Especialidad (Ej. Desarrollo de Software)" required>
+                                </div>
+                                <div class="col-4 col-sm-3">
+                                    <button type="submit" class="btn btn-primary w-100"><i class="bi bi-plus-lg"></i> Agregar</button>
+                                </div>
+                            </form>
+                            <ul class="list-group" id="listaEspecialidades"></ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
 </body>
 
 </html>

@@ -67,6 +67,14 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    const btnGestionCatalogos = document.getElementById('btnGestionCatalogos');
+    if (btnGestionCatalogos) {
+        btnGestionCatalogos.addEventListener('click', (e) => {
+            e.preventDefault();
+            abrirModalCatalogos();
+        });
+    }
+
     const cookiePrefsBtn = document.getElementById('cookiePrefsBtn');
     if (cookiePrefsBtn) {
         cookiePrefsBtn.addEventListener('click', (e) => {
@@ -74,6 +82,177 @@ document.addEventListener('DOMContentLoaded', () => {
             showCookiePreferencesModal();
         });
     }
+
+    async function abrirModalCatalogos() {
+        const modalEl = document.getElementById('modalCatalogos');
+        if (!modalEl) return;
+        const modal = new bootstrap.Modal(modalEl);
+        modal.show();
+
+        await Promise.all([cargarGrados(), cargarSecciones(), cargarEspecialidades()]);
+    }
+
+    async function cargarGrados() {
+        const lista = document.getElementById('listaGrados');
+        if (!lista) return;
+        lista.innerHTML = '<li class="list-group-item text-muted">Cargando grados...</li>';
+        try {
+            const grados = await EstudiantesService.listarGrados();
+            lista.innerHTML = '';
+            if (!grados || grados.length === 0) {
+                lista.innerHTML = '<li class="list-group-item text-muted">No hay grados registrados.</li>';
+                return;
+            }
+            grados.forEach(g => {
+                const id = g.idGrado ?? g.id;
+                const nombre = g.nombreGrado ?? g.nombre;
+                const li = document.createElement('li');
+                li.className = 'list-group-item d-flex justify-content-between align-items-center';
+                li.innerHTML = `
+                    <span>${String(nombre)}</span>
+                    <button class="btn btn-outline-danger btn-sm" onclick="eliminarGradoCat(${id})" title="Eliminar Grado">
+                        <i class="bi bi-trash"></i>
+                    </button>`;
+                lista.appendChild(li);
+            });
+        } catch (e) {
+            lista.innerHTML = '<li class="list-group-item text-danger">Error al cargar grados.</li>';
+        }
+    }
+
+    async function cargarSecciones() {
+        const lista = document.getElementById('listaSecciones');
+        if (!lista) return;
+        lista.innerHTML = '<li class="list-group-item text-muted">Cargando secciones...</li>';
+        try {
+            const secciones = await EstudiantesService.listarSecciones();
+            lista.innerHTML = '';
+            if (!secciones || secciones.length === 0) {
+                lista.innerHTML = '<li class="list-group-item text-muted">No hay secciones registradas.</li>';
+                return;
+            }
+            secciones.forEach(s => {
+                const id = s.idSeccion ?? s.id;
+                const nombre = s.nombreSeccion ?? s.nombre;
+                const li = document.createElement('li');
+                li.className = 'list-group-item d-flex justify-content-between align-items-center';
+                li.innerHTML = `
+                    <span>${String(nombre)}</span>
+                    <button class="btn btn-outline-danger btn-sm" onclick="eliminarSeccionCat(${id})" title="Eliminar Sección">
+                        <i class="bi bi-trash"></i>
+                    </button>`;
+                lista.appendChild(li);
+            });
+        } catch (e) {
+            lista.innerHTML = '<li class="list-group-item text-danger">Error al cargar secciones.</li>';
+        }
+    }
+
+    async function cargarEspecialidades() {
+        const lista = document.getElementById('listaEspecialidades');
+        if (!lista) return;
+        lista.innerHTML = '<li class="list-group-item text-muted">Cargando especialidades...</li>';
+        try {
+            const especialidades = await EstudiantesService.listarEspecialidades();
+            lista.innerHTML = '';
+            if (!especialidades || especialidades.length === 0) {
+                lista.innerHTML = '<li class="list-group-item text-muted">No hay especialidades registradas.</li>';
+                return;
+            }
+            especialidades.forEach(esp => {
+                const id = esp.idEspecialidad ?? esp.id;
+                const nombre = esp.nombreEspecialidad ?? esp.nombre;
+                const li = document.createElement('li');
+                li.className = 'list-group-item d-flex justify-content-between align-items-center';
+                li.innerHTML = `
+                    <span>${String(nombre)}</span>
+                    <button class="btn btn-outline-danger btn-sm" onclick="eliminarEspecialidadCat(${id})" title="Eliminar Especialidad">
+                        <i class="bi bi-trash"></i>
+                    </button>`;
+                lista.appendChild(li);
+            });
+        } catch (e) {
+            lista.innerHTML = '<li class="list-group-item text-danger">Error al cargar especialidades.</li>';
+        }
+    }
+
+    document.getElementById('formGrado')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const input = document.getElementById('inputNombreGrado');
+        const nombre = input ? input.value.trim() : '';
+        if (!nombre) return;
+        try {
+            await EstudiantesService.crearGrado({ nombreGrado: nombre });
+            input.value = '';
+            await cargarGrados();
+            Notif.exito('Grado agregado correctamente.');
+        } catch (err) {
+            Notif.error(err.message || 'No se pudo agregar el grado.');
+        }
+    });
+
+    document.getElementById('formSeccion')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const input = document.getElementById('inputNombreSeccion');
+        const nombre = input ? input.value.trim() : '';
+        if (!nombre) return;
+        try {
+            await EstudiantesService.crearSeccion({ nombreSeccion: nombre });
+            input.value = '';
+            await cargarSecciones();
+            Notif.exito('Sección agregada correctamente.');
+        } catch (err) {
+            Notif.error(err.message || 'No se pudo agregar la sección.');
+        }
+    });
+
+    document.getElementById('formEspecialidad')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const input = document.getElementById('inputNombreEspecialidad');
+        const nombre = input ? input.value.trim() : '';
+        if (!nombre) return;
+        try {
+            await EstudiantesService.crearEspecialidad({ nombreEspecialidad: nombre });
+            input.value = '';
+            await cargarEspecialidades();
+            Notif.exito('Especialidad agregada correctamente.');
+        } catch (err) {
+            Notif.error(err.message || 'No se pudo agregar la especialidad.');
+        }
+    });
+
+    window.eliminarGradoCat = async function (id) {
+        if (!confirm('¿Desea eliminar este grado?')) return;
+        try {
+            await EstudiantesService.eliminarGrado(id);
+            await cargarGrados();
+            Notif.exito('Grado eliminado.');
+        } catch (err) {
+            Notif.error(err.message || 'No se pudo eliminar el grado.');
+        }
+    };
+
+    window.eliminarSeccionCat = async function (id) {
+        if (!confirm('¿Desea eliminar esta sección?')) return;
+        try {
+            await EstudiantesService.eliminarSeccion(id);
+            await cargarSecciones();
+            Notif.exito('Sección eliminada.');
+        } catch (err) {
+            Notif.error(err.message || 'No se pudo eliminar la sección.');
+        }
+    };
+
+    window.eliminarEspecialidadCat = async function (id) {
+        if (!confirm('¿Desea eliminar esta especialidad?')) return;
+        try {
+            await EstudiantesService.eliminarEspecialidad(id);
+            await cargarEspecialidades();
+            Notif.exito('Especialidad eliminada.');
+        } catch (err) {
+            Notif.error(err.message || 'No se pudo eliminar la especialidad.');
+        }
+    };
 
     function showCookiePreferencesModal() {
         const savedPrefs = localStorage.getItem('psyke_cookie_preferences');
