@@ -623,10 +623,18 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        const esNuevo = !(estado.modoEdicion && estado.idEnEdicion !== null);
+        const btnSubmit = esNuevo ? el('btnRegistrar') : el('btnActualizar');
+        let textoOriginalBtn = '';
+
+        if (btnSubmit) {
+            textoOriginalBtn = btnSubmit.innerHTML;
+            btnSubmit.disabled = true;
+            btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Guardando...';
+        }
+
         try {
             const payload = construirPayload();
-
-            const esNuevo = !(estado.modoEdicion && estado.idEnEdicion !== null);
 
             if (esNuevo) {
                 await EstudiantesService.crear(payload);
@@ -652,6 +660,11 @@ document.addEventListener('DOMContentLoaded', () => {
             estado.contrasenaTemporal = '';
         } catch (error) {
             Notif.error(mensajeErrorAmigable(error), 'No se pudo guardar el estudiante');
+        } finally {
+            if (btnSubmit) {
+                btnSubmit.disabled = false;
+                btnSubmit.innerHTML = textoOriginalBtn;
+            }
         }
     }
 

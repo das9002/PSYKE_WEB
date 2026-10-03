@@ -58,12 +58,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function cargandoBoton(boton, cargando, textoCargando) {
         if (!boton) return;
-        const span = boton.querySelector('span');
         if (cargando) {
-            boton.dataset.textoOriginal = span ? span.textContent : boton.textContent;
-            if (span) span.textContent = textoCargando;
-        } else if (boton.dataset.textoOriginal && span) {
-            span.textContent = boton.dataset.textoOriginal;
+            boton.dataset.textoOriginal = boton.innerHTML;
+            boton.innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>${textoCargando}`;
+        } else if (boton.dataset.textoOriginal) {
+            boton.innerHTML = boton.dataset.textoOriginal;
         }
         boton.disabled = cargando;
     }

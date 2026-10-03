@@ -56,7 +56,9 @@ document.addEventListener('DOMContentLoaded', () => {
     function bloquear(bloqueado) {
         if (!botonGuardar) return;
         botonGuardar.disabled = bloqueado;
-        botonGuardar.querySelector('span').textContent = bloqueado ? 'Actualizando...' : 'Actualizar contraseña';
+        botonGuardar.innerHTML = bloqueado 
+            ? '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Actualizando...' 
+            : '<span>Actualizar contraseña</span>';
     }
 
     async function cambiarContrasena() {

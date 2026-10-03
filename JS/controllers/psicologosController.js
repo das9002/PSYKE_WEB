@@ -365,6 +365,15 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        const btnSubmit = el('modalSubmitBtn');
+        let textoOriginalBtn = '';
+
+        if (btnSubmit) {
+            textoOriginalBtn = btnSubmit.innerHTML;
+            btnSubmit.disabled = true;
+            btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Guardando...';
+        }
+
         try {
             if (estado.modoEdicion && estado.idEnEdicion !== null) {
                 await guardarEdicion(datos);
@@ -378,6 +387,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (modal) modal.hide();
         } catch (error) {
             Notif.error(`No se pudo guardar el psicólogo: ${error.message}`);
+        } finally {
+            if (btnSubmit) {
+                btnSubmit.disabled = false;
+                btnSubmit.innerHTML = textoOriginalBtn;
+            }
         }
     }
 

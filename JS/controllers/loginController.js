@@ -55,7 +55,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            if (boton) boton.disabled = true;
+            let textoOriginalBtn = '';
+            if (boton) {
+                textoOriginalBtn = boton.innerHTML;
+                boton.disabled = true;
+                boton.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Iniciando...';
+            }
 
             try {
                 await AuthService.loginUsuario(credenciales);
@@ -63,7 +68,10 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (error) {
                 const titulo = error.tipo === 'RED' ? 'Sin conexión' : 'No se pudo iniciar sesión';
                 Notif.error(error.message, titulo);
-                if (boton) boton.disabled = false;
+                if (boton) {
+                    boton.disabled = false;
+                    boton.innerHTML = textoOriginalBtn;
+                }
             }
         });
     }
