@@ -8,6 +8,8 @@ document.addEventListener('DOMContentLoaded', () => {
         expedientes: [],
         filtro: 'todas',
         textoBusqueda: '',
+        filtroFecha: '',
+        filtroEstado: '',
         modoEdicion: false,
         idEnEdicion: null,
         usuarioSesion: null,
@@ -319,6 +321,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 (estado.filtro === 'canceladas' && estadoCita(cita) === 'CANCELADA') ||
                 (estado.filtro === 'proximas' && esProxima(cita));
             if (!coincidePestana) return false;
+
+            if (estado.filtroFecha) {
+                const fCita = fechaCita(cita);
+                if (fCita !== estado.filtroFecha) return false;
+            }
+
+            if (estado.filtroEstado) {
+                if (estadoCita(cita) !== estado.filtroEstado.toUpperCase()) return false;
+            }
 
             if (!texto) return true;
             const campos = `${nombreEstudiante(cita)} ${carnetEstudiante(cita)} ${nombrePsicologo(cita)}`.toLowerCase();
@@ -1152,6 +1163,16 @@ document.addEventListener('DOMContentLoaded', () => {
     el('buscarEstudiante')?.addEventListener('input', (e) => {
         estado.paginaActual = 1;
         estado.textoBusqueda = e.target.value.trim();
+        renderTabla();
+    });
+
+    el('filtroFechaCita')?.addEventListener('change', (e) => {
+        estado.filtroFecha = e.target.value;
+        renderTabla();
+    });
+
+    el('filtroEstadoCita')?.addEventListener('change', (e) => {
+        estado.filtroEstado = e.target.value;
         renderTabla();
     });
 
