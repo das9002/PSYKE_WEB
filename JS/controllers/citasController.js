@@ -13,7 +13,10 @@ document.addEventListener('DOMContentLoaded', () => {
         modoEdicion: false,
         idEnEdicion: null,
         usuarioSesion: null,
-        psicologoLogueado: null
+        psicologoLogueado: null,
+        paginaActual: 1,
+        limitePorPagina: 10,
+        listaFiltradaActual: []
     };
 
     async function obtenerUsuarioSesion() {
@@ -100,23 +103,142 @@ document.addEventListener('DOMContentLoaded', () => {
         return `${String(h12).padStart(2, '0')}:${String(m).padStart(2, '0')} ${periodo}`;
     }
 
-    function generarOpcionesHora30Min() {
+    const HORA_INICIO = '08:00';
+    const HORA_FIN = '15:30';
+
+    function hoyISO() {
+        const d = new Date();
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
+
+    function horaActual() {
+        const d = new Date();
+        return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    }
+
+    function esFinDeSemana(fechaISO) {
+        const dia = new Date(fechaISO + 'T00:00:00').getDay();
+        return dia === 0 || dia === 6;
+    }
+
+    function yaPaso(fechaISO, hora) {
+        if (!fechaISO) return false;
+        const momento = new Date(`${fechaISO}T${hora || '00:00'}:00`);
+        return !isNaN(momento.getTime()) && momento <= new Date();
+    }
+
+    function generarOpcionesHora30Min(valorActual) {
         const select = el('horaCita');
         if (!select) return;
+        const fecha = el('fechaCita')?.value;
+        const esHoy = fecha === hoyISO();
+        const ahora = horaActual();
+
         select.innerHTML = '<option value="" selected disabled>Seleccionar hora</option>';
-        for (let h = 7; h <= 18; h++) {
+        for (let h = 8; h <= 15; h++) {
             for (let m = 0; m < 60; m += 30) {
-                if (h === 18 && m > 0) break;
-                const hStr = String(h).padStart(2, '0');
-                const mStr = String(m).padStart(2, '0');
-                const val24 = `${hStr}:${mStr}`;
+                const val24 = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+                if (val24 < HORA_INICIO || val24 > HORA_FIN) continue;
                 const opt = document.createElement('option');
                 opt.value = val24;
                 opt.textContent = formatearHora12(val24);
+                if (!estado.modoEdicion && esHoy && val24 <= ahora) opt.disabled = true;
                 select.appendChild(opt);
             }
         }
+        if (valorActual && !select.querySelector(`option[value="${valorActual}"]`)) {
+            const opt = document.createElement('option');
+            opt.value = valorActual;
+            opt.textContent = `${formatearHora12(valorActual)} (fuera de horario)`;
+            select.appendChild(opt);
+        }
+        if (valorActual) select.value = valorActual;
     }
+
+    function actualizarOpcionesEstado() {
+        const select = el('estadoCita');
+        if (!select) return;
+        const pasada = yaPaso(el('fechaCita')?.value, el('horaCita')?.value);
+        const opcionRealizada = select.querySelector('option[value="REALIZADA"]');
+        if (opcionRealizada) {
+            opcionRealizada.disabled = !pasada;
+            opcionRealizada.textContent = pasada ? 'Realizada' : 'Realizada (disponible cuando pase la cita)';
+        }
+        if (!pasada && select.value === 'REALIZADA') select.value = 'PENDIENTE';
+    }
+
+    function actualizarAyudaFecha() {
+        const ayuda = el('fechaCitaAyuda');
+        const fecha = el('fechaCita')?.value;
+        if (!ayuda) return;
+        if (fecha && esFinDeSemana(fecha)) {
+            ayuda.textContent = 'Ese día es fin de semana. Elige de lunes a viernes.';
+            ayuda.classList.add('text-danger');
+        } else {
+            ayuda.textContent = fecha === hoyISO() ? 'Hoy · solo de lunes a viernes' : 'Solo de lunes a viernes';
+            ayuda.classList.remove('text-danger');
+        }
+    }
+
+    function idPsicologoPorDefecto() {
+        if (estado.psicologoLogueado) return estado.psicologoLogueado.idPsicologo ?? estado.psicologoLogueado.id;
+        if (estado.psicologos.length === 1) return estado.psicologos[0].idPsicologo;
+        return null;
+    }
+
+    function textoEstudiante(est) {
+        const nombre = `${est.nombres ?? est.nombre ?? ''} ${est.apellidos ?? ''}`.trim();
+        const carnet = est.codigoCarnet ?? est.carnet;
+        return carnet ? `${nombre} (Carnet: ${carnet})` : nombre;
+    }
+
+    function renderOpcionesEstudiantes(filtro = '') {
+        const select = el('estudianteSelect');
+        if (!select) return;
+        const seleccionado = select.value;
+        const texto = filtro.trim().toLowerCase();
+
+        const lista = estado.estudiantes
+            .filter(est => !texto || textoEstudiante(est).toLowerCase().includes(texto))
+            .sort((a, b) => textoEstudiante(a).localeCompare(textoEstudiante(b), 'es'));
+
+        select.innerHTML = `<option value="" disabled ${seleccionado ? '' : 'selected'}>${lista.length ? 'Seleccionar estudiante' : 'Sin resultados'}</option>`;
+        lista.forEach(est => {
+            const opt = document.createElement('option');
+            opt.value = est.idEstudiante ?? est.id;
+            opt.textContent = textoEstudiante(est);
+            select.appendChild(opt);
+        });
+        if (seleccionado && select.querySelector(`option[value="${seleccionado}"]`)) {
+            select.value = seleccionado;
+        } else if (texto && lista.length === 1) {
+            select.value = String(lista[0].idEstudiante ?? lista[0].id);
+        }
+    }
+
+    async function asegurarExpediente(idEstudiante) {
+        const existente = estado.expedientes.find(exp => Number(exp.estudiante?.idEstudiante ?? exp.idEstudiante) === Number(idEstudiante));
+        if (existente) return { expediente: existente, creado: false };
+
+        const lista = await CasosTransferidosService.listarExpedientes();
+        estado.expedientes = Array.isArray(lista) ? lista : [];
+        const recargado = estado.expedientes.find(exp => Number(exp.estudiante?.idEstudiante ?? exp.idEstudiante) === Number(idEstudiante));
+        if (recargado) return { expediente: recargado, creado: false };
+
+        const nuevo = await CasosTransferidosService.crearExpediente({ estudiante: { idEstudiante: Number(idEstudiante) } });
+        if (nuevo) estado.expedientes.push(nuevo);
+        return { expediente: nuevo, creado: true };
+    }
+
+    window.abrirSeguimiento = async function (idEstudiante) {
+        if (!idEstudiante) return;
+        try {
+            await asegurarExpediente(idEstudiante);
+            window.location.href = `seguimientos.html?estudiante=${encodeURIComponent(idEstudiante)}`;
+        } catch (error) {
+            Notif.error(mensajeErrorAmigable(error), 'No se pudo abrir el seguimiento');
+        }
+    };
 
     function estadoCita(cita) {
         return String(cita.estado ?? cita.estadoConfirmacion ?? '').toUpperCase();
@@ -215,16 +337,47 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function actualizarPaginacionCitasUI(inicio, fin, total, paginaActual, totalPaginas) {
+        const info = el('infoPaginacionCitas');
+        const ind = el('indicadorPaginaCitas');
+        const btnPrev = el('btnPrevCitas');
+        const btnNext = el('btnNextCitas');
+
+        if (info) {
+            info.innerHTML = total === 0
+                ? 'Mostrando <strong>0</strong> - <strong>0</strong> de <strong>0</strong> citas'
+                : `Mostrando <strong>${inicio}</strong> - <strong>${fin}</strong> de <strong>${total}</strong> citas`;
+        }
+        if (ind) ind.textContent = `Página ${paginaActual} de ${totalPaginas}`;
+        if (btnPrev) btnPrev.disabled = paginaActual <= 1;
+        if (btnNext) btnNext.disabled = paginaActual >= totalPaginas;
+    }
+
     function renderTabla(lista = estado.citas) {
         const tbody = el('tablaCitas');
         if (!tbody) return;
 
         const filtrados = aplicarFiltro(lista);
+        estado.listaFiltradaActual = filtrados;
+
+        const totalItems = filtrados.length;
+        const totalPaginas = Math.ceil(totalItems / estado.limitePorPagina) || 1;
+
+        if (estado.paginaActual > totalPaginas) {
+            estado.paginaActual = totalPaginas;
+        }
+        if (estado.paginaActual < 1) {
+            estado.paginaActual = 1;
+        }
+
+        const inicio = (estado.paginaActual - 1) * estado.limitePorPagina;
+        const fin = Math.min(inicio + estado.limitePorPagina, totalItems);
+        const citasPagina = filtrados.slice(inicio, fin);
 
         tbody.innerHTML = '';
         if (el('contadorMostrados')) el('contadorMostrados').textContent = filtrados.length;
 
-        if (filtrados.length === 0) {
+        if (totalItems === 0) {
             const mensaje = estado.citas.length > 0
                 ? 'No se encontraron citas en esta categoría.'
                 : 'No hay citas registradas en el sistema';
@@ -235,11 +388,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         ${mensaje}
                     </td>
                 </tr>`;
+            actualizarPaginacionCitasUI(0, 0, 0, 1, 1);
             actualizarMetricas();
             return;
         }
 
-        filtrados.forEach((cita, indice) => {
+        citasPagina.forEach((cita, indiceRelativo) => {
+            const indiceGlobal = inicio + indiceRelativo;
             const id = idCita(cita);
             const est = estadoCita(cita);
             const nombre = nombreEstudiante(cita);
@@ -249,7 +404,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td><div class="barra-estado ${colorBarraEstado(est)}"></div></td>
-                <td class="fw-bold text-muted">#${indice + 1}</td>
+                <td class="fw-bold text-muted">#${indiceGlobal + 1}</td>
                 <td>
                     <div class="d-flex align-items-center gap-2">
                         <div class="student-avatar-badge">${escapeHTML(iniciales(nombre))}</div>
@@ -269,6 +424,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="d-flex justify-content-center gap-1">
                         <button class="btn-accion-table btn-ver" onclick="verExpediente(${id})" title="Ver detalle de la cita">
                             <i class="bi bi-eye"></i>
+                        </button>
+                        <button class="btn-accion-table btn-ver" onclick="abrirSeguimiento(${cita.estudiante?.idEstudiante ?? 'null'})" title="Ver seguimiento del caso">
+                            <i class="bi bi-journal-medical"></i>
                         </button>
                         <button class="btn-accion-table btn-editar" onclick="abrirModalEditarCita(${id})" title="Reprogramar / Editar cita">
                             <i class="bi bi-pencil-square"></i>
@@ -292,6 +450,7 @@ document.addEventListener('DOMContentLoaded', () => {
             tbody.appendChild(tr);
         });
 
+        actualizarPaginacionCitasUI(inicio + 1, fin, totalItems, estado.paginaActual, totalPaginas);
         actualizarMetricas();
     }
 
@@ -311,11 +470,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const estudiantes = await EstudiantesService.listar();
             estado.estudiantes = Array.isArray(estudiantes) ? estudiantes : [];
-            llenarSelect(el('estudianteSelect'), estado.estudiantes, 'idEstudiante', 'id', (est) => {
-                const nombre = `${est.nombres ?? est.nombre ?? ''} ${est.apellidos ?? ''}`.trim();
-                const carnet = est.codigoCarnet ?? est.carnet;
-                return carnet ? `${nombre} (Carnet: ${carnet})` : nombre;
-            });
+            renderOpcionesEstudiantes();
         } catch (error) {
             const status = error?.status;
             if (status === 401) throw error;
@@ -387,6 +542,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (isNaN(fechaObj.getTime())) {
                 marcarError('fechaCita', 'Ingrese una fecha válida.');
                 valido = false;
+            } else if (esFinDeSemana(fecha)) {
+                marcarError('fechaCita', 'Las citas solo se pueden programar de lunes a viernes.');
+                valido = false;
             } else {
                 const estadoSel = el('estadoCita').value;
                 if ((estadoSel === 'PENDIENTE' || estadoSel === 'CONFIRMADA') && fechaObj < new Date(new Date().toDateString())) {
@@ -399,6 +557,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const hora = el('horaCita').value;
         if (!hora) {
             marcarError('horaCita', 'La hora de la cita es obligatoria.');
+            valido = false;
+        } else if (hora < HORA_INICIO || hora > HORA_FIN) {
+            marcarError('horaCita', 'La hora debe estar entre 8:00 AM y 3:30 PM.');
+            valido = false;
+        } else if (!estado.modoEdicion && fecha && yaPaso(fecha, hora)) {
+            marcarError('horaCita', 'Esa hora ya pasó. Elige una hora posterior.');
+            valido = false;
+        }
+
+        if (el('estadoCita').value === 'REALIZADA' && !yaPaso(fecha, hora)) {
+            marcarError('estadoCita', 'Solo puede marcarse como realizada cuando ya pasó la fecha y hora de la cita.');
             valido = false;
         }
 
@@ -433,6 +602,7 @@ document.addEventListener('DOMContentLoaded', () => {
             psicologo: { idPsicologo: Number(el('psicologoSelect').value) },
             fechaHoraCita: `${el('fechaCita').value}T${el('horaCita').value}:00`,
             estado: el('estadoCita').value,
+            estadoConfirmacion: el('estadoCita').value,
             motivo: el('motivoCita').value.trim()
         };
     }
@@ -452,24 +622,25 @@ document.addEventListener('DOMContentLoaded', () => {
         estado.modoEdicion = false;
         estado.idEnEdicion = null;
 
-        generarOpcionesHora30Min();
-
         const form = el('formCrearCita');
         if (form) form.reset();
         limpiarErrores();
 
+        if (el('buscarEstudianteCita')) el('buscarEstudianteCita').value = '';
+        renderOpcionesEstudiantes();
+
         el('citaId').value = '';
+        el('fechaCita').min = hoyISO();
         el('estadoCita').value = 'PENDIENTE';
+        generarOpcionesHora30Min();
+        actualizarAyudaFecha();
+        actualizarOpcionesEstado();
 
         const psiSel = el('psicologoSelect');
         if (psiSel) {
-            if (estado.usuarioSesion?.tipoUsuario === 'PSICOLOGO' && estado.psicologoLogueado) {
-                const idPsi = estado.psicologoLogueado.idPsicologo ?? estado.psicologoLogueado.id;
-                psiSel.value = idPsi;
-                psiSel.disabled = true;
-            } else {
-                psiSel.disabled = false;
-            }
+            const idPsi = idPsicologoPorDefecto();
+            if (idPsi) psiSel.value = idPsi;
+            psiSel.disabled = estado.usuarioSesion?.tipoUsuario === 'PSICOLOGO' && Boolean(estado.psicologoLogueado);
         }
 
         el('modalCrearCitaLabel').innerHTML =
@@ -483,19 +654,23 @@ document.addEventListener('DOMContentLoaded', () => {
         const cita = estado.citas.find(c => Number(idCita(c)) === Number(id));
         if (!cita) return;
 
-        generarOpcionesHora30Min();
-
         estado.modoEdicion = true;
         estado.idEnEdicion = id;
         limpiarErrores();
 
+        if (el('buscarEstudianteCita')) el('buscarEstudianteCita').value = '';
+        renderOpcionesEstudiantes();
+
         el('citaId').value = id;
         el('estudianteSelect').value = cita.estudiante?.idEstudiante ?? '';
         el('psicologoSelect').value = cita.psicologo?.idPsicologo ?? '';
+        el('fechaCita').removeAttribute('min');
         el('fechaCita').value = fechaCita(cita);
-        el('horaCita').value = horaCita(cita);
+        generarOpcionesHora30Min(horaCita(cita));
         el('estadoCita').value = estadoCita(cita) || 'PENDIENTE';
         el('motivoCita').value = motivoCita(cita);
+        actualizarAyudaFecha();
+        actualizarOpcionesEstado();
 
         el('modalCrearCitaLabel').innerHTML =
             '<i class="bi bi-pencil-square text-primary"></i> <span>Reprogramar Cita</span>';
@@ -513,11 +688,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const hora12 = formatearHora12(hora);
         const idEstudianteCita = cita.estudiante?.idEstudiante ?? cita.estudiante?.id;
 
-        const hoyStr = new Date().toISOString().split('T')[0];
-        const fechaCitaStr = fechaCita(cita);
-
-        // Validar si es momento de la cita
-        const esMomentoCita = fechaCitaStr <= hoyStr && estadoCita(cita) !== 'CANCELADA';
+        const esMomentoCita = yaPaso(fechaCita(cita), hora) && estadoCita(cita) !== 'CANCELADA';
 
         el('expedienteModalTitulo').textContent = 'Detalle de la Cita';
         el('expedienteModalBody').innerHTML = `
@@ -545,6 +716,11 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="card p-3 mb-3 border-0 bg-light">
                 <h6 class="fw-bold mb-2 text-dark"><i class="bi bi-chat-left-text me-2 text-primary"></i>Motivo de Consulta</h6>
                 <p class="small text-muted mb-0" style="line-height: 1.6;">${escapeHTML(motivoCita(cita)) || 'Sin motivo registrado.'}</p>
+            </div>
+            <div class="d-flex justify-content-end mb-3">
+                <button type="button" class="btn btn-outline-primary btn-sm" onclick="abrirSeguimiento(${idEstudianteCita})">
+                    <i class="bi bi-journal-medical me-1"></i> Ver seguimiento del caso
+                </button>
             </div>
 
             ${esMomentoCita ? `
@@ -603,7 +779,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 Notif.exito('¡Cita actualizada exitosamente!');
             } else {
                 await CitasService.crear(payload);
-                Notif.exito('¡Cita programada exitosamente!');
+                let seguimientoCreado = false;
+                try {
+                    seguimientoCreado = (await asegurarExpediente(payload.estudiante.idEstudiante)).creado;
+                } catch (errorExpediente) { }
+                Notif.exito(seguimientoCreado
+                    ? 'Cita programada. Como es la primera cita del estudiante, se abrió su seguimiento de caso.'
+                    : '¡Cita programada exitosamente!');
             }
 
             await recargarCitas();
@@ -617,20 +799,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const cita = estado.citas.find(c => Number(idCita(c)) === Number(id));
         if (!cita) return;
 
-        const result = await Swal.fire({
-            title: 'Confirmar Cita',
-            text: `¿Desea confirmar la cita de ${nombreEstudiante(cita)} programada para el ${formatearFechaLegible(fechaCita(cita))}?`,
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonColor: '#0d6efd',
-            cancelButtonColor: '#6c757d',
-            confirmButtonText: 'Sí, confirmar',
-            cancelButtonText: 'Cancelar',
-            allowOutsideClick: false,
-            allowEscapeKey: false
-        });
+        const confirmado = await Notif.confirmar(
+            '¿Confirmar cita?',
+            `Se confirmará la cita de ${nombreEstudiante(cita)} programada para el ${formatearFechaLegible(fechaCita(cita))}.`,
+            'Sí, confirmar'
+        );
 
-        if (!result.isConfirmed) return;
+        if (!confirmado) return;
 
         try {
             await CitasService.cambiarEstado(id, 'CONFIRMADA', cita);
@@ -641,62 +816,53 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    window.guardarNotasSesion = async function(idEstudiante, idCitaTarget) {
+    window.guardarNotasSesion = async function (idEstudiante, idCitaTarget) {
         const notas = el('inputNotasSesion')?.value.trim();
         if (!notas) {
-            Notif.error('Por favor escriba las notas o resumen de la sesión antes de guardar.');
+            Notif.advertencia('Escribe las notas o el resumen de la sesión antes de guardar.', 'Faltan las notas');
+            return;
+        }
+
+        const cita = estado.citas.find(c => Number(idCita(c)) === Number(idCitaTarget));
+        if (!cita) return;
+
+        if (!yaPaso(fechaCita(cita), horaCita(cita))) {
+            Notif.advertencia('Solo puedes registrar la sesión cuando ya pasó la fecha y hora de la cita.', 'Aún no es la cita');
             return;
         }
 
         try {
-            // Buscar o crear expediente del estudiante
-            let idExpediente = null;
-            if (typeof CasosTransferidosService !== 'undefined' && CasosTransferidosService.listarExpedientes) {
-                const exps = await CasosTransferidosService.listarExpedientes();
-                const exp = (Array.isArray(exps) ? exps : []).find(e => {
-                    const idEst = e.estudiante?.idEstudiante ?? e.estudiante?.id ?? e.idEstudiante;
-                    return Number(idEst) === Number(idEstudiante);
-                });
-                if (exp) idExpediente = exp.idExpediente ?? exp.id;
-            }
-
+            const { expediente } = await asegurarExpediente(idEstudiante);
+            const idExpediente = expediente?.idExpediente ?? expediente?.id;
             if (!idExpediente) {
-                try {
-                    const nuevoExp = await CasosTransferidosService.crearExpediente({
-                        estudiante: { idEstudiante: Number(idEstudiante) }
-                    });
-                    if (nuevoExp) idExpediente = nuevoExp.idExpediente ?? nuevoExp.id;
-                } catch(e) { }
-            }
-
-            if (!idExpediente) {
-                Notif.error('No se pudo encontrar ni crear el expediente del estudiante.');
+                Notif.error('No se pudo encontrar ni crear el seguimiento de caso del estudiante.');
                 return;
             }
 
-            const hoyStr = new Date().toISOString().split('T')[0];
-            const payloadSesion = {
-                expediente: { idExpediente: Number(idExpediente) },
-                fechaSesion: hoyStr,
-                resumenSesion: notas
-            };
+            await peticionApi('/sesiones', {
+                method: 'POST',
+                body: {
+                    expediente: { idExpediente: Number(idExpediente) },
+                    psicologo: { idPsicologo: Number(cita.psicologo?.idPsicologo ?? idPsicologoPorDefecto()) },
+                    cita: { idCita: Number(idCitaTarget) },
+                    fechaAtencion: fechaCita(cita),
+                    tipoProceso: 'Sesión de seguimiento',
+                    estadoEstudiante: 'Seguimiento',
+                    notasAnotaciones: notas,
+                    marcadorCritico: 'NO'
+                }
+            });
 
-            if (typeof SeguimientosService !== 'undefined' && SeguimientosService.crear) {
-                await SeguimientosService.crear(payloadSesion);
-            } else {
-                await peticionApi('/sesiones', 'POST', payloadSesion);
+            if (estadoCita(cita) !== 'REALIZADA') {
+                await CitasService.cambiarEstado(idCitaTarget, 'REALIZADA', cita);
             }
-
-            // Marcar cita como realizada
-            await CitasService.cambiarEstado(idCitaTarget, 'REALIZADA');
             await recargarCitas();
 
             const modalInstance = bootstrap.Modal.getInstance(el('modalExpediente'));
             if (modalInstance) modalInstance.hide();
 
-            Notif.exito('¡Notas de sesión guardadas en el historial de seguimiento del estudiante y cita marcada como realizada!');
+            Notif.exito('Las notas se guardaron en el seguimiento del caso y la cita quedó como realizada.', 'Sesión registrada');
         } catch (error) {
-            console.error('Error al guardar la sesión:', error);
             Notif.error(mensajeErrorAmigable(error), 'No se pudo guardar la sesión');
         }
     };
@@ -712,54 +878,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 await peticionApi(`/citas/${idCitaTarget}`, 'PUT', { estado: 'CANCELADA' });
             }
 
-            if (typeof Swal !== 'undefined' && Swal.mixin) {
-                const Toast = Swal.mixin({
-                    toast: true,
-                    position: 'top-start',
-                    showConfirmButton: false,
-                    timer: 3000,
-                    timerProgressBar: true
-                });
-                Toast.fire({
-                    icon: 'success',
-                    title: 'Cita cancelada correctamente'
-                });
-            } else if (typeof Notif !== 'undefined' && Notif.exito) {
-                Notif.exito('Cita cancelada correctamente');
-            }
+            Notif.exito('La cita se canceló correctamente.', 'Cita cancelada');
 
             await cargarCitas();
         } catch (error) {
             console.error('Error al ejecutar la cancelación de la cita:', error);
-            if (typeof Notif !== 'undefined' && Notif.error) {
-                Notif.error(mensajeErrorAmigable(error), 'No se pudo cancelar la cita');
-            } else if (typeof Swal !== 'undefined') {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error',
-                    text: error?.message || 'No se pudo cancelar la cita'
-                });
-            }
+            Notif.error(mensajeErrorAmigable(error), 'No se pudo cancelar la cita');
         }
     }
 
     window.ejecutarCancelacionCita = ejecutarCancelacionCita;
 
     window.cancelarCita = async function (idCita) {
-        const result = await Swal.fire({
-            title: 'Cancelar Cita',
-            text: '¿Estás seguro de que deseas cancelar esta cita?',
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#d33',
-            cancelButtonColor: '#3085d6',
-            confirmButtonText: 'Sí, cancelar',
-            cancelButtonText: 'No, mantener',
-            allowOutsideClick: false,
-            allowEscapeKey: false
-        });
+        const confirmado = await Notif.confirmar(
+            '¿Cancelar cita?',
+            'La cita quedará marcada como cancelada.',
+            'Sí, cancelar cita',
+            { icono: 'warning', peligro: true, botonCancelar: 'No, mantener' }
+        );
 
-        if (result.isConfirmed) {
+        if (confirmado) {
             await ejecutarCancelacionCita(idCita);
         }
     };
@@ -768,20 +906,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const cita = estado.citas.find(c => Number(idCita(c)) === Number(id));
         if (!cita) return;
 
-        const result = await Swal.fire({
-            title: 'Eliminar Cita',
-            text: `¿Está seguro de que desea eliminar la cita de ${nombreEstudiante(cita)} del sistema? Esta acción no se puede deshacer.`,
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#dc3545',
-            cancelButtonColor: '#6c757d',
-            confirmButtonText: 'Sí, eliminar',
-            cancelButtonText: 'Cancelar',
-            allowOutsideClick: false,
-            allowEscapeKey: false
-        });
+        const confirmado = await Notif.confirmarEliminar(
+            '¿Eliminar cita?',
+            `Se eliminará la cita de ${nombreEstudiante(cita)}. Esta acción no se puede deshacer.`
+        );
 
-        if (!result.isConfirmed) return;
+        if (!confirmado) return;
 
         try {
             await CitasService.eliminar(id);
@@ -999,6 +1129,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     el('btnFlotanteCita')?.addEventListener('click', window.abrirModalAgregarCita);
 
+    el('buscarEstudianteCita')?.addEventListener('input', (e) => renderOpcionesEstudiantes(e.target.value));
+
+    el('fechaCita')?.addEventListener('change', () => {
+        generarOpcionesHora30Min(el('horaCita')?.value);
+        if (el('horaCita') && el('horaCita').selectedOptions[0]?.disabled) el('horaCita').value = '';
+        actualizarAyudaFecha();
+        actualizarOpcionesEstado();
+    });
+
+    el('horaCita')?.addEventListener('change', actualizarOpcionesEstado);
+
     el('formCrearCita')?.addEventListener('submit', (e) => {
         e.preventDefault();
         guardarFormulario();
@@ -1020,6 +1161,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     el('buscarEstudiante')?.addEventListener('input', (e) => {
+        estado.paginaActual = 1;
         estado.textoBusqueda = e.target.value.trim();
         renderTabla();
     });
@@ -1039,9 +1181,25 @@ document.addEventListener('DOMContentLoaded', () => {
             document.querySelectorAll('.citas-filter-nav .nav-link-custom')
                 .forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
+            estado.paginaActual = 1;
             estado.filtro = btn.dataset.filter;
             renderTabla();
         });
+    });
+
+    el('btnPrevCitas')?.addEventListener('click', () => {
+        if (estado.paginaActual > 1) {
+            estado.paginaActual--;
+            renderTabla();
+        }
+    });
+
+    el('btnNextCitas')?.addEventListener('click', () => {
+        const totalPaginas = Math.ceil(estado.listaFiltradaActual.length / estado.limitePorPagina) || 1;
+        if (estado.paginaActual < totalPaginas) {
+            estado.paginaActual++;
+            renderTabla();
+        }
     });
 
     const hamburgerBtn = el('hamburgerBtn');

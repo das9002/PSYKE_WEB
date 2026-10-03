@@ -16,11 +16,12 @@
     <link rel="stylesheet" href="../css/styleCasosTransferidos.css">
     <link rel="stylesheet" href="../css/styleNavbar.css">
     <link rel="stylesheet" href="../css/styleTemaoscuro.css">
+    <link rel="stylesheet" href="../css/styleAlertas.css">
     <link rel="stylesheet" href="../css/stylenotificacionChat.css">
     <link rel="icon" href="../img/Logo0.png" crossorigin>
     <script>
         (function () {
-            if (localStorage.getItem('psyke_dark_mode') === 'enabled') {
+            if (/(?:^|;\s*)psyke_dark_mode=enabled(?:;|$)/.test(document.cookie)) {
                 document.documentElement.classList.add('dark-mode');
             }
         })();

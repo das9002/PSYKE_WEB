@@ -3,16 +3,41 @@
     'use strict';
 
     var env = global.PSYKE_ENV || {};
-    var API_BASE_URL = env.api || 'http://localhost:8080/api';
-    var AUTH_API_URL = env.auth || 'http://localhost:8081/api/auth';
+    var esLocal = global.location && (global.location.hostname === 'localhost' || global.location.hostname === '127.0.0.1');
+    var origen = global.location ? global.location.origin : '';
+    var defaultApi = esLocal ? 'http://localhost:8080/api' : origen + '/proxy/api';
+    var defaultAuth = esLocal ? 'http://localhost:8081/api/auth' : origen + '/proxy/auth';
 
-    var REDIRECT_FLAG = 'psyke_redirecting';
+    var API_BASE_URL = (env.api || defaultApi).replace(/\/+$/, '');
+    var AUTH_API_URL = (env.auth || defaultAuth).replace(/\/+$/, '');
 
     var sesionCerradaEnCurso = false;
+    var usuarioSesion = null;
+    var sesionPendiente = null;
+
+    var Preferencias = {
+        leer: function (clave) {
+            var patron = new RegExp('(?:^|;\\s*)' + clave + '=([^;]*)');
+            var encontrado = document.cookie.match(patron);
+            return encontrado ? decodeURIComponent(encontrado[1]) : null;
+        },
+        guardar: function (clave, valor) {
+            var unAnio = 60 * 60 * 24 * 365;
+            var seguro = global.location && global.location.protocol === 'https:' ? '; Secure' : '';
+            document.cookie = clave + '=' + encodeURIComponent(valor) + '; Max-Age=' + unAnio + '; Path=/; SameSite=Lax' + seguro;
+        }
+    };
+
+    function obtenerUsuario() {
+        return usuarioSesion;
+    }
 
     function normalizarRuta(ruta) {
         var partes = String(ruta || '').split('?');
         var limpia = partes[0].replace(/\/{2,}/g, '/');
+        if (!limpia.startsWith('/')) {
+            limpia = '/' + limpia;
+        }
         return partes.length > 1 ? limpia + '?' + partes.slice(1).join('?') : limpia;
     }
 
@@ -37,26 +62,22 @@
     }
 
     function resolverLogin() {
-        var path = window.location.pathname;
-        var carpeta = path.substring(0, path.lastIndexOf('/'));
-        var profundidad = carpeta.split('/').filter(Boolean).length;
-        return profundidad > 0 ? '../index.html' : 'index.html';
+        return /\/(HTML|btnsEstudiante)\//i.test(window.location.pathname) ? '../index.html' : 'index.html';
     }
 
-    function cerrarSesionGlobal() {
+    function cerrarSesionGlobal(opciones) {
+        var voluntario = Boolean(opciones && opciones.voluntario);
         if (sesionCerradaEnCurso) return;
         sesionCerradaEnCurso = true;
-
-        var yaRedirigido = sessionStorage.getItem(REDIRECT_FLAG);
-        localStorage.clear();
-        sessionStorage.clear();
-
-        if (yaRedirigido) return;
-
-        sessionStorage.setItem(REDIRECT_FLAG, '1');
+        usuarioSesion = null;
+        sesionPendiente = null;
 
         if (typeof Notif !== 'undefined') {
-            Notif.error('Tu sesión ha expirado o el token es inválido. Inicia sesión nuevamente.', 'Sesión expirada');
+            if (voluntario) {
+                Notif.exito('Has salido de tu cuenta de forma segura.', 'Sesión cerrada');
+            } else {
+                Notif.error('Tu sesión ha expirado. Inicia sesión nuevamente.', 'Sesión expirada');
+            }
         }
 
         setTimeout(function () {
@@ -64,70 +85,86 @@
         }, 900);
     }
 
+    // Peticiones a la API de Servicios Principal (api-service)
     async function apiFetch(ruta, opciones, cuerpoData) {
         if (typeof opciones === 'string') {
             var metodo = opciones;
             opciones = {
                 method: metodo,
-                body: typeof cuerpoData === 'string' ? cuerpoData : (cuerpoData !== undefined ? JSON.stringify(cuerpoData) : undefined)
+                body: cuerpoData
             };
         } else {
             opciones = opciones || {};
         }
-        var url = API_BASE_URL + normalizarRuta(ruta);
 
-        var headers = { 'Content-Type': 'application/json' };
-        var token = localStorage.getItem('psyke_token');
-        if (token) {
-            headers['Authorization'] = 'Bearer ' + token;
+        var url = API_BASE_URL + normalizarRuta(ruta);
+        var headers = {};
+
+        // Manejo automático del Body y Content-Type (evita errores con FormData)
+        var body = opciones.body;
+        if (body && !(body instanceof FormData) && typeof body === 'object') {
+            body = JSON.stringify(body);
+            headers['Content-Type'] = 'application/json';
+        } else if (typeof body === 'string') {
+            headers['Content-Type'] = 'application/json';
         }
-        if (opciones.headers) Object.assign(headers, opciones.headers);
+
+        if (opciones.headers) {
+            Object.assign(headers, opciones.headers);
+        }
 
         var respuesta;
         try {
             respuesta = await fetch(url, {
                 method: opciones.method || 'GET',
                 headers: headers,
-                body: opciones.body,
-                signal: opciones.signal,
-                credentials: 'include'
+                body: body,
+                credentials: 'include',
+                signal: opciones.signal
             });
         } catch (error) {
-            var eRed = new Error('No se pudo conectar con el servidor. Verifique que el backend esté activo en ' + API_BASE_URL + '.');
+            var eRed = new Error('No se pudo conectar con el servidor.');
             eRed.tipo = 'RED';
             throw eRed;
         }
 
+        // Manejo de Estado HTTP 401 - Sesión Expirada
         if (respuesta.status === 401) {
             cerrarSesionGlobal();
-            var eSesion = new Error('No se proporcionó un token válido. El token es inválido o expirado.');
+            var eSesion = new Error('No se proporcionó un token válido o la sesión ha expirado.');
             eSesion.status = 401;
             throw eSesion;
         }
 
+        // Manejo de Estado HTTP 403 - Sin Permisos
         if (respuesta.status === 403) {
             var ePermiso = new Error('No tiene permisos para realizar esta acción.');
             ePermiso.status = 403;
-            console.error('[apiFetch] 403 Forbidden:', ePermiso.message);
             throw ePermiso;
         }
 
+        // Manejo de Errores 5xx (Server Error / 503 Service Unavailable)
         if (respuesta.status >= 500) {
-            var eServidor = new Error('Error interno del servidor. Intente nuevamente más tarde.');
+            var mensajeServidor = respuesta.status === 503 
+                ? 'El servicio no está disponible temporalmente (Timeout/503).' 
+                : 'Error interno del servidor.';
+            
+            try {
+                var jsonErr = await respuesta.json();
+                if (jsonErr.message) mensajeServidor = jsonErr.message;
+            } catch (e) { }
+
+            var eServidor = new Error(mensajeServidor);
             eServidor.status = respuesta.status;
-            console.error('[apiFetch] 5xx Server Error:', eServidor.message);
             throw eServidor;
         }
 
+        // Manejo de Errores 4xx
         if (!respuesta.ok) {
             var mensaje = 'Ocurrió un error en la petición al servidor.';
             try {
                 var cuerpo = await respuesta.json();
-                if (cuerpo.message) {
-                    mensaje = cuerpo.message;
-                } else if (cuerpo.details && typeof cuerpo.details === 'object') {
-                    mensaje = Object.values(cuerpo.details).join('\n');
-                }
+                if (cuerpo.message) mensaje = cuerpo.message;
             } catch (e) { }
             var eApi = new Error(mensaje);
             eApi.status = respuesta.status;
@@ -140,38 +177,91 @@
         return texto ? JSON.parse(texto) : null;
     }
 
-    async function verificarSesion() {
-        try {
-            var url = AUTH_API_URL + '/me';
-            var headers = { 'Content-Type': 'application/json' };
-            var token = localStorage.getItem('psyke_token');
-            if (token) {
-                headers['Authorization'] = 'Bearer ' + token;
-            }
-            var respuesta = await fetch(url, {
-                method: 'GET',
-                headers: headers,
-                credentials: 'include'
-            });
-            if (respuesta.ok) {
-                return await respuesta.json();
-            }
-        } catch (e) {
-            // Ignorar errores de red, se manejará en la llamada posterior
+    // Peticiones a la API de Autenticación (api-auth)
+    async function authFetch(ruta, opciones) {
+        opciones = opciones || {};
+        var url = AUTH_API_URL + normalizarRuta(ruta);
+        var headers = {};
+
+        var body = opciones.body;
+        if (body && !(body instanceof FormData) && typeof body === 'object') {
+            body = JSON.stringify(body);
+            headers['Content-Type'] = 'application/json';
+        } else if (typeof body === 'string') {
+            headers['Content-Type'] = 'application/json';
         }
-        return null;
+
+        if (opciones.headers) {
+            Object.assign(headers, opciones.headers);
+        }
+
+        return fetch(url, {
+            method: opciones.method || 'GET',
+            headers: headers,
+            body: body,
+            credentials: 'include'
+        });
+    }
+
+    function verificarSesion() {
+        if (usuarioSesion) return Promise.resolve(usuarioSesion);
+        if (sesionPendiente) return sesionPendiente;
+
+        sesionPendiente = authFetch('/me')
+            .then(function (respuesta) {
+                return respuesta.ok ? respuesta.json() : null;
+            })
+            .catch(function () {
+                return null;
+            })
+            .then(function (datos) {
+                usuarioSesion = datos || null;
+                sesionPendiente = null;
+                return usuarioSesion;
+            });
+
+        return sesionPendiente;
+    }
+
+    async function listarTodo(ruta, tamano) {
+        var porPagina = tamano || 50;
+        var separador = String(ruta).indexOf('?') === -1 ? '?' : '&';
+        var base = ruta + separador + 'size=' + porPagina + '&page=';
+
+        var primera = await apiFetch(base + '0');
+        if (!primera || Array.isArray(primera) || typeof primera !== 'object' || !Array.isArray(primera.content)) {
+            return normalizarListado(primera);
+        }
+
+        var totalPaginas = Number(primera.totalPages != null ? primera.totalPages : (primera.page && primera.page.totalPages)) || 1;
+        totalPaginas = Math.min(totalPaginas, 200);
+        if (totalPaginas <= 1) return primera.content.slice();
+
+        var pendientes = [];
+        for (var p = 1; p < totalPaginas; p++) {
+            pendientes.push(apiFetch(base + p));
+        }
+        var resto = await Promise.all(pendientes);
+        return resto.reduce(function (acumulado, pagina) {
+            return acumulado.concat(normalizarListado(pagina));
+        }, primera.content.slice());
     }
 
     function peticionApi(ruta, opciones) {
         return apiFetch(ruta, opciones);
     }
 
+    // Exposición global de utilidades
     global.API_BASE_URL = API_BASE_URL;
     global.AUTH_API_URL = AUTH_API_URL;
+    global.obtenerUsuario = obtenerUsuario;
     global.normalizarRuta = normalizarRuta;
     global.cerrarSesionGlobal = cerrarSesionGlobal;
     global.apiFetch = apiFetch;
+    global.authFetch = authFetch;
     global.peticionApi = peticionApi;
+    global.listarTodo = listarTodo;
     global.verificarSesion = verificarSesion;
+    global.Preferencias = Preferencias;
     global.normalizarListado = normalizarListado;
 })(window);

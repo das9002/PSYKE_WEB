@@ -229,3 +229,82 @@ body {
     opacity: 1;
     transform: translateY(0);
 }
+.btn-guardar:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.custom-form-field input:disabled {
+    cursor: not-allowed;
+    opacity: 0.75;
+}
+
+.perfil-encabezado {
+    text-align: center;
+    margin: -14px 0 28px;
+}
+
+.perfil-nombre {
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: var(--text-main);
+    margin: 0 0 8px;
+}
+
+.perfil-rol {
+    display: inline-block;
+    padding: 4px 14px;
+    border-radius: 30px;
+    background-color: #dbeafe;
+    color: var(--accent-blue);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+}
+
+.perfil-rol:empty {
+    display: none;
+}
+
+.perfil-etiqueta {
+    width: 170px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #475569;
+    flex-shrink: 0;
+}
+
+.perfil-valor {
+    flex-grow: 1;
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--text-main);
+    word-break: break-word;
+}
+
+html.dark-mode .perfil-nombre,
+html.dark-mode .perfil-valor {
+    color: #f3f4f6;
+}
+
+html.dark-mode .perfil-etiqueta {
+    color: #9ca3af;
+}
+
+html.dark-mode .perfil-rol {
+    background-color: rgba(47, 109, 246, 0.2);
+    color: #93c5fd;
+}
+
+@media (max-width: 480px) {
+    .custom-form-field {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+    }
+
+    .perfil-etiqueta {
+        width: auto;
+        font-size: 0.8rem;
+    }
+}

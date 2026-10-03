@@ -7,8 +7,8 @@
             auth: 'http://localhost:8081/api/auth'
         },
         produccion: {
-            api: 'https://api-service-4d465a47b94c.herokuapp.com/api',
-            auth: 'https://api-auth-1b19165bcf87.herokuapp.com/api/auth'
+            api: window.location.origin + '/proxy/api',
+            auth: window.location.origin + '/proxy/auth'
         }
     };
 

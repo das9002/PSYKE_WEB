@@ -1,0 +1,132 @@
+.pasos-recuperacion {
+    list-style: none;
+    display: flex;
+    gap: 8px;
+    padding: 0;
+    margin: 0 0 26px;
+}
+
+.pasos-recuperacion .paso {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid #1f2937;
+    color: #6b7280;
+    font-size: 0.8rem;
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+
+.pasos-recuperacion .paso span {
+    width: 24px;
+    height: 24px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #1f2937;
+    color: #9ca3af;
+    font-size: 0.78rem;
+}
+
+.pasos-recuperacion .paso.activo {
+    color: #ffffff;
+    border-color: #1a73e8;
+    background: rgba(26, 115, 232, 0.12);
+}
+
+.pasos-recuperacion .paso.activo span {
+    background: #1a73e8;
+    color: #ffffff;
+}
+
+.pasos-recuperacion .paso.completo {
+    color: #22c55e;
+}
+
+.pasos-recuperacion .paso.completo span {
+    background: #22c55e;
+    color: #ffffff;
+}
+
+.texto-ayuda {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.9rem;
+    line-height: 1.55;
+    margin: -10px 0 22px;
+}
+
+.texto-ayuda strong {
+    color: #ffffff;
+    word-break: break-all;
+}
+
+.input-codigo {
+    letter-spacing: 0.6em;
+    font-size: 1.25rem !important;
+    font-weight: 700;
+}
+
+.input-codigo::placeholder {
+    letter-spacing: 0.6em;
+}
+
+.estado-codigo {
+    margin: -6px 0 0;
+    font-size: 0.82rem;
+    color: #9ca3af;
+}
+
+.estado-codigo.vencido {
+    color: #ef4444;
+}
+
+.btn-link-reenviar,
+.btn-link-secundario {
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.btn-link-reenviar {
+    color: #60a5fa;
+}
+
+.btn-link-reenviar:hover:not(:disabled) {
+    text-decoration: underline;
+}
+
+.btn-link-reenviar:disabled {
+    color: #6b7280;
+    cursor: not-allowed;
+}
+
+.btn-link-secundario {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.btn-link-secundario:hover {
+    color: #ffffff;
+}
+
+@media (max-width: 540px) {
+    .pasos-recuperacion .paso {
+        font-size: 0;
+        justify-content: center;
+    }
+
+    .pasos-recuperacion .paso span {
+        font-size: 0.78rem;
+    }
+}

@@ -7,12 +7,8 @@
     let usuarioCache = null;
     let sesionVerificada = false;
 
-
     function resolveLoginPage() {
-        const path = window.location.pathname;
-        const carpeta = path.substring(0, path.lastIndexOf('/'));
-        const profundidad = carpeta.split('/').filter(Boolean).length;
-        return profundidad > 0 ? '../index.html' : 'index.html';
+        return /\/(HTML|btnsEstudiante)\//i.test(window.location.pathname) ? '../index.html' : 'index.html';
     }
 
     function pageLink(nombre) {
@@ -21,56 +17,50 @@
         return enBtns ? '../HTML/' + nombre : nombre;
     }
 
+    function nombreDePsicologo(psi) {
+        if (!psi) return '';
+        return `${psi.nombresCompletos ?? ''} ${psi.apellidosCompletos ?? ''}`.replace(/\s+/g, ' ').trim();
+    }
+
+    async function nombreVisible(datos, rol) {
+        if (datos.nombre) return datos.nombre;
+
+        if (typeof window.listarTodo === 'function') {
+            try {
+                const psicologos = await window.listarTodo('/psicologos');
+                const correo = String(datos.correo || '').toLowerCase();
+                const propio = psicologos.find(p =>
+                    (datos.idUsuario && Number(p?.usuario?.idUsuario) === Number(datos.idUsuario)) ||
+                    (correo && String(p?.usuario?.correo || '').toLowerCase() === correo)
+                );
+                const nombre = nombreDePsicologo(propio);
+                if (nombre) return nombre;
+            } catch (e) { }
+        }
+
+        if (rol === 'ADMIN') return 'Administrador';
+        return datos.correo ? datos.correo.split('@')[0] : 'Usuario';
+    }
+
     async function verificarSesionYObtenerUsuario() {
         if (sesionVerificada && usuarioCache) {
             return usuarioCache;
         }
 
-        try {
-            // Usar la API de autenticación para verificar sesión via cookie
-            const baseUrl = window.AUTH_API_URL || 'http://localhost:8081/api/auth';
-            const respuesta = await fetch(`${baseUrl}/me`, {
-                method: 'GET',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include'
-            });
+        const datos = typeof window.verificarSesion === 'function' ? await window.verificarSesion() : null;
+        if (!datos) return null;
 
-            if (respuesta.status === 401) {
-                return null;
-            }
+        const rawRol = datos.tipoUsuario || datos.rol || (Array.isArray(datos.roles) ? datos.roles[0] : '');
+        const rol = String(rawRol).replace('ROLE_', '').toUpperCase();
+        if (rol !== 'ADMIN' && rol !== 'PSICOLOGO') return null;
 
-            if (respuesta.status === 403) {
-                console.warn('[navbarService] Acceso denegado (403), pero se mantiene la sesión');
-                return null;
-            }
-
-            if (respuesta.status >= 500) {
-                console.error('[navbarService] Error del servidor (5xx), se mantiene la sesión');
-                return null;
-            }
-
-            if (respuesta.ok) {
-                const datos = await respuesta.json();
-                // Solo permitir ADMIN y PSICOLOGO en la web
-                const rol = datos.tipoUsuario;
-                if (rol === 'ADMIN' || rol === 'PSICOLOGO') {
-                    usuarioCache = {
-                        nombre: datos.correo?.split('@')[0] || 'Usuario',
-                        email: datos.correo || '',
-                        rol: rol
-                    };
-                    sesionVerificada = true;
-                    return usuarioCache;
-                } else {
-                    // Estudiante no puede acceder a la web
-                    throw new Error('Acceso denegado');
-                }
-            }
-        } catch (e) {
-            // Error de red - no cerrar sesión
-            console.error('[navbarService] Error de red al verificar sesión:', e);
-        }
-        return null;
+        usuarioCache = {
+            nombre: await nombreVisible(datos, rol),
+            email: datos.correo || datos.email || '',
+            rol
+        };
+        sesionVerificada = true;
+        return usuarioCache;
     }
 
     function buildMenu() {
@@ -117,33 +107,49 @@
         });
     }
 
-
     async function handleLogout() {
+        if (typeof Notif !== 'undefined') {
+            const confirmado = await Notif.confirmar(
+                '¿Cerrar sesión?',
+                'Tendrás que ingresar tus credenciales nuevamente para volver a entrar.',
+                'Sí, cerrar sesión',
+                { icono: 'warning', peligro: true }
+            );
+            if (!confirmado) return;
+        }
+
+        if (window.AuthService && typeof window.AuthService.logoutUsuario === 'function') {
+            await window.AuthService.logoutUsuario();
+            return;
+        }
+
         try {
-            const baseUrl = window.AUTH_API_URL || 'http://localhost:8081/api/auth';
-            await fetch(`${baseUrl}/logout`, {
+            await fetch(`${String(window.AUTH_API_URL || '').replace(/\/+$/, '')}/logout`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
                 credentials: 'include'
             });
-        } catch (e) {
-            // Ignorar errores
+        } catch (e) { }
+
+        if (typeof window.cerrarSesionGlobal === 'function') {
+            window.cerrarSesionGlobal({ voluntario: true });
+        } else {
+            window.location.replace(resolveLoginPage());
         }
-        localStorage.clear();
-        sessionStorage.clear();
-        window.location.replace(resolveLoginPage());
     }
 
     function toggleMenu(menu, button) {
         const abierto = menu.classList.toggle('active');
         button.classList.toggle('active', abierto);
+        button.setAttribute('aria-expanded', abierto ? 'true' : 'false');
     }
 
     function closeMenu(menu, button) {
         menu.classList.remove('active');
-        if (button) button.classList.remove('active');
+        if (button) {
+            button.classList.remove('active');
+            button.setAttribute('aria-expanded', 'false');
+        }
     }
-
 
     async function initNavbar() {
         const button = document.querySelector(BUTTON_SELECTOR);
@@ -176,6 +182,9 @@
         const menuEmail = menu.querySelector('.profile-dropdown-email');
         if (menuName) menuName.textContent = nombreUsuario;
         if (menuEmail) menuEmail.textContent = usuario.email || '';
+
+        button.setAttribute('aria-haspopup', 'true');
+        button.setAttribute('aria-expanded', 'false');
 
         button.addEventListener('click', (e) => {
             e.preventDefault();

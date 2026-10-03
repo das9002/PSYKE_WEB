@@ -6,7 +6,10 @@ document.addEventListener('DOMContentLoaded', () => {
         citas: [],
         modoEdicion: false,
         idEnEdicion: null,
-        usuarioSesion: null
+        usuarioSesion: null,
+        paginaActual: 1,
+        limitePorPagina: 10,
+        listaFiltradaActual: []
     };
 
     async function obtenerUsuarioSesion() {
@@ -57,6 +60,14 @@ document.addEventListener('DOMContentLoaded', () => {
         return psi.usuario?.idUsuario ?? null;
     }
 
+    function generarContrasenaTemporal() {
+        return ContrasenaValidaciones.generarTemporal();
+    }
+
+    function mostrarCredenciales(titulo, correo, contrasena, nota) {
+        return Notif.credencialesTemporales(titulo, correo, contrasena, nota);
+    }
+
     function estadoCuentaPsicologo(psi) {
         return psi.usuario?.estadoCuenta ?? psi.estadoCuenta ?? 'ACTIVO';
     }
@@ -91,15 +102,46 @@ document.addEventListener('DOMContentLoaded', () => {
         if (el('casosAsignados')) el('casosAsignados').textContent = casos;
     }
 
+    function actualizarPaginacionUI(inicio, fin, total, paginaActual, totalPaginas) {
+        const info = el('infoPaginacionPsicologos');
+        const ind = el('indicadorPaginaPsicologos');
+        const btnPrev = el('btnPrevPsicologos');
+        const btnNext = el('btnNextPsicologos');
+
+        if (info) {
+            info.innerHTML = total === 0
+                ? 'Mostrando <strong>0</strong> - <strong>0</strong> de <strong>0</strong> psicólogos'
+                : `Mostrando <strong>${inicio}</strong> - <strong>${fin}</strong> de <strong>${total}</strong> psicólogos`;
+        }
+        if (ind) ind.textContent = `Página ${paginaActual} de ${totalPaginas}`;
+        if (btnPrev) btnPrev.disabled = paginaActual <= 1;
+        if (btnNext) btnNext.disabled = paginaActual >= totalPaginas;
+    }
+
     function renderTabla(lista = estado.psicologos) {
         const tbody = el('tablaPsicologosCuerpo');
         if (!tbody) return;
 
         const psicologos = typeof normalizarListado === 'function' ? normalizarListado(lista) : (Array.isArray(lista) ? lista : (lista?.content || []));
+        estado.listaFiltradaActual = psicologos;
+
+        const totalItems = psicologos.length;
+        const totalPaginas = Math.ceil(totalItems / estado.limitePorPagina) || 1;
+
+        if (estado.paginaActual > totalPaginas) {
+            estado.paginaActual = totalPaginas;
+        }
+        if (estado.paginaActual < 1) {
+            estado.paginaActual = 1;
+        }
+
+        const inicio = (estado.paginaActual - 1) * estado.limitePorPagina;
+        const fin = Math.min(inicio + estado.limitePorPagina, totalItems);
+        const psicologosPagina = psicologos.slice(inicio, fin);
 
         tbody.innerHTML = '';
 
-        if (psicologos.length === 0) {
+        if (totalItems === 0) {
             tbody.innerHTML = `
                 <tr>
                     <td colspan="7" class="text-center py-5 text-muted">
@@ -108,11 +150,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     </td>
                 </tr>
             `;
+            actualizarPaginacionUI(0, 0, 0, 1, 1);
             actualizarMetricas();
             return;
         }
 
-        psicologos.forEach((psi) => {
+        psicologosPagina.forEach((psi) => {
             const id = idPsicologo(psi);
             const tr = document.createElement('tr');
             const casos = casosDe(psi);
@@ -161,6 +204,7 @@ document.addEventListener('DOMContentLoaded', () => {
             tbody.appendChild(tr);
         });
 
+        actualizarPaginacionUI(inicio + 1, fin, totalItems, estado.paginaActual, totalPaginas);
         actualizarMetricas();
     }
 
@@ -338,7 +382,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function guardarNuevo(datos) {
-        const passAuto = `${datos.nombresCompletos.split(' ')[0]}Psi2026*`;
+        const passAuto = generarContrasenaTemporal();
 
         const usuarioCreado = await PsicologosService.crearUsuario({
             correo: datos.correo,
@@ -359,9 +403,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        Notif.credenciales(
-            '¡Psicólogo registrado con éxito!',
-            `Se generaron las credenciales de acceso:<br><br><strong>Usuario:</strong> ${datos.correo}<br><strong>Contraseña:</strong> <code>${passAuto}</code>`
+        mostrarCredenciales(
+            'Psicólogo registrado',
+            datos.correo,
+            passAuto,
+            'Copia y entrega estas credenciales. Por seguridad no se volverán a mostrar; el psicólogo debe cambiar su contraseña al ingresar.'
         );
     }
 
@@ -410,9 +456,55 @@ document.addEventListener('DOMContentLoaded', () => {
         el('credPsiPass').type = 'password';
         el('iconEyePsi').className = 'bi bi-eye';
 
-        const modal = new bootstrap.Modal(el('modalCredencialesPsicologo'));
-        modal.show();
+        const btnRestablecer = el('btnRestablecerPassPsi');
+        if (btnRestablecer) {
+            btnRestablecer.classList.toggle('d-none', estado.usuarioSesion?.tipoUsuario !== 'ADMIN');
+            btnRestablecer.dataset.idPsicologo = id;
+        }
+
+        bootstrap.Modal.getOrCreateInstance(el('modalCredencialesPsicologo')).show();
     };
+
+    async function restablecerContrasenaPsicologo() {
+        const id = Number(el('btnRestablecerPassPsi')?.dataset.idPsicologo);
+        const psi = estado.psicologos.find(p => idPsicologo(p) === id);
+        if (!psi || estado.usuarioSesion?.tipoUsuario !== 'ADMIN') return;
+
+        const idUsuario = idUsuarioPsicologo(psi);
+        const correo = correoPsicologo(psi);
+        if (!idUsuario || !correo) {
+            Notif.error('Este psicólogo no tiene un usuario asociado.', 'No se pudo restablecer');
+            return;
+        }
+
+        const confirmado = await Notif.confirmar(
+            '¿Restablecer contraseña?',
+            `Se generará una nueva contraseña para ${psi.nombresCompletos} ${psi.apellidosCompletos}. La contraseña anterior dejará de funcionar.`,
+            'Sí, restablecer',
+            { icono: 'warning', peligro: true }
+        );
+        if (!confirmado) return;
+
+        const contrasena = generarContrasenaTemporal();
+        try {
+            await PsicologosService.actualizarUsuario(idUsuario, {
+                correo,
+                contrasena,
+                tipoUsuario: psi.usuario?.tipoUsuario || 'PSICOLOGO',
+                estadoCuenta: estadoCuentaPsicologo(psi)
+            });
+
+            el('credPsiPass').value = contrasena;
+            await mostrarCredenciales(
+                'Contraseña restablecida',
+                correo,
+                contrasena,
+                'Entrega esta contraseña al psicólogo y pídele que la cambie desde Configuración > Cambiar contraseña.'
+            );
+        } catch (error) {
+            Notif.error(error.message || 'No se pudo restablecer la contraseña.', 'No se pudo restablecer');
+        }
+    }
 
     function togglePassPsi() {
         const pass = el('credPsiPass');
@@ -481,6 +573,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (buscar) {
             buscar.addEventListener('input', (e) => {
+                estado.paginaActual = 1;
                 const texto = e.target.value.toLowerCase().trim();
                 const filtrados = estado.psicologos.filter(psi =>
                     (psi.nombresCompletos || '').toLowerCase().includes(texto) ||
@@ -491,6 +584,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 renderTabla(filtrados);
             });
         }
+
+        el('btnPrevPsicologos')?.addEventListener('click', () => {
+            if (estado.paginaActual > 1) {
+                estado.paginaActual--;
+                renderTabla(estado.listaFiltradaActual);
+            }
+        });
+
+        el('btnNextPsicologos')?.addEventListener('click', () => {
+            const totalPaginas = Math.ceil(estado.listaFiltradaActual.length / estado.limitePorPagina) || 1;
+            if (estado.paginaActual < totalPaginas) {
+                estado.paginaActual++;
+                renderTabla(estado.listaFiltradaActual);
+            }
+        });
     }
 
     el('btnAbrirModalPsicologo')?.addEventListener('click', window.abrirModalAgregar);
@@ -499,6 +607,7 @@ document.addEventListener('DOMContentLoaded', () => {
         guardarFormulario();
     });
     el('btnTogglePassPsi')?.addEventListener('click', togglePassPsi);
+    el('btnRestablecerPassPsi')?.addEventListener('click', restablecerContrasenaPsicologo);
 
     document.querySelectorAll('#formPsicologo input, #formPsicologo select').forEach(campo => {
         campo.addEventListener('input', () => {

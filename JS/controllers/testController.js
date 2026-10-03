@@ -1,4 +1,3 @@
-
 window.addEventListener('unhandledrejection', (event) => {
     const error = event.reason;
     if (error && (error.name === 'AbortError' || /interrupted by a call to pause/i.test(String(error.message)))) {
@@ -10,12 +9,30 @@ function reproducirAudioSeguro(elemento) {
     if (!elemento || typeof elemento.play !== 'function') return;
     const playPromise = elemento.play();
     if (playPromise !== undefined && typeof playPromise.catch === 'function') {
-        playPromise.catch(() => {  });
+        playPromise.catch(() => { });
     }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+// Funciones auxiliares de normalización de tipos de respuesta
+function normalizarTipoUI(tipo) {
+    if (!tipo) return 'Escala Likert';
+    const t = String(tipo).trim().toUpperCase();
+    if (t === 'ESCALA' || t.includes('LIKERT')) return 'Escala Likert';
+    if (t === 'OPCION_MULTIPLE' || t.includes('OPCION') || t.includes('OPCIÓN')) return 'Opcion multiple';
+    if (t === 'TEXTO_LIBRE' || t.includes('ABIERTA') || t.includes('TEXTO')) return 'Pregunta abierta';
+    return tipo;
+}
 
+function normalizarTipoBackend(tipo) {
+    if (!tipo) return 'ESCALA';
+    const t = String(tipo).trim().toUpperCase();
+    if (t.includes('LIKERT') || t === 'ESCALA') return 'ESCALA';
+    if (t.includes('OPCI') || t === 'OPCION_MULTIPLE') return 'OPCION_MULTIPLE';
+    if (t.includes('ABIERTA') || t === 'TEXTO_LIBRE') return 'TEXTO_LIBRE';
+    return tipo;
+}
+
+document.addEventListener('DOMContentLoaded', () => {
 
     const estado = {
         cuestionarios: [],
@@ -26,9 +43,12 @@ document.addEventListener('DOMContentLoaded', () => {
         respondidosCargados: false,
         estudiantesCargados: false,
         cuestionarioEditandoId: null,
-        cargandoCatalogo: false
+        cargandoCatalogo: false,
+        paginaActualRespondidos: 1,
+        limiteRespondidos: 10,
+        listaRespondidosFiltrada: [],
+        cuestionarioRespuestasId: null
     };
-
 
     function el(id) {
         return document.getElementById(id);
@@ -45,7 +65,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function nombreCuestionario(c) {
-        return c?.nombre ?? c?.nombreCuestionario ?? c?.titulo ?? 'Cuestionario';
+        return c?.nombre ?? c?.nombreCuestionario ?? c?.nombreTest ?? c?.titulo ?? 'Cuestionario';
     }
 
     function objetivoCuestionario(c) {
@@ -94,11 +114,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function fechaResolucionDe(r) {
-        return r?.fechaResolucion ?? r?.fecha ?? r?.fechaRespuesta ?? '';
+        const f = r?.fechaResolucion ?? r?.fecha ?? r?.fechaRespuesta ?? '';
+        if (!f) return '';
+        try {
+            const d = new Date(f);
+            return isNaN(d.getTime()) ? f : d.toLocaleString();
+        } catch {
+            return f;
+        }
     }
 
     function respuestasDe(r) {
-        return Array.isArray(r?.respuestas) ? r.respuestas : Array.isArray(r?.detalleRespuestas) ? r.detalleRespuestas : [];
+        if (Array.isArray(r?.detalles) && r.detalles.length > 0) return r.detalles;
+        if (Array.isArray(r?.respuestas) && r.respuestas.length > 0) return r.respuestas;
+        if (Array.isArray(r?.detalleRespuestas) && r.detalleRespuestas.length > 0) return r.detalleRespuestas;
+        return Array.isArray(r?.detalles) ? r.detalles : Array.isArray(r?.respuestas) ? r.respuestas : [];
     }
 
     function estadoDe(r) {
@@ -106,7 +136,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function textoPregunta(p) {
-        return p?.texto ?? p?.textoPregunta ?? p?.enunciado ?? p?.pregunta ?? '';
+        return p?.textoPregunta ?? p?.texto ?? p?.enunciado ?? p?.pregunta ?? '';
     }
 
     function tipoPregunta(p) {
@@ -114,7 +144,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function textoRespuesta(resp) {
-        return resp?.respuesta ?? resp?.texto ?? resp?.valor ?? '';
+        return resp?.contenidoTexto ?? resp?.respuesta ?? resp?.texto ?? resp?.valor ?? resp?.respuestaSeleccionada ?? '';
     }
 
     function idEstudianteDe(est) {
@@ -122,9 +152,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function textoPreguntaRespuesta(resp) {
-        return resp?.pregunta ?? resp?.enunciado ?? textoPregunta(resp);
+        if (typeof resp?.pregunta === 'object' && resp?.pregunta !== null) {
+            return textoPregunta(resp.pregunta);
+        }
+        return resp?.textoPregunta ?? (typeof resp?.pregunta === 'string' ? resp.pregunta : '') ?? resp?.enunciado ?? textoPregunta(resp);
     }
-
 
     const tablaTestsBody = el('tablaTestsBody');
     const noResultsTests = el('noResultsTests');
@@ -152,9 +184,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let questionCount = 0;
 
+    let promesaCatalogo = null;
 
-    async function cargarCatalogo({ forzar = false } = {}) {
-        if (estado.cargandoCatalogo) return;
+    function cargarCatalogo(opciones = {}) {
+        if (estado.cargandoCatalogo && promesaCatalogo) return promesaCatalogo;
+        promesaCatalogo = cargarCatalogoServidor(opciones);
+        return promesaCatalogo;
+    }
+
+    async function cargarCatalogoServidor({ forzar = false } = {}) {
         if (estado.catalogoCargado && !forzar) return;
 
         estado.cargandoCatalogo = true;
@@ -220,7 +258,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-
     function activarPestana(tabActiva, vistaActiva) {
         [tabCatalogo, tabCrear, tabRespondidos, tabSinResponder].forEach(t => {
             if (t) t.classList.remove('active');
@@ -244,7 +281,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (tabRespondidos) tabRespondidos.addEventListener('click', () => {
         activarPestana(tabRespondidos, vistaRespondidos);
-        cargarTestsRespondidos().then(() => renderTablaRespondidos());
+        mostrarNivelCuestionarios();
     });
 
     if (tabSinResponder) tabSinResponder.addEventListener('click', () => {
@@ -253,7 +290,6 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(cargarEstudiantes)
             .then(() => renderTablaSinResponder());
     });
-
 
     function mostrarFilaCargando(tbody, colspan) {
         if (!tbody) return;
@@ -372,9 +408,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-
     function generarPreguntaHTML(numero, texto = '', tipo = 'Escala Likert') {
-        const previewHTML = generarPreviewPorTipo(tipo, numero);
+        const tipoNorm = normalizarTipoUI(tipo);
+        const previewHTML = generarPreviewPorTipo(tipoNorm, numero);
         return `
             <div class="card-test-section question-card" id="questionCard_${numero}" data-num="${numero}">
                 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -400,25 +436,25 @@ document.addEventListener('DOMContentLoaded', () => {
                     </label>
                     <div class="row g-2">
                         <div class="col-md-4">
-                            <button type="button" class="btn-tipo-respuesta w-100 ${tipo === 'Escala Likert' ? 'active' : ''}"
+                            <button type="button" class="btn-tipo-respuesta w-100 ${tipoNorm === 'Escala Likert' ? 'active' : ''}"
                                     data-num="${numero}" data-type="Escala Likert">
                                 <i class="bi bi-sliders"></i> Escala Likert
                             </button>
                         </div>
                         <div class="col-md-4">
-                            <button type="button" class="btn-tipo-respuesta w-100 ${tipo === 'Opcion multiple' ? 'active' : ''}"
+                            <button type="button" class="btn-tipo-respuesta w-100 ${tipoNorm === 'Opcion multiple' ? 'active' : ''}"
                                     data-num="${numero}" data-type="Opcion multiple">
                                 <i class="bi bi-list-check"></i> Opción Múltiple
                             </button>
                         </div>
                         <div class="col-md-4">
-                            <button type="button" class="btn-tipo-respuesta w-100 ${tipo === 'Pregunta abierta' ? 'active' : ''}"
+                            <button type="button" class="btn-tipo-respuesta w-100 ${tipoNorm === 'Pregunta abierta' ? 'active' : ''}"
                                     data-num="${numero}" data-type="Pregunta abierta">
                                 <i class="bi bi-textarea-t"></i> Pregunta Abierta
                             </button>
                         </div>
                     </div>
-                    <input type="hidden" id="tipoRespuesta_${numero}" value="${tipo}">
+                    <input type="hidden" id="tipoRespuesta_${numero}" value="${tipoNorm}">
                 </div>
 
                 <div class="preview-container mt-3">
@@ -434,7 +470,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function generarPreviewPorTipo(tipo, numero) {
-        if (tipo === 'Escala Likert') {
+        const tipoNorm = normalizarTipoUI(tipo);
+        if (tipoNorm === 'Escala Likert') {
             return `
                 <div class="preview-respuestas p-3">
                     <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
@@ -465,7 +502,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 </div>
             `;
-        } else if (tipo === 'Opcion multiple') {
+        } else if (tipoNorm === 'Opcion multiple') {
             return `
                 <div class="preview-respuestas p-3">
                     <div class="form-check mb-2">
@@ -584,8 +621,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-
-    const TIPOS_RESPUESTA_VALIDOS = ['Escala Likert', 'Opcion multiple', 'Pregunta abierta'];
+    const TIPOS_RESPUESTA_VALIDOS = [
+        'Escala Likert', 'ESCALA', 'escala',
+        'Opcion multiple', 'Opción Múltiple', 'Opción múltiple', 'OPCION_MULTIPLE', 'opcion_multiple',
+        'Pregunta abierta', 'Pregunta Abierta', 'TEXTO_LIBRE', 'texto_libre'
+    ];
 
     async function cargarPsicologos() {
         if (!selectCreador) return;
@@ -603,6 +643,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 opt.textContent = `Lic. ${psi.nombresCompletos ?? ''} ${psi.apellidosCompletos ?? ''}`.trim() || `Psicólogo #${psi.idPsicologo}`;
                 selectCreador.appendChild(opt);
             });
+
+            const usuario = typeof verificarSesion === 'function' ? await verificarSesion() : null;
+            const propio = usuario && estado.psicologos.find(p => Number(p.usuario?.idUsuario) === Number(usuario.idUsuario));
+            if (propio) {
+                selectCreador.value = String(propio.idPsicologo);
+                selectCreador.disabled = String(usuario.tipoUsuario).toUpperCase() === 'PSICOLOGO';
+            }
         } catch (error) {
             Notif.error(mensajeErrorAmigable(error), 'No se pudieron cargar los psicólogos');
         }
@@ -613,7 +660,7 @@ document.addEventListener('DOMContentLoaded', () => {
             await TestService.crearPregunta({
                 cuestionario: { idCuestionario: Number(idCuestionario) },
                 textoPregunta: p.textoPregunta,
-                tipoRespuesta: p.tipoRespuesta
+                tipoRespuesta: normalizarTipoBackend(p.tipoRespuesta)
             });
         }
     }
@@ -702,7 +749,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (btnGuardarTest) btnGuardarTest.addEventListener('click', guardarCuestionario);
 
-
     window.editarCuestionario = async function (id) {
         let c = estado.cuestionarios.find(item => Number(idCuestionario(item)) === Number(id));
         try {
@@ -731,7 +777,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const preguntas = preguntasCuestionario(c);
         if (preguntas.length > 0) {
-            preguntas.forEach(p => agregarPregunta(textoPregunta(p), tipoPregunta(p)));
+            preguntas.forEach(p => agregarPregunta(textoPregunta(p), normalizarTipoUI(tipoPregunta(p))));
         } else {
             agregarPregunta('', 'Escala Likert');
         }
@@ -802,63 +848,242 @@ document.addEventListener('DOMContentLoaded', () => {
             cuerpoEl.innerHTML = html;
         }
 
-        const modal = new bootstrap.Modal(el('modalVerPreguntas'));
-        modal.show();
+        const modalEl = el('modalVerPreguntas') || el('modalPreguntas');
+        if (modalEl) {
+            const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+            modal.show();
+        }
     };
 
+    function idCuestionarioDeRespuesta(r) {
+        return Number(r?.cuestionario?.idCuestionario ?? r?.cuestionarioId);
+    }
 
-    function renderTablaRespondidos(filtroCuestionarioId = null) {
-        const tbody = el('tablaRespondidosBody');
-        if (!tbody) return;
-        tbody.innerHTML = '';
+    function respuestasDelCuestionario(idC) {
+        const lista = typeof normalizarListado === 'function' ? normalizarListado(estado.testsRespondidos) : (estado.testsRespondidos || []);
+        return lista.filter(r => idCuestionarioDeRespuesta(r) === Number(idC));
+    }
 
-        let lista = typeof normalizarListado === 'function' ? normalizarListado(estado.testsRespondidos) : (Array.isArray(estado.testsRespondidos) ? estado.testsRespondidos : (estado.testsRespondidos?.content || []));
-        if (filtroCuestionarioId !== null) {
-            lista = lista.filter(r => Number(r?.cuestionario?.idCuestionario ?? r?.cuestionarioId) === Number(filtroCuestionarioId));
+    function fechaOrdenable(r) {
+        const d = new Date(r?.fechaResolucion ?? r?.fecha ?? 0);
+        return isNaN(d.getTime()) ? 0 : d.getTime();
+    }
+
+    function ordenNatural(a, b) {
+        return String(a).localeCompare(String(b), 'es', { numeric: true, sensitivity: 'base' });
+    }
+
+    function mostrarNivel(nivel) {
+        el('respondidosNivelCuestionarios')?.classList.toggle('d-none', nivel !== 'cuestionarios');
+        el('respondidosNivelEstudiantes')?.classList.toggle('d-none', nivel !== 'estudiantes');
+    }
+
+    async function mostrarNivelCuestionarios() {
+        estado.cuestionarioRespuestasId = null;
+        mostrarNivel('cuestionarios');
+
+        const grid = el('gridCuestionariosRespondidos');
+        if (grid) {
+            grid.innerHTML = `
+                <div class="col-12 respuestas-vacio">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="mt-2 mb-0 small">Cargando cuestionarios...</p>
+                </div>`;
         }
 
-        if (lista.length === 0) {
-            mostrarFilaVacia(tbody, 5, 'No hay tests respondidos registrados aún.');
+        const hayBusqueda = Boolean(buscarTestInput && buscarTestInput.value.trim());
+        if (hayBusqueda) buscarTestInput.value = '';
+        await Promise.all([cargarCatalogo({ forzar: hayBusqueda }), cargarTestsRespondidos()]);
+        renderCuestionariosRespondidos();
+    }
+
+    function renderCuestionariosRespondidos() {
+        const grid = el('gridCuestionariosRespondidos');
+        if (!grid) return;
+
+        const cuestionarios = typeof normalizarListado === 'function' ? normalizarListado(estado.cuestionarios) : (estado.cuestionarios || []);
+
+        if (cuestionarios.length === 0) {
+            grid.innerHTML = `
+                <div class="col-12 respuestas-vacio">
+                    <i class="bi bi-clipboard-x fs-2 d-block mb-2 opacity-50"></i>
+                    No hay cuestionarios registrados todavía.
+                </div>`;
             return;
         }
 
-        lista.forEach(r => {
-            const idR = idRespondido(r);
-            const cuestionario = estado.cuestionarios.find(c => Number(idCuestionario(c)) === Number(r?.cuestionario?.idCuestionario ?? r?.cuestionarioId));
-            const tr = document.createElement('tr');
+        grid.innerHTML = cuestionarios.map(c => {
+            const idC = idCuestionario(c);
+            const total = respuestasDelCuestionario(idC).length;
+            const preguntas = preguntasCuestionario(c).length;
+            return `
+                <div class="col-12 col-md-6 col-xl-4">
+                    <div class="card-cuestionario-respuestas">
+                        <div>
+                            <h6 class="titulo">${escapeHTML(nombreCuestionario(c))}</h6>
+                            <small class="text-muted"><i class="bi bi-person-badge me-1"></i>${escapeHTML(creadorCuestionario(c))}</small>
+                        </div>
+                        ${objetivoCuestionario(c) ? `<p class="objetivo">${escapeHTML(objetivoCuestionario(c))}</p>` : ''}
+                        <div class="datos">
+                            <span class="dato"><i class="bi bi-list-ol me-1"></i>${preguntas} ${preguntas === 1 ? 'pregunta' : 'preguntas'}</span>
+                            <span class="dato respuestas"><i class="bi bi-people-fill me-1"></i>${total} ${total === 1 ? 'estudiante respondió' : 'estudiantes respondieron'}</span>
+                        </div>
+                        <button type="button" class="btn-ver-respuestas" onclick="verRespondidosTest(${idC})" ${total === 0 ? 'disabled title="Nadie ha respondido este cuestionario"' : ''}>
+                            <i class="bi bi-eye"></i> Ver respuestas
+                        </button>
+                    </div>
+                </div>`;
+        }).join('');
+    }
 
+    function llenarSelect(select, valores, textoTodos) {
+        if (!select) return;
+        const actual = select.value;
+        select.innerHTML = `<option value="">${textoTodos}</option>` +
+            valores.map(v => `<option value="${escapeHTML(v)}">${escapeHTML(v)}</option>`).join('');
+        select.value = valores.includes(actual) ? actual : '';
+    }
+
+    function prepararFiltrosRespuestas(respuestas) {
+        const grados = [...new Set(respuestas.map(gradoDe).filter(Boolean))].sort(ordenNatural);
+        const secciones = [...new Set(respuestas.map(seccionDe).filter(Boolean))].sort(ordenNatural);
+        llenarSelect(el('filtroGradoRespuestas'), grados, 'Todos los grados');
+        llenarSelect(el('filtroSeccionRespuestas'), secciones, 'Todas las secciones');
+    }
+
+    function actualizarPaginacionRespondidosUI(inicio, fin, total, paginaActual, totalPaginas) {
+        const info = el('infoPaginacionRespondidos');
+        const ind = el('indicadorPaginaRespondidos');
+        const btnPrev = el('btnPrevRespondidos');
+        const btnNext = el('btnNextRespondidos');
+
+        if (info) {
+            info.innerHTML = total === 0
+                ? 'Mostrando <strong>0</strong> - <strong>0</strong> de <strong>0</strong> estudiantes'
+                : `Mostrando <strong>${inicio}</strong> - <strong>${fin}</strong> de <strong>${total}</strong> estudiantes`;
+        }
+        if (ind) ind.textContent = `Página ${paginaActual} de ${totalPaginas}`;
+        if (btnPrev) btnPrev.disabled = paginaActual <= 1;
+        if (btnNext) btnNext.disabled = paginaActual >= totalPaginas;
+    }
+
+    function renderTablaRespondidos() {
+        const tbody = el('tablaRespondidosBody');
+        if (!tbody || estado.cuestionarioRespuestasId === null) return;
+        tbody.innerHTML = '';
+
+        const texto = (el('buscarEstudianteRespuestas')?.value || '').toLowerCase().trim();
+        const grado = el('filtroGradoRespuestas')?.value || '';
+        const seccion = el('filtroSeccionRespuestas')?.value || '';
+
+        const lista = respuestasDelCuestionario(estado.cuestionarioRespuestasId)
+            .filter(r => !grado || gradoDe(r) === grado)
+            .filter(r => !seccion || seccionDe(r) === seccion)
+            .filter(r => !texto ||
+                nombreEstudianteDe(r).toLowerCase().includes(texto) ||
+                String(carnetDe(r)).toLowerCase().includes(texto))
+            .sort((a, b) => fechaOrdenable(b) - fechaOrdenable(a));
+
+        estado.listaRespondidosFiltrada = lista;
+
+        const totalItems = lista.length;
+        const totalPaginas = Math.ceil(totalItems / estado.limiteRespondidos) || 1;
+        estado.paginaActualRespondidos = Math.min(Math.max(estado.paginaActualRespondidos, 1), totalPaginas);
+
+        if (totalItems === 0) {
+            mostrarFilaVacia(tbody, 4, texto || grado || seccion
+                ? 'Ningún estudiante coincide con los filtros.'
+                : 'Ningún estudiante ha respondido este cuestionario.');
+            actualizarPaginacionRespondidosUI(0, 0, 0, 1, 1);
+            return;
+        }
+
+        const inicio = (estado.paginaActualRespondidos - 1) * estado.limiteRespondidos;
+        const fin = Math.min(inicio + estado.limiteRespondidos, totalItems);
+
+        lista.slice(inicio, fin).forEach(r => {
+            const tr = document.createElement('tr');
+            const grupo = [gradoDe(r), seccionDe(r) ? `"${seccionDe(r)}"` : ''].filter(Boolean).join(' ');
             tr.innerHTML = `
                 <td>
                     <div class="fw-bold text-dark">${escapeHTML(nombreEstudianteDe(r))}</div>
-                    <small class="text-muted">Carnet: <strong>${escapeHTML(carnetDe(r))}</strong>${gradoDe(r) ? ` &bull; ${escapeHTML(gradoDe(r))}` : ''}</small>
+                    ${carnetDe(r) ? `<small class="text-muted">Carnet: <strong>${escapeHTML(carnetDe(r))}</strong></small>` : ''}
                 </td>
-                <td>
-                    <span class="fw-semibold text-primary">${escapeHTML(nombreCuestionario(cuestionario))}</span>
-                </td>
-                <td>
-                    <span class="text-muted"><i class="bi bi-calendar3 me-1"></i>${escapeHTML(fechaResolucionDe(r))}</span>
-                </td>
+                <td><span class="text-muted">${escapeHTML(grupo || 'Sin grado')}</span></td>
+                <td><span class="text-muted"><i class="bi bi-calendar3 me-1"></i>${escapeHTML(fechaResolucionDe(r) || 'Sin fecha')}</span></td>
                 <td class="text-center">
-                    <span class="badge bg-success text-white px-3 py-2">
-                        <i class="bi bi-check-all me-1"></i>${escapeHTML(estadoDe(r))}
-                    </span>
-                </td>
-                <td class="text-center">
-                    <button class="btn btn-sm btn-outline-primary" onclick="verDetalleRespuestas(${idR})">
-                        <i class="bi bi-journal-check me-1"></i>Ver Respuestas
+                    <button class="btn btn-sm btn-outline-primary" onclick="verDetalleRespuestas(${idRespondido(r)})">
+                        <i class="bi bi-journal-check me-1"></i>Ver respuestas
                     </button>
                 </td>
             `;
             tbody.appendChild(tr);
         });
+
+        actualizarPaginacionRespondidosUI(inicio + 1, fin, totalItems, estado.paginaActualRespondidos, totalPaginas);
     }
 
-    window.verRespondidosTest = function (idCuestionario) {
-        cargarTestsRespondidos().then(() => {
-            activarPestana(tabRespondidos, vistaRespondidos);
-            renderTablaRespondidos(idCuestionario);
-        });
+    window.verRespondidosTest = async function (idC) {
+        activarPestana(tabRespondidos, vistaRespondidos);
+        await Promise.all([cargarCatalogo(), cargarTestsRespondidos()]);
+
+        const cuestionario = estado.cuestionarios.find(c => Number(idCuestionario(c)) === Number(idC));
+        const respuestas = respuestasDelCuestionario(idC);
+
+        estado.cuestionarioRespuestasId = Number(idC);
+        estado.paginaActualRespondidos = 1;
+
+        const titulo = el('tituloCuestionarioRespuestas');
+        const resumen = el('resumenCuestionarioRespuestas');
+        if (titulo) titulo.textContent = nombreCuestionario(cuestionario);
+        if (resumen) {
+            resumen.textContent = `${respuestas.length} ${respuestas.length === 1 ? 'estudiante respondió' : 'estudiantes respondieron'} este cuestionario.`;
+        }
+
+        const buscador = el('buscarEstudianteRespuestas');
+        if (buscador) buscador.value = '';
+        prepararFiltrosRespuestas(respuestas);
+        if (el('filtroGradoRespuestas')) el('filtroGradoRespuestas').value = '';
+        if (el('filtroSeccionRespuestas')) el('filtroSeccionRespuestas').value = '';
+
+        mostrarNivel('estudiantes');
+        renderTablaRespondidos();
     };
+
+    el('btnVolverCuestionariosRespondidos')?.addEventListener('click', () => {
+        mostrarNivelCuestionarios();
+    });
+
+    let timerFiltroRespuestas = null;
+    el('buscarEstudianteRespuestas')?.addEventListener('input', () => {
+        clearTimeout(timerFiltroRespuestas);
+        timerFiltroRespuestas = setTimeout(() => {
+            estado.paginaActualRespondidos = 1;
+            renderTablaRespondidos();
+        }, 200);
+    });
+
+    ['filtroGradoRespuestas', 'filtroSeccionRespuestas'].forEach(id => {
+        el(id)?.addEventListener('change', () => {
+            estado.paginaActualRespondidos = 1;
+            renderTablaRespondidos();
+        });
+    });
+
+    el('btnPrevRespondidos')?.addEventListener('click', () => {
+        if (estado.paginaActualRespondidos > 1) {
+            estado.paginaActualRespondidos--;
+            renderTablaRespondidos();
+        }
+    });
+
+    el('btnNextRespondidos')?.addEventListener('click', () => {
+        const totalPaginas = Math.ceil(estado.listaRespondidosFiltrada.length / estado.limiteRespondidos) || 1;
+        if (estado.paginaActualRespondidos < totalPaginas) {
+            estado.paginaActualRespondidos++;
+            renderTablaRespondidos();
+        }
+    });
 
     window.verDetalleRespuestas = async function (respId) {
         let r = estado.testsRespondidos.find(item => Number(idRespondido(item)) === Number(respId));
@@ -871,40 +1096,72 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (!r) return;
 
-        const cuestionario = estado.cuestionarios.find(c => Number(idCuestionario(c)) === Number(r?.cuestionario?.idCuestionario ?? r?.cuestionarioId));
-        const tituloEl = el('tituloModalRespuestas');
-        const cuerpoEl = el('cuerpoModalRespuestas');
+        let listadoResp = respuestasDe(r);
 
-        if (tituloEl) tituloEl.textContent = `Respuestas de: ${nombreEstudianteDe(r)}`;
+        // Si la lista de respuestas está vacía, intentamos solicitar los detalles explícitamente a la API
+        if (listadoResp.length === 0 && typeof TestService?.listarDetallesPorTest === 'function') {
+            try {
+                const detallesExtra = (await TestService.listarDetallesPorTest(respId))
+                    .filter(d => Number(d?.testRespondido?.idTestRespondido) === Number(respId));
+                if (detallesExtra.length > 0) {
+                    r.detalles = detallesExtra;
+                    listadoResp = detallesExtra;
+                }
+            } catch (err) {
+                console.warn('No se pudieron obtener detalles extra de respuestas:', err);
+            }
+        }
+
+        const cuestionario = estado.cuestionarios.find(c => Number(idCuestionario(c)) === Number(r?.cuestionario?.idCuestionario ?? r?.cuestionarioId)) || r?.cuestionario;
+        
+        const tituloEl = el('modalEstudianteNombre') || el('tituloModalRespuestas');
+        const cuerpoEl = el('contenedorRespuestas') || el('cuerpoModalRespuestas');
+
+        if (tituloEl) {
+            if (tituloEl.id === 'modalEstudianteNombre') {
+                tituloEl.textContent = nombreEstudianteDe(r);
+            } else {
+                tituloEl.textContent = `Respuestas de: ${nombreEstudianteDe(r)}`;
+            }
+        }
+
         if (cuerpoEl) {
             let html = `
-                <div class="p-3 bg-light rounded-3 mb-3 border">
+                <div class="p-3 bg-light rounded-3 mb-3 border" id="modalInfoCuestionario">
                     <div class="fw-bold text-dark">${escapeHTML(nombreCuestionario(cuestionario))}</div>
                     <div class="small text-muted">Estudiante: <strong>${escapeHTML(nombreEstudianteDe(r))}</strong>${gradoDe(r) ? ` (${escapeHTML(gradoDe(r))})` : ''} &bull; Fecha: ${escapeHTML(fechaResolucionDe(r))}</div>
                 </div>
                 <h6 class="fw-bold mb-3">Detalle de Respuestas Registradas</h6>
-                <div class="list-group">
             `;
 
-            respuestasDe(r).forEach((resp, idx) => {
+            if (listadoResp.length === 0) {
                 html += `
-                    <div class="list-group-item p-3 mb-2 rounded-3 border">
-                        <div class="fw-bold text-primary mb-1">P${idx + 1}: ${escapeHTML(textoPreguntaRespuesta(resp))}</div>
-                        <div class="p-2 bg-white rounded border text-dark fw-medium">
-                            <i class="bi bi-chat-right-quote text-muted me-1"></i>${escapeHTML(textoRespuesta(resp))}
+                    <div class="alert alert-warning text-center my-3">
+                        <i class="bi bi-exclamation-triangle me-2"></i>No se encontraron respuestas registradas para este test.
+                    </div>`;
+            } else {
+                html += `<div class="list-group">`;
+                listadoResp.forEach((resp, idx) => {
+                    html += `
+                        <div class="list-group-item p-3 mb-2 rounded-3 border">
+                            <div class="fw-bold text-primary mb-1">P${idx + 1}: ${escapeHTML(textoPreguntaRespuesta(resp))}</div>
+                            <div class="p-2 bg-white rounded border text-dark fw-medium">
+                                <i class="bi bi-chat-right-quote text-muted me-1"></i>${escapeHTML(textoRespuesta(resp))}
+                            </div>
                         </div>
-                    </div>
-                `;
-            });
-
-            html += `</div>`;
+                    `;
+                });
+                html += `</div>`;
+            }
             cuerpoEl.innerHTML = html;
         }
 
-        const modal = new bootstrap.Modal(el('modalRespuestas'));
-        modal.show();
+        const modalEl = el('modalVerRespuestas') || el('modalRespuestas');
+        if (modalEl) {
+            const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+            modal.show();
+        }
     };
-
 
     function renderTablaSinResponder(filtroCuestionarioId = null) {
         const tbody = el('tablaSinResponderBody');
@@ -924,6 +1181,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 estado.estudiantes.forEach(est => {
                     if (!respondieron.has(Number(idEstudianteDe(est)))) {
                         pendientes.push({
+                            idCuestionario: idC,
                             estudiante: `${est?.nombres ?? ''} ${est?.apellidos ?? ''}`.trim() || 'Estudiante',
                             carnet: est?.codigoCarnet ?? '',
                             grado: est?.grado?.nombreGrado ?? '',
@@ -941,6 +1199,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 );
                 if (!hayRespuestas) {
                     pendientes.push({
+                        idCuestionario: idC,
                         estudiante: 'Sin asignaciones registradas',
                         carnet: '',
                         grado: '',
@@ -952,9 +1211,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (filtroCuestionarioId !== null) {
-            pendientes = pendientes.filter(p => Number(p.idCuestionario ?? p.testId) === Number(filtroCuestionarioId) || p.test === nombreCuestionario(
-                estado.cuestionarios.find(c => Number(idCuestionario(c)) === Number(filtroCuestionarioId))
-            ));
+            pendientes = pendientes.filter(p => Number(p.idCuestionario) === Number(filtroCuestionarioId));
         }
 
         if (pendientes.length === 0) {
@@ -981,7 +1238,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Badge "Sin Responder" del catálogo
     window.verSinResponderTest = function (idCuestionario) {
         cargarTestsRespondidos()
             .then(cargarEstudiantes)
@@ -991,18 +1247,13 @@ document.addEventListener('DOMContentLoaded', () => {
             });
     };
 
-    // Notificación de recordatorio (SweetAlert2)
     window.recordarEstudiante = function (nombreEstudiante) {
         Notif.informar(
             `Se ha enviado el recordatorio de resolución del cuestionario a ${nombreEstudiante} mediante el módulo de notificaciones.`
         );
     };
 
-    // ================= ERRORES =================
-
     function mensajeErrorAmigable(error) {
-        const texto = String(error?.message ?? '').toUpperCase();
-
         if (error?.status === 400) {
             return `Revise los datos enviados: ${error.message}`;
         }
@@ -1013,18 +1264,14 @@ document.addEventListener('DOMContentLoaded', () => {
             return 'Ocurrió un error interno en el servidor. Inténtelo de nuevo más tarde.';
         }
         if (error instanceof TypeError || !error?.status) {
-            return `No se pudo conectar con el servidor. Verifique que el backend esté activo en ${API_BASE_URL}.`;
+            return `No se pudo conectar con el servidor. Verifique que el backend esté activo.`;
         }
         return error.message || 'Ocurrió un error inesperado.';
     }
 
-    // ================= INICIALIZACIÓN =================
-
-    // Carga inicial mínima: solo el catálogo de cuestionarios (GET /cuestionarios)
     cargarCatalogo();
     cargarPsicologos();
 
-    // Menú hamburguesa móvil
     const hamburgerBtn = el('hamburgerBtn');
     const sidebar = document.querySelector('.sidebar');
     const overlay = el('sidebarOverlay');

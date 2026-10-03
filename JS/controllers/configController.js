@@ -30,6 +30,15 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    if (typeof verificarSesion === 'function') {
+        verificarSesion().then((usuario) => {
+            if (usuario && String(usuario.tipoUsuario).toUpperCase() === 'ADMIN') {
+                const opcionMensajes = document.getElementById('switchMensajes')?.closest('.settings-item');
+                if (opcionMensajes) opcionMensajes.style.display = 'none';
+            }
+        });
+    }
+
     const switchOscuro = document.getElementById('switchOscuro'); 
     if (switchOscuro) {
         switchOscuro.checked = document.documentElement.classList.contains('dark-mode');
@@ -37,33 +46,26 @@ document.addEventListener('DOMContentLoaded', () => {
         switchOscuro.addEventListener('change', (e) => {
             if (e.target.checked) {
                 document.documentElement.classList.add('dark-mode');
-                localStorage.setItem('psyke_dark_mode', 'enabled');
-                console.log("Modo oscuro activado");
+                Preferencias.guardar('psyke_dark_mode', 'enabled');
             } else {
                 document.documentElement.classList.remove('dark-mode');
-                localStorage.setItem('psyke_dark_mode', 'disabled');
-                console.log("Modo claro activado");
+                Preferencias.guardar('psyke_dark_mode', 'disabled');
             }
         });
     }
 
     const logoutBtn = document.getElementById('logoutBtn');
     if (logoutBtn) {
-        logoutBtn.addEventListener('click', (e) => {
+        logoutBtn.addEventListener('click', async (e) => {
             e.preventDefault();
 
-            Notif.confirmar(
-                '¿Cerrar Sesión?',
-                '¿Estás seguro de que deseas salir y volver a la pantalla de inicio?',
-                'Sí, cerrar sesión'
-            ).then(confirmado => {
-                if (!confirmado) return;
-
-                Notif.exito('Has salido de tu cuenta de forma segura.', 'Sesión Cerrada');
-                setTimeout(() => {
-                    window.location.href = '../index.html';
-                }, 800);
-            });
+            const confirmado = await Notif.confirmar(
+                '¿Cerrar sesión?',
+                'Tendrás que ingresar tus credenciales nuevamente para volver a entrar.',
+                'Sí, cerrar sesión',
+                { icono: 'warning', peligro: true }
+            );
+            if (confirmado) AuthService.logoutUsuario();
         });
     }
 
@@ -255,7 +257,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     function showCookiePreferencesModal() {
-        const savedPrefs = localStorage.getItem('psyke_cookie_preferences');
+        const savedPrefs = Preferencias.leer('psyke_cookie_preferences');
         let currentPrefs = { preferences: true, analytics: true };
 
         if (savedPrefs) {
@@ -276,7 +278,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div style="text-align: left;">
                     <div class="d-flex justify-content-between align-items-center py-3 border-bottom">
                         <div style="max-width: 80%;">
-                            <div class="fw-bold" style="font-size: 0.9rem; color: #0f172a;">Cookies Técnicas (Esenciales)</div>
+                            <div class="fw-bold psyke-alerta-subtitulo" style="font-size: 0.9rem;">Cookies Técnicas (Esenciales)</div>
                             <div class="text-muted" style="font-size: 0.78rem; line-height: 1.3;">Obligatorias para el mantenimiento de sesión, seguridad del sistema y almacenamiento de configuraciones fundamentales.</div>
                         </div>
                         <div class="form-switch">
@@ -285,7 +287,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                     <div class="d-flex justify-content-between align-items-center py-3 border-bottom">
                         <div style="max-width: 80%;">
-                            <div class="fw-bold" style="font-size: 0.9rem; color: #0f172a;">Personalización y Preferencias</div>
+                            <div class="fw-bold psyke-alerta-subtitulo" style="font-size: 0.9rem;">Personalización y Preferencias</div>
                             <div class="text-muted" style="font-size: 0.78rem; line-height: 1.3;">Permiten al sitio web recordar parámetros definidos por el usuario (ej. interruptor del Modo Oscuro, idioma).</div>
                         </div>
                         <div class="form-switch">
@@ -294,7 +296,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                     <div class="d-flex justify-content-between align-items-center py-3">
                         <div style="max-width: 80%;">
-                            <div class="fw-bold" style="font-size: 0.9rem; color: #0f172a;">Análisis y Rendimiento</div>
+                            <div class="fw-bold psyke-alerta-subtitulo" style="font-size: 0.9rem;">Análisis y Rendimiento</div>
                             <div class="text-muted" style="font-size: 0.78rem; line-height: 1.3;">Recopilan información estadística y de uso de forma completamente anónima para medir y mejorar el rendimiento de la aplicación.</div>
                         </div>
                         <div class="form-switch">
@@ -305,6 +307,8 @@ document.addEventListener('DOMContentLoaded', () => {
             `,
             icon: 'info',
             width: 520,
+            customClass: { popup: 'psyke-alerta', confirmButton: 'psyke-alerta-confirmar', cancelButton: 'psyke-alerta-cancelar' },
+            reverseButtons: true,
             showCancelButton: true,
             confirmButtonColor: '#0d6efd',
             cancelButtonColor: '#6c757d',
@@ -314,7 +318,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const prefCheckbox = document.getElementById('cookiePrefSwitch');
                 const analCheckbox = document.getElementById('cookieAnalSwitch');
 
-                localStorage.setItem('psyke_cookie_preferences', JSON.stringify({
+                Preferencias.guardar('psyke_cookie_preferences', JSON.stringify({
                     preferences: prefCheckbox.checked,
                     analytics: analCheckbox.checked
                 }));

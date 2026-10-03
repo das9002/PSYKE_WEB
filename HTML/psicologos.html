@@ -16,11 +16,12 @@
     <link rel="stylesheet" href="../css/stylePsicologos.css">
     <link rel="stylesheet" href="../css/styleNavbar.css">
     <link rel="stylesheet" href="../css/styleTemaoscuro.css">
+    <link rel="stylesheet" href="../css/styleAlertas.css">
     <link rel="stylesheet" href="../css/stylenotificacionChat.css">
     <link rel="icon" href="../img/Logo0.png" crossorigin>
     <script>
         (function () {
-            if (localStorage.getItem('psyke_dark_mode') === 'enabled') {
+            if (/(?:^|;\s*)psyke_dark_mode=enabled(?:;|$)/.test(document.cookie)) {
                 document.documentElement.classList.add('dark-mode');
             }
         })();
@@ -171,6 +172,21 @@
                         </tbody>
                     </table>
                 </div>
+
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mt-3 pt-3 border-top" id="paginacionPsicologos">
+                    <div class="text-muted small" id="infoPaginacionPsicologos">
+                        Mostrando <strong>0</strong> - <strong>0</strong> de <strong>0</strong> psicólogos
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <button class="btn btn-sm btn-outline-primary px-3 rounded-pill" id="btnPrevPsicologos" title="Página anterior" disabled>
+                            <i class="bi bi-chevron-left me-1"></i> Anterior
+                        </button>
+                        <span class="small fw-semibold px-2" id="indicadorPaginaPsicologos">Página 1 de 1</span>
+                        <button class="btn btn-sm btn-outline-primary px-3 rounded-pill" id="btnNextPsicologos" title="Página siguiente" disabled>
+                            Siguiente <i class="bi bi-chevron-right ms-1"></i>
+                        </button>
+                    </div>
+                </div>
             </div>
 
         </div>
@@ -243,7 +259,7 @@
                 </div>
                 <div class="modal-body">
                     <div class="p-3 bg-light rounded-3 mb-3 border text-center">
-                        <div class="fw-bold text-dark fs-6" id="credPsiNombre">Lic. Diego Alexander Martínez</div>
+                        <div class="fw-bold text-dark fs-6" id="credPsiNombre"></div>
                         <small class="text-muted">Credenciales administrativas generadas por el sistema</small>
                     </div>
 
@@ -260,10 +276,13 @@
                                 <i class="bi bi-eye" id="iconEyePsi"></i>
                             </button>
                         </div>
-                        <small class="text-muted mt-1 d-block"><i class="bi bi-info-circle me-1"></i>Las contraseñas de psicólogos están protegidas y no son editables desde esta vista.</small>
+                        <small class="text-muted mt-1 d-block"><i class="bi bi-info-circle me-1"></i>Las contraseñas se guardan cifradas y no pueden consultarse. Un administrador puede asignar una nueva.</small>
                     </div>
                 </div>
                 <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-danger d-none me-auto" id="btnRestablecerPassPsi">
+                        <i class="bi bi-arrow-repeat me-1"></i>Restablecer contraseña
+                    </button>
                     <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cerrar</button>
                 </div>
             </div>
@@ -280,6 +299,7 @@
     <script src="../JS/services/notificacionesService.js"></script>
     <script src="../JS/services/navbarService.js"></script>
     <script src="../JS/services/psicologosService.js"></script>
+    <script src="../JS/validaciones/contrasenaValidaciones.js"></script>
     <script src="../JS/validaciones/psicologosValidaciones.js"></script>
     <script src="../JS/controllers/psicologosController.js"></script>
 </body>

@@ -1,47 +1,79 @@
-
 document.addEventListener('DOMContentLoaded', () => {
-
     const formLogin = document.getElementById('loginForm');
-    if (!formLogin) return;
+    const linkOlvide = document.getElementById('forgotPasswordLink');
+    const inputCorreo = document.getElementById('loginEmail');
+    const inputClave = document.getElementById('loginPassword');
+    const btnVerPassword = document.getElementById('btnVerPassword');
 
-    formLogin.addEventListener('submit', async (evento) => {
-        evento.preventDefault();
-
-        const inputCorreo = document.getElementById('loginEmail');
-        const inputContrasena = document.getElementById('loginPassword');
-
-        const credenciales = {
-            correo: inputCorreo.value,
-            contrasena: inputContrasena.value
-        };
-
-        const validacion = LoginValidaciones.validarLogin(credenciales);
-        if (!validacion.isValid) {
-            Notif.error(validacion.message, 'Datos inválidos');
-            return;
+    function limpiarCampos() {
+        if (inputCorreo) inputCorreo.value = '';
+        if (inputClave) {
+            inputClave.value = '';
+            inputClave.type = 'password';
         }
-
-        const btnSubmit = formLogin.querySelector('button[type="submit"]');
-        const textoOriginal = btnSubmit ? btnSubmit.innerHTML : 'Inicia Sesión';
-
-        if (btnSubmit) {
-            btnSubmit.disabled = true;
-            btnSubmit.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Iniciando...';
+        if (btnVerPassword) {
+            btnVerPassword.querySelector('i').className = 'fa-solid fa-eye-slash';
+            btnVerPassword.setAttribute('aria-label', 'Mostrar contraseña');
+            btnVerPassword.title = 'Mostrar contraseña';
         }
+    }
 
-        try {
-            sessionStorage.removeItem('psyke_redirecting');
+    limpiarCampos();
+    window.addEventListener('pageshow', limpiarCampos);
 
-            const { datos } = await AuthService.loginUsuario(credenciales);
+    if (btnVerPassword && inputClave) {
+        btnVerPassword.addEventListener('click', () => {
+            const mostrar = inputClave.type === 'password';
+            inputClave.type = mostrar ? 'text' : 'password';
+            btnVerPassword.querySelector('i').className = mostrar ? 'fa-solid fa-eye' : 'fa-solid fa-eye-slash';
+            const texto = mostrar ? 'Ocultar contraseña' : 'Mostrar contraseña';
+            btnVerPassword.setAttribute('aria-label', texto);
+            btnVerPassword.title = texto;
+            inputClave.focus();
+        });
+    }
 
-            sessionStorage.setItem('mostrarBienvenidaToast', 'true');
-            window.location.href = 'HTML/inicio.html';
-        } catch (error) {
-            if (btnSubmit) {
-                btnSubmit.disabled = false;
-                btnSubmit.innerHTML = textoOriginal;
+    if (formLogin) {
+        formLogin.addEventListener('submit', async (evento) => {
+            evento.preventDefault();
+
+            const inputCorreo = document.getElementById('loginEmail');
+            const inputContrasena = document.getElementById('loginPassword');
+            const boton = formLogin.querySelector('button[type="submit"]');
+
+            const credenciales = {
+                correo: inputCorreo ? inputCorreo.value.trim() : '',
+                contrasena: inputContrasena ? inputContrasena.value : ''
+            };
+
+            const validacion = typeof LoginValidaciones !== 'undefined'
+                ? LoginValidaciones.validarLogin(credenciales)
+                : { isValid: Boolean(credenciales.correo && credenciales.contrasena), message: 'Ingresa tu correo y contraseña.' };
+
+            if (!validacion.isValid) {
+                Notif.advertencia(validacion.message, 'Datos incompletos');
+                return;
             }
-            Notif.error(error.message || 'Credenciales inválidas o servicio fuera de línea', 'Error de inicio de sesión');
-        }
-    });
+
+            if (boton) boton.disabled = true;
+
+            try {
+                await AuthService.loginUsuario(credenciales);
+                window.location.href = 'HTML/inicio.html?bienvenida=1';
+            } catch (error) {
+                const titulo = error.tipo === 'RED' ? 'Sin conexión' : 'No se pudo iniciar sesión';
+                Notif.error(error.message, titulo);
+                if (boton) boton.disabled = false;
+            }
+        });
+    }
+
+    if (linkOlvide) {
+        linkOlvide.addEventListener('click', () => {
+            const correo = document.getElementById('loginEmail')?.value.trim();
+            if (correo) {
+                linkOlvide.href = `HTML/recuperarContrasena.html?correo=${encodeURIComponent(correo)}`;
+            }
+        });
+    }
 });

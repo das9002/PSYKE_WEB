@@ -4,7 +4,7 @@ const RUTA_TRANSFERENCIAS = '/transferencias';
 
 const CasosTransferidosService = {
     listar() {
-        return peticionApi(RUTA_TRANSFERENCIAS).then(res => typeof normalizarListado === 'function' ? normalizarListado(res) : (Array.isArray(res) ? res : (res?.content || [])));
+        return listarTodo(RUTA_TRANSFERENCIAS);
     },
 
     obtenerPorId(id) {
@@ -30,15 +30,15 @@ const CasosTransferidosService = {
     },
 
     listarEstudiantes() {
-        return peticionApi('/estudiantes').then(res => typeof normalizarListado === 'function' ? normalizarListado(res) : (Array.isArray(res) ? res : (res?.content || [])));
+        return listarTodo('/estudiantes');
     },
 
     listarPsicologos() {
-        return peticionApi('/psicologos').then(res => typeof normalizarListado === 'function' ? normalizarListado(res) : (Array.isArray(res) ? res : (res?.content || [])));
+        return listarTodo('/psicologos');
     },
 
     listarExpedientes() {
-        return peticionApi('/expedientes').then(res => typeof normalizarListado === 'function' ? normalizarListado(res) : (Array.isArray(res) ? res : (res?.content || [])));
+        return listarTodo('/expedientes');
     },
 
     crearExpediente(expediente) {

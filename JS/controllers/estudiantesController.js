@@ -9,8 +9,16 @@ document.addEventListener('DOMContentLoaded', () => {
         modoEdicion: false,
         idEnEdicion: null,
         credencial: null,
-        usuarioSesion: null
+        usuarioSesion: null,
+        paginaActual: 1,
+        limitePorPagina: 10,
+        listaFiltradaActual: [],
+        contrasenaTemporal: ''
     };
+
+    function esAdmin() {
+        return estado.usuarioSesion?.tipoUsuario === 'ADMIN';
+    }
 
     async function obtenerUsuarioSesion() {
         if (typeof verificarSesion === 'function') {
@@ -110,22 +118,54 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function actualizarPaginacionEstudiantesUI(inicio, fin, total, paginaActual, totalPaginas) {
+        const info = el('infoPaginacionEstudiantes');
+        const ind = el('indicadorPaginaEstudiantes');
+        const btnPrev = el('btnPrevEstudiantes');
+        const btnNext = el('btnNextEstudiantes');
+
+        if (info) {
+            info.innerHTML = total === 0
+                ? 'Mostrando <strong>0</strong> - <strong>0</strong> de <strong>0</strong> estudiantes'
+                : `Mostrando <strong>${inicio}</strong> - <strong>${fin}</strong> de <strong>${total}</strong> estudiantes`;
+        }
+        if (ind) ind.textContent = `Página ${paginaActual} de ${totalPaginas}`;
+        if (btnPrev) btnPrev.disabled = paginaActual <= 1;
+        if (btnNext) btnNext.disabled = paginaActual >= totalPaginas;
+    }
+
     function renderTabla(lista = estado.estudiantes) {
         const tbody = el('tablaEstudiantesBody');
         const noResults = el('noResultsEstudiantes');
         if (!tbody) return;
 
         const estudiantes = typeof normalizarListado === 'function' ? normalizarListado(lista) : (Array.isArray(lista) ? lista : (lista?.content || []));
+        estado.listaFiltradaActual = estudiantes;
+
+        const totalItems = estudiantes.length;
+        const totalPaginas = Math.ceil(totalItems / estado.limitePorPagina) || 1;
+
+        if (estado.paginaActual > totalPaginas) {
+            estado.paginaActual = totalPaginas;
+        }
+        if (estado.paginaActual < 1) {
+            estado.paginaActual = 1;
+        }
+
+        const inicio = (estado.paginaActual - 1) * estado.limitePorPagina;
+        const fin = Math.min(inicio + estado.limitePorPagina, totalItems);
+        const estudiantesPagina = estudiantes.slice(inicio, fin);
 
         tbody.innerHTML = '';
 
-        if (estudiantes.length === 0) {
+        if (totalItems === 0) {
             if (noResults) noResults.classList.remove('d-none');
+            actualizarPaginacionEstudiantesUI(0, 0, 0, 1, 1);
             return;
         }
         if (noResults) noResults.classList.add('d-none');
 
-        estudiantes.forEach((est) => {
+        estudiantesPagina.forEach((est) => {
             const id = idEstudiante(est);
             const tr = document.createElement('tr');
 
@@ -171,6 +211,12 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
             tbody.appendChild(tr);
         });
+
+        actualizarPaginacionEstudiantesUI(inicio + 1, fin, totalItems, estado.paginaActual, totalPaginas);
+    }
+
+    function ordenNatural(a, b) {
+        return String(a ?? '').localeCompare(String(b ?? ''), 'es', { numeric: true, sensitivity: 'base' });
     }
 
     function llenarSelect(select, opciones, valorPredeterminado) {
@@ -236,7 +282,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 return /[123]/.test(String(g.nombreGrado || ''));
             });
             if (filtrados.length > 0) {
-                opcionesGrado = filtrados.map(g => ({ value: g.idGrado, texto: g.nombreGrado }));
+                opcionesGrado = filtrados
+                    .sort((a, b) => ordenNatural(a.nombreGrado, b.nombreGrado))
+                    .map(g => ({ value: g.idGrado, texto: g.nombreGrado }));
             }
         }
         if (opcionesGrado.length === 0) {
@@ -255,7 +303,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
             if (filtrados.length > 0) {
-                opcionesSeccion = filtrados.map(s => ({ value: s.idSeccion, texto: `Sección "${s.nombreSeccion}"` }));
+                opcionesSeccion = filtrados
+                    .sort((a, b) => ordenNatural(a.nombreSeccion, b.nombreSeccion))
+                    .map(s => ({ value: s.idSeccion, texto: `Sección "${s.nombreSeccion}"` }));
             }
         }
         if (opcionesSeccion.length === 0) {
@@ -483,7 +533,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             : {
                 correo: correo || `${carnet}@ricaldone.edu.sv`,
-                contrasena: 'Estudiante2026*',
+                contrasena: estado.contrasenaTemporal,
                 tipoUsuario: 'ESTUDIANTE',
                 estadoCuenta: 'ACTIVO'
             };
@@ -538,6 +588,10 @@ document.addEventListener('DOMContentLoaded', () => {
             ? estado.estudiantes.find(e => idEstudiante(e) === estado.idEnEdicion)
             : null;
 
+        if (!estado.modoEdicion) {
+            estado.contrasenaTemporal = ContrasenaValidaciones.generarTemporal();
+        }
+
         const usuario = estudianteSeleccionado?.usuario?.idUsuario
             ? {
                 idUsuario: estudianteSeleccionado.usuario.idUsuario,
@@ -549,7 +603,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 correo: el('estUsuario').value.trim(),
                 tipoUsuario: 'ESTUDIANTE',
                 estadoCuenta: 'ACTIVO',
-                contrasena: 'Estudiante2026*'
+                contrasena: estado.contrasenaTemporal
             };
 
         const datos = {
@@ -572,18 +626,30 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const payload = construirPayload();
 
-            if (estado.modoEdicion && estado.idEnEdicion !== null) {
-                await EstudiantesService.actualizar(estado.idEnEdicion, payload);
-                Notif.exito('¡Estudiante actualizado correctamente!');
-            } else {
+            const esNuevo = !(estado.modoEdicion && estado.idEnEdicion !== null);
+
+            if (esNuevo) {
                 await EstudiantesService.crear(payload);
-                Notif.exito('¡Estudiante registrado con éxito!');
+            } else {
+                await EstudiantesService.actualizar(estado.idEnEdicion, payload);
             }
 
             await recargarEstudiantes();
 
             const modal = bootstrap.Modal.getInstance(el('modalEstudiante'));
             if (modal) modal.hide();
+
+            if (esNuevo) {
+                Notif.credencialesTemporales(
+                    'Estudiante registrado',
+                    payload.usuario.correo,
+                    estado.contrasenaTemporal,
+                    'Entrega estas credenciales al estudiante para que ingrese a la app móvil. Por seguridad no se vuelven a mostrar; si las pierde, el administrador puede asignarle una nueva.'
+                );
+            } else {
+                Notif.exito('¡Estudiante actualizado correctamente!');
+            }
+            estado.contrasenaTemporal = '';
         } catch (error) {
             Notif.error(mensajeErrorAmigable(error), 'No se pudo guardar el estudiante');
         }
@@ -624,61 +690,98 @@ document.addEventListener('DOMContentLoaded', () => {
             usuario: est.usuario
         };
 
+        const admin = esAdmin();
+        const inputPass = el('credEstPass');
+
         el('credEstNombre').textContent = estado.credencial.nombre;
         el('credEstGrado').textContent = `${estado.credencial.grado} • ${nombreEspecialidad(est)}`;
-        el('credEstCarnet').value = estado.credencial.carnet;
-        el('credEstPass').value = '';
-        el('credEstPass').type = 'password';
-        el('iconEyeEst').className = 'bi bi-eye';
+        el('credEstCarnet').value = estado.credencial.carnet ?? '';
+        el('credEstCorreo').value = estado.credencial.correo || 'Sin usuario asociado';
+        inputPass.value = '';
+        inputPass.type = 'password';
+        inputPass.classList.remove('is-invalid');
+        el('iconEyeEst').className = 'bi bi-eye-slash';
 
-        const modal = new bootstrap.Modal(el('modalCredencialesEstudiante'));
-        modal.show();
+        el('bloqueNuevaPassEst')?.classList.toggle('d-none', !admin);
+        el('btnGuardarPassEst')?.classList.toggle('d-none', !admin);
+        el('textoPermisoPassEst').textContent = admin
+            ? 'Si el estudiante la olvidó, asígnale una nueva y entrégasela.'
+            : 'Si el estudiante la olvidó, pide al administrador que le asigne una nueva.';
+
+        bootstrap.Modal.getOrCreateInstance(el('modalCredencialesEstudiante')).show();
     };
 
     function togglePassEst() {
         const pass = el('credEstPass');
         if (!pass) return;
 
-        if (pass.type === 'password') {
-            pass.type = 'text';
-            el('iconEyeEst').className = 'bi bi-eye-slash';
-        } else {
-            pass.type = 'password';
-            el('iconEyeEst').className = 'bi bi-eye';
-        }
+        const mostrar = pass.type === 'password';
+        pass.type = mostrar ? 'text' : 'password';
+        el('iconEyeEst').className = mostrar ? 'bi bi-eye' : 'bi bi-eye-slash';
+    }
+
+    function generarPassEst() {
+        const pass = el('credEstPass');
+        if (!pass) return;
+        pass.value = ContrasenaValidaciones.generarTemporal();
+        pass.type = 'text';
+        pass.classList.remove('is-invalid');
+        el('iconEyeEst').className = 'bi bi-eye';
     }
 
     async function guardarNuevaPassEst() {
-        limpiarErrores();
+        if (!estado.credencial || !esAdmin()) return;
 
-        if (!estado.credencial) return;
         if (!estado.credencial.usuarioId) {
             Notif.informar('Este estudiante no tiene un usuario asociado en el sistema.');
             return;
         }
 
-        const nuevaPass = el('credEstPass').value;
-        const validacion = EstudiantesValidaciones.validarContrasena(nuevaPass);
-        if (!validacion.valido) {
-            mostrarErrores(validacion.errores);
+        const inputPass = el('credEstPass');
+        const nuevaPass = inputPass.value;
+        const error = ContrasenaValidaciones.validarNueva(nuevaPass, nuevaPass);
+        if (error) {
+            inputPass.classList.add('is-invalid');
+            Notif.advertencia(`${error.mensaje} Puedes usar el botón "Generar".`, 'Contraseña no válida');
             return;
         }
 
+        const modalCred = bootstrap.Modal.getInstance(el('modalCredencialesEstudiante'));
+        if (modalCred) modalCred.hide();
+
+        const confirmado = await Notif.confirmar(
+            '¿Asignar nueva contraseña?',
+            `La contraseña actual de ${estado.credencial.nombre} dejará de funcionar.`,
+            'Sí, asignar',
+            { icono: 'warning' }
+        );
+        if (!confirmado) {
+            if (modalCred) modalCred.show();
+            return;
+        }
+
+        const btn = el('btnGuardarPassEst');
+        if (btn) btn.disabled = true;
         try {
-            const usuario = {
+            await EstudiantesService.actualizarUsuario(estado.credencial.usuarioId, {
                 correo: estado.credencial.correo,
                 tipoUsuario: estado.credencial.usuario?.tipoUsuario ?? 'ESTUDIANTE',
                 estadoCuenta: estado.credencial.usuario?.estadoCuenta ?? 'ACTIVO',
                 contrasena: nuevaPass
-            };
+            });
 
-            await EstudiantesService.actualizarUsuario(estado.credencial.usuarioId, usuario);
-            Notif.exito(`¡Contraseña de ${estado.credencial.nombre} actualizada exitosamente!`);
-
-            const modal = bootstrap.Modal.getInstance(el('modalCredencialesEstudiante'));
-            if (modal) modal.hide();
-        } catch (error) {
-            Notif.error(`No se pudo actualizar la contraseña: ${error.message}`);
+            inputPass.value = '';
+            await Notif.credencialesTemporales(
+                'Contraseña asignada',
+                estado.credencial.correo,
+                nuevaPass,
+                `Entrega esta contraseña a ${estado.credencial.nombre}. Con ella ingresa a la app móvil.`
+            );
+        } catch (err) {
+            Notif.error(err.message || 'No se pudo asignar la contraseña.', 'No se pudo asignar');
+            if (modalCred) modalCred.show();
+        } finally {
+            if (btn) btn.disabled = false;
         }
     }
 
@@ -719,6 +822,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (buscar) {
             buscar.addEventListener('input', (e) => {
+                estado.paginaActual = 1;
                 const texto = e.target.value.toLowerCase().trim();
                 const filtrados = estado.estudiantes.filter(est =>
                     (est.nombres || '').toLowerCase().includes(texto) ||
@@ -730,6 +834,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 renderTabla(filtrados);
             });
         }
+
+        el('btnPrevEstudiantes')?.addEventListener('click', () => {
+            if (estado.paginaActual > 1) {
+                estado.paginaActual--;
+                renderTabla(estado.listaFiltradaActual);
+            }
+        });
+
+        el('btnNextEstudiantes')?.addEventListener('click', () => {
+            const totalPaginas = Math.ceil(estado.listaFiltradaActual.length / estado.limitePorPagina) || 1;
+            if (estado.paginaActual < totalPaginas) {
+                estado.paginaActual++;
+                renderTabla(estado.listaFiltradaActual);
+            }
+        });
     }
 
     el('btnAbrirModalAgregar')?.addEventListener('click', window.abrirModalAgregar);
@@ -767,6 +886,7 @@ document.addEventListener('DOMContentLoaded', () => {
     el('estNivel')?.addEventListener('change', actualizarCamposNivel);
     el('btnTogglePassEst')?.addEventListener('click', togglePassEst);
     el('btnGuardarPassEst')?.addEventListener('click', guardarNuevaPassEst);
+    el('btnGenerarPassEst')?.addEventListener('click', generarPassEst);
 
     document.querySelectorAll('#formEstudiante input, #formEstudiante select, #formEstudiante textarea').forEach(campo => {
         campo.addEventListener('input', () => {
@@ -776,12 +896,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     });
-    el('credEstPass')?.addEventListener('input', () => {
-        if (el('credEstPass').classList.contains('is-invalid')) {
-            el('credEstPass').classList.remove('is-invalid');
-            el('credEstPass').nextElementSibling?.classList.contains('invalid-feedback') && el('credEstPass').nextElementSibling.remove();
-        }
-    });
+    el('credEstPass')?.addEventListener('input', () => el('credEstPass').classList.remove('is-invalid'));
 
     const hamburgerBtn = el('hamburgerBtn');
     const sidebar = document.querySelector('.sidebar');

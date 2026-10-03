@@ -2,7 +2,7 @@
 
 const EstudiantesService = {
     listar() {
-        return peticionApi('/estudiantes').then(res => typeof normalizarListado === 'function' ? normalizarListado(res) : (Array.isArray(res) ? res : (res?.content || [])));
+        return listarTodo('/estudiantes');
     },
 
     obtenerPorId(id) {
@@ -28,7 +28,7 @@ const EstudiantesService = {
     },
 
     listarGrados() {
-        return peticionApi('/grados').then(res => typeof normalizarListado === 'function' ? normalizarListado(res) : (Array.isArray(res) ? res : (res?.content || [])));
+        return listarTodo('/grados');
     },
 
     crearGrado(grado) {
@@ -40,7 +40,7 @@ const EstudiantesService = {
     },
 
     listarSecciones() {
-        return peticionApi('/secciones').then(res => typeof normalizarListado === 'function' ? normalizarListado(res) : (Array.isArray(res) ? res : (res?.content || [])));
+        return listarTodo('/secciones');
     },
 
     crearSeccion(seccion) {
@@ -52,7 +52,7 @@ const EstudiantesService = {
     },
 
     listarEspecialidades() {
-        return peticionApi('/especialidades').then(res => typeof normalizarListado === 'function' ? normalizarListado(res) : (Array.isArray(res) ? res : (res?.content || [])));
+        return listarTodo('/especialidades');
     },
 
     crearEspecialidad(esp) {

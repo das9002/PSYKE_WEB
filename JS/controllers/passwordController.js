@@ -1,100 +1,132 @@
 document.addEventListener('DOMContentLoaded', () => {
-         
-        const eyeButtons = document.querySelectorAll('.btn-eye-toggle');
-        eyeButtons.forEach(btn => {
-            btn.addEventListener('click', () => {
-                const targetId = btn.getAttribute('data-target');
-                const input = document.getElementById(targetId);
-                const icon = btn.querySelector('i');
-                
-                if (input.type === 'password') {
-                    input.type = 'text';
-                    icon.classList.replace('bi-eye-slash', 'bi-eye');
-                } else {
-                    input.type = 'password';
-                    icon.classList.replace('bi-eye', 'bi-eye-slash');
-                }
-            });
+    const form = document.getElementById('passwordForm');
+    const inputActual = document.getElementById('currentPassword');
+    const inputNueva = document.getElementById('newPassword');
+    const inputConfirmar = document.getElementById('confirmPassword');
+    const botonGuardar = document.getElementById('btnActualizarContrasena');
+
+    function rutaLogin() {
+        return '../index.html';
+    }
+
+    verificarSesion().then(usuario => {
+        if (!usuario) window.location.replace(rutaLogin());
+    });
+
+    ContrasenaValidaciones.activarOjos();
+    ContrasenaValidaciones.pintarRequisitos('');
+
+    function marcarCampo(input, invalido) {
+        if (input) input.classList.toggle('is-invalid', invalido);
+    }
+
+    if (inputNueva) {
+        inputNueva.addEventListener('input', () => {
+            ContrasenaValidaciones.pintarRequisitos(inputNueva.value);
+            marcarCampo(inputNueva, false);
         });
+    }
 
-        const newPassword = document.getElementById('newPassword');
-        const requirements = {
-            length: { element: document.getElementById('reqLength'), regex: /.{8,}/ },
-            upper: { element: document.getElementById('reqUpper'), regex: /[A-Z]/ },
-            number: { element: document.getElementById('reqNumber'), regex: /[0-9]/ },
-            special: { element: document.getElementById('reqSpecial'), regex: /[!@#\$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/ }
-        };
+    [inputActual, inputConfirmar].forEach(input => {
+        if (input) input.addEventListener('input', () => marcarCampo(input, false));
+    });
 
-        newPassword.addEventListener('input', () => {
-            const val = newPassword.value;
-            
-            for (const key in requirements) {
-                const isValid = requirements[key].regex.test(val);
-                const item = requirements[key].element;
-                const icon = item.querySelector('i');
-                
-                if (isValid) {
-                    item.classList.replace('invalid', 'valid');
-                    icon.classList.replace('bi-x-circle-fill', 'bi-check-circle-fill');
-                } else {
-                    item.classList.replace('valid', 'invalid');
-                    icon.classList.replace('bi-check-circle-fill', 'bi-x-circle-fill');
-                }
+    function validarFormulario() {
+        const actual = inputActual.value;
+        const nueva = inputNueva.value;
+        const confirmacion = inputConfirmar.value;
+
+        if (!actual) {
+            marcarCampo(inputActual, true);
+            return 'Ingresa tu contraseña actual.';
+        }
+        if (nueva && nueva === actual) {
+            marcarCampo(inputNueva, true);
+            return 'La nueva contraseña debe ser diferente a la actual.';
+        }
+
+        const error = ContrasenaValidaciones.validarNueva(nueva, confirmacion);
+        if (error) {
+            marcarCampo(error.campo === 'nueva' ? inputNueva : inputConfirmar, true);
+            return error.mensaje;
+        }
+        return null;
+    }
+
+    function bloquear(bloqueado) {
+        if (!botonGuardar) return;
+        botonGuardar.disabled = bloqueado;
+        botonGuardar.querySelector('span').textContent = bloqueado ? 'Actualizando...' : 'Actualizar contraseña';
+    }
+
+    async function cambiarContrasena() {
+        const sesion = await AuthService.obtenerSesion();
+        if (!sesion || !sesion.idUsuario) {
+            throw new Error('No se pudo identificar al usuario de la sesión.');
+        }
+
+        const actualCorrecta = await AuthService.verificarContrasenaActual(sesion.correo, inputActual.value);
+        if (!actualCorrecta) {
+            const error = new Error('La contraseña actual es incorrecta.');
+            error.campo = inputActual;
+            throw error;
+        }
+
+        await apiFetch(`/usuarios/${sesion.idUsuario}`, {
+            method: 'PUT',
+            body: {
+                correo: sesion.correo,
+                contrasena: inputNueva.value,
+                tipoUsuario: sesion.tipoUsuario,
+                estadoCuenta: sesion.estadoCuenta || 'ACTIVO'
             }
         });
+    }
 
-        const passwordForm = document.getElementById('passwordForm');
-        if (passwordForm) {
-            passwordForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const nPass = newPassword.value;
-                const cPass = document.getElementById('confirmPassword').value;
+    if (form) {
+        form.addEventListener('submit', async (evento) => {
+            evento.preventDefault();
 
-                if (nPass !== cPass) {
-                    Notif.informar('La nueva contraseña y su confirmación no coinciden.');
-                    return;
+            const errorValidacion = validarFormulario();
+            if (errorValidacion) {
+                Notif.advertencia(errorValidacion, 'Revisa los campos');
+                return;
+            }
+
+            const confirmado = await Notif.confirmar(
+                '¿Cambiar contraseña?',
+                'Usarás la nueva contraseña la próxima vez que inicies sesión.',
+                'Sí, cambiar'
+            );
+            if (!confirmado) return;
+
+            bloquear(true);
+            Notif.cargando('Actualizando contraseña...');
+
+            try {
+                await cambiarContrasena();
+                Notif.cerrar();
+                form.reset();
+                ContrasenaValidaciones.pintarRequisitos('');
+                await Notif.exitoModal('Tu contraseña se actualizó correctamente.', 'Contraseña actualizada');
+                window.location.href = 'config.html';
+            } catch (error) {
+                Notif.cerrar();
+                if (error.campo) marcarCampo(error.campo, true);
+
+                if (error.status === 401) {
+                    Notif.error('Tu sesión ha expirado. Inicia sesión nuevamente.', 'Sesión expirada');
+                    setTimeout(() => window.location.replace(rutaLogin()), 1500);
+                } else if (error.status === 403) {
+                    Notif.error('Tu usuario no tiene permiso para cambiar la contraseña desde la web.', 'Acción no permitida');
+                } else if (error.tipo === 'RED') {
+                    Notif.error('No se pudo conectar con el servidor. Revisa tu conexión.', 'Sin conexión');
+                } else {
+                    Notif.error(error.message || 'No se pudo actualizar la contraseña.', 'No se pudo actualizar');
                 }
-
-                // Obtener datos del usuario autenticado via /auth/me
-                let usuarioSesion = null;
-                try {
-                    const baseUrl = window.AUTH_API_URL || 'http://localhost:8081/api/auth';
-                    const respuesta = await fetch(`${baseUrl}/me`, {
-                        method: 'GET',
-                        headers: { 'Content-Type': 'application/json' },
-                        credentials: 'include'
-                    });
-                    if (respuesta.ok) {
-                        usuarioSesion = await respuesta.json();
-                    }
-                } catch (err) { }
-
-                if (!usuarioSesion || !usuarioSesion.idUsuario) {
-                    Notif.error('No se encontró el usuario de sesión. Inicie sesión nuevamente.', 'Error de sesión');
-                    return;
-                }
-
-                const datosContrasena = {
-                    correo: usuarioSesion.correo || '',
-                    tipoUsuario: usuarioSesion.tipoUsuario || 'PSICOLOGO',
-                    estadoCuenta: 'ACTIVO',
-                    contrasena: nPass
-                };
-
-                try {
-                    await ProfileService.actualizarPerfil(usuarioSesion.idUsuario, datosContrasena);
-                    Notif.exito('¡Tu contraseña ha sido actualizada con éxito!');
-                } catch (error) {
-                    Notif.error('No se pudo actualizar la contraseña: ' + error.message, 'Error al actualizar');
-                }
-            });
-        }
-
-        const btnVolver = document.getElementById('btnVolver');
-        if (btnVolver) {
-            btnVolver.addEventListener('click', (e) => {
-                e.preventDefault();
-                window.location.href = "../HTML/config.html";
-            });
-        }
-    });
+            } finally {
+                bloquear(false);
+            }
+        });
+    }
+});

@@ -9,10 +9,41 @@
     transform: scale(1.1);
 }
 
+.icono-con-badge {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
+
+.unread-count-badge {
+    position: absolute;
+    top: -6px;
+    right: -9px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background-color: #ef4444;
+    color: #ffffff;
+    font-size: 0.68rem;
+    font-weight: 700;
+    line-height: 1;
+    border: 2px solid #ffffff;
+    pointer-events: none;
+}
+
+html.dark-mode .unread-count-badge {
+    border-color: #111827;
+}
+
 .unread-badge {
     position: absolute;
-    top: 2px;
-    right: 8px;
+    top: 0;
+    right: -2px;
+    pointer-events: none;
     width: 10px;
     height: 10px;
     background-color: #ef4444;
@@ -302,6 +333,18 @@ html.dark-mode .chat-patient-item.active {
     height: 44px;
     border-radius: 50%;
     object-fit: cover;
+    flex-shrink: 0;
+}
+
+.chat-avatar-iniciales {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    font-weight: 700;
+    font-size: 0.95rem;
+    letter-spacing: 0.02em;
+    user-select: none;
 }
 
 .chat-status-dot {

@@ -13,6 +13,11 @@ function fechaHoraValida(valor) {
     return !isNaN(fecha.getTime());
 }
 
+function citaYaPaso(fechaHora) {
+    const momento = new Date(String(fechaHora ?? ''));
+    return !isNaN(momento.getTime()) && momento <= new Date();
+}
+
 function crearErrorValidacion(errores) {
     const error = new Error(Object.values(errores).join(' '));
     error.errores = errores;
@@ -43,7 +48,7 @@ function normalizarListado(respuesta) {
 const CitasService = {
 
     listar() {
-        return peticionApi('/citas').then(normalizarListado);
+        return listarTodo('/citas');
     },
 
     obtenerPorId(id) {
@@ -90,6 +95,11 @@ const CitasService = {
         }
 
         const base = citaCompleta && typeof citaCompleta === 'object' ? citaCompleta : {};
+        if (nuevoEstado === 'REALIZADA' && !citaYaPaso(base.fechaHoraCita ?? base.fecha)) {
+            return Promise.reject(crearErrorValidacion({
+                estado: 'Solo se puede marcar como realizada cuando ya pasó la fecha y hora de la cita.'
+            }));
+        }
         const estudiante = base.estudiante && typeof base.estudiante === 'object'
             ? { idEstudiante: base.estudiante.idEstudiante ?? base.estudiante.id }
             : { idEstudiante: base.idEstudiante };
@@ -144,6 +154,10 @@ const CitasService = {
         const estado = String(cita.estado ?? '').toUpperCase();
         if (!ESTADOS_CITA.includes(estado)) {
             errores.estado = `El estado debe ser uno de: ${ESTADOS_CITA.join(', ')}.`;
+        }
+
+        if (estado === 'REALIZADA' && fechaHoraValida(fechaHora) && !citaYaPaso(fechaHora)) {
+            errores.estado = 'Solo se puede marcar como realizada cuando ya pasó la fecha y hora de la cita.';
         }
 
         if (cita.motivo !== undefined && cita.motivo !== null && String(cita.motivo).trim().length > 500) {

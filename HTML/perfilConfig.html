@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Psyke - Editar Perfil</title>
+    <title>Psyke - Mi Perfil</title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -15,10 +15,11 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
     <link rel="stylesheet" href="../css/styleperfil.css">
     <link rel="stylesheet" href="../css/styleTemaoscuro.css">
+    <link rel="stylesheet" href="../css/styleAlertas.css">
     <link rel="icon" href="../img/Logo0.png" crossorigin>
     <script>
         (function () {
-            if (localStorage.getItem('psyke_dark_mode') === 'enabled') {
+            if (/(?:^|;\s*)psyke_dark_mode=enabled(?:;|$)/.test(document.cookie)) {
                 document.documentElement.classList.add('dark-mode');
             }
         })();
@@ -29,55 +30,58 @@
 
     <div class="page-wrapper">
 
-        <a href="config.html" class="btn-volver" id="btnVolver">
+        <a href="config.html" class="btn-volver">
             <i class="bi bi-arrow-left me-1"></i> Volver
         </a>
 
         <div class="avatar-container">
-            <div class="avatar-circle">--</div>
+            <div class="avatar-circle" id="avatarCircle">--</div>
+        </div>
+
+        <div class="perfil-encabezado">
+            <h1 class="perfil-nombre" id="perfilNombre">Cargando...</h1>
+            <span class="perfil-rol" id="perfilRol"></span>
         </div>
 
         <div class="form-center-box">
-            <form id="editProfileForm">
+            <div class="section-label text-uppercase">Información Personal</div>
 
-                <div class="section-label text-uppercase">Información Personal del Psicólogo</div>
+            <div class="alert alert-info d-none small" id="avisoSinPerfil" role="status">
+                Tu cuenta no tiene un perfil de psicólogo asociado, por eso no hay nombres registrados.
+            </div>
 
-                <div class="custom-form-group">
-                    <div class="custom-form-field">
-                        <label for="inputNombre">Nombres</label>
-                        <input type="text" id="inputNombre" placeholder="Tus nombres" maxlength="100" required>
-                    </div>
-                    <div class="custom-form-field">
-                        <label for="inputApellido">Apellidos</label>
-                        <input type="text" id="inputApellido" placeholder="Tus apellidos" maxlength="100" required>
-                    </div>
-                    <div class="custom-form-field">
-                        <label for="inputEspecialidad">Especialidad</label>
-                        <input type="text" id="inputEspecialidad" placeholder="Especialidad clínica / psicológica" maxlength="100" required>
-                    </div>
+            <div class="custom-form-group">
+                <div class="custom-form-field">
+                    <span class="perfil-etiqueta">Nombres</span>
+                    <span class="perfil-valor" id="verNombres">—</span>
                 </div>
-
-                <div class="section-label text-uppercase">Datos de Contacto</div>
-                <div class="custom-form-group">
-                    <div class="custom-form-field">
-                        <label for="inputEmail">Correo Institucional</label>
-                        <input type="email" id="inputEmail" placeholder="correo@ricaldone.edu.sv" class="email-underlined" maxlength="100" readonly>
-                        <a href="#" class="action-link-blue" id="actionCambiarEmail">Cambiar</a>
-                    </div>
-                    <div class="custom-form-field">
-                        <label for="inputTelefono">Teléfono</label>
-                        <input type="tel" id="inputTelefono" placeholder="+503 0000-0000" maxlength="16" readonly>
-                        <a href="#" class="action-link-green" id="actionAgregarTelefono">Editar</a>
-                    </div>
+                <div class="custom-form-field">
+                    <span class="perfil-etiqueta">Apellidos</span>
+                    <span class="perfil-valor" id="verApellidos">—</span>
                 </div>
+            </div>
 
-                <div class="text-center mt-4">
-                    <button type="submit" class="btn-guardar">
-                        <i class="bi bi-floppy me-1"></i> Guardar Cambios
-                    </button>
+            <div class="section-label text-uppercase">Datos de la Cuenta</div>
+            <div class="custom-form-group">
+                <div class="custom-form-field">
+                    <span class="perfil-etiqueta">Correo Institucional</span>
+                    <span class="perfil-valor email-underlined" id="verCorreo">—</span>
                 </div>
+                <div class="custom-form-field">
+                    <span class="perfil-etiqueta">Rol</span>
+                    <span class="perfil-valor" id="verRol">—</span>
+                </div>
+                <div class="custom-form-field">
+                    <span class="perfil-etiqueta">Estado de la cuenta</span>
+                    <span class="perfil-valor" id="verEstadoCuenta">—</span>
+                </div>
+            </div>
 
-            </form>
+            <div class="text-center mt-4">
+                <a href="cambiocontrasena.html" class="btn-guardar d-inline-flex align-items-center gap-2 text-decoration-none">
+                    <i class="bi bi-shield-lock"></i> Cambiar contraseña
+                </a>
+            </div>
         </div>
 
     </div>
@@ -86,10 +90,12 @@
         integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
         crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.js"></script>
+    
     <script src="../JS/services/env.js"></script>
     <script src="../JS/services/config.js"></script>
-    <script src="../JS/services/profileService.js"></script>
     <script src="../JS/services/notificacionesService.js"></script>
+    <script src="../JS/services/authService.js"></script>
+    <script src="../JS/services/profileService.js"></script>
     <script src="../JS/controllers/profileController.js"></script>
 </body>
 

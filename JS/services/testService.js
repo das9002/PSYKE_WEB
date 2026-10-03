@@ -1,10 +1,38 @@
+/**
+ * Normaliza los tipos de respuesta provistos desde la interfaz de usuario
+ * hacia las constantes permitidas por el DTO y la base de datos Oracle.
+ */
+function normalizarTipoRespuesta(tipo) {
+    if (!tipo) return tipo;
+    const mapaTipos = {
+        'Pregunta abierta': 'TEXTO_LIBRE',
+        'Escala Likert': 'ESCALA',
+        'Opción múltiple': 'OPCION_MULTIPLE',
+        'texto_libre': 'TEXTO_LIBRE',
+        'escala': 'ESCALA',
+        'opcion_multiple': 'OPCION_MULTIPLE'
+    };
+    return mapaTipos[tipo.trim()] || tipo;
+}
 
+/**
+ * Helper interno para extraer arreglos de respuestas paginadas o directas.
+ */
+function procesarListado(res) {
+    if (typeof normalizarListado === 'function') {
+        return normalizarListado(res);
+    }
+    return Array.isArray(res) ? res : (res?.content || []);
+}
 
 const TestService = {
+    // ==========================================
+    // CUESTIONARIOS
+    // ==========================================
     async listarCuestionarios() {
         try {
-            const lista = await peticionApi('/cuestionarios');
-            return typeof normalizarListado === 'function' ? normalizarListado(lista) : (Array.isArray(lista) ? lista : (lista?.content || []));
+            const lista = await listarTodo('/cuestionarios');
+            return procesarListado(lista);
         } catch (error) {
             const mensaje = error?.status === 500
                 ? 'Ocurrió un error interno en el servidor al cargar los cuestionarios. Inténtelo de nuevo más tarde.'
@@ -16,78 +44,119 @@ const TestService = {
         }
     },
 
-    obtenerCuestionarioPorId(id) {
-        return peticionApi(`/cuestionarios/${id}`);
+    async obtenerCuestionarioPorId(id) {
+        return await peticionApi(`/cuestionarios/${id}`);
     },
 
-    buscarCuestionarios(termino) {
-        return peticionApi(`/cuestionarios?search=${encodeURIComponent(termino)}`).then(res => typeof normalizarListado === 'function' ? normalizarListado(res) : (Array.isArray(res) ? res : (res?.content || [])));
+    async buscarCuestionarios(termino) {
+        const res = await listarTodo(`/cuestionarios?search=${encodeURIComponent(termino)}`);
+        return procesarListado(res);
     },
 
-    crearCuestionario(cuestionario) {
-        return peticionApi('/cuestionarios', {
+    async crearCuestionario(cuestionario) {
+        return await peticionApi('/cuestionarios', {
             method: 'POST',
             body: JSON.stringify(cuestionario)
         });
     },
 
-    actualizarCuestionario(id, cuestionario) {
-        return peticionApi(`/cuestionarios/${id}`, {
+    async actualizarCuestionario(id, cuestionario) {
+        return await peticionApi(`/cuestionarios/${id}`, {
             method: 'PUT',
             body: JSON.stringify(cuestionario)
         });
     },
 
-    eliminarCuestionario(id) {
-        return peticionApi(`/cuestionarios/${id}`, { method: 'DELETE' });
+    async eliminarCuestionario(id) {
+        return await peticionApi(`/cuestionarios/${id}`, { method: 'DELETE' });
     },
 
-    listarPreguntas() {
-        return peticionApi('/preguntas').then(res => typeof normalizarListado === 'function' ? normalizarListado(res) : (Array.isArray(res) ? res : (res?.content || [])));
+    // ==========================================
+    // PREGUNTAS
+    // ==========================================
+    async listarPreguntas() {
+        const res = await listarTodo('/preguntas');
+        return procesarListado(res);
     },
 
-    crearPregunta(pregunta) {
-        return peticionApi('/preguntas', {
+    async crearPregunta(pregunta) {
+        const tipoOriginal = pregunta.tipoRespuesta || pregunta.tipo;
+        
+        const cuestionarioObj = (typeof pregunta.cuestionario === 'number' || typeof pregunta.cuestionario === 'string')
+            ? { idCuestionario: Number(pregunta.cuestionario) }
+            : pregunta.cuestionario;
+
+        const payload = {
+            ...pregunta,
+            cuestionario: cuestionarioObj,
+            tipoRespuesta: normalizarTipoRespuesta(tipoOriginal)
+        };
+
+        return await peticionApi('/preguntas', {
             method: 'POST',
-            body: JSON.stringify(pregunta)
+            body: JSON.stringify(payload)
         });
     },
 
-    eliminarPregunta(id) {
-        return peticionApi(`/preguntas/${id}`, { method: 'DELETE' });
+    async eliminarPregunta(id) {
+        return await peticionApi(`/preguntas/${id}`, { method: 'DELETE' });
     },
 
-    listarTestsRespondidos() {
-        return peticionApi('/tests-respondidos').then(res => typeof normalizarListado === 'function' ? normalizarListado(res) : (Array.isArray(res) ? res : (res?.content || [])));
+    // ==========================================
+    // TESTS RESPONDIDOS
+    // ==========================================
+    async listarTestsRespondidos() {
+        const res = await listarTodo('/tests-respondidos');
+        return procesarListado(res);
     },
 
-    obtenerTestRespondidoPorId(id) {
-        return peticionApi(`/tests-respondidos/${id}`);
+    async obtenerTestRespondidoPorId(id) {
+        return await peticionApi(`/tests-respondidos/${id}`);
     },
 
-    listarPorCuestionario(idCuestionario) {
-        return peticionApi(`/tests-respondidos?cuestionarioId=${idCuestionario}`).then(res => typeof normalizarListado === 'function' ? normalizarListado(res) : (Array.isArray(res) ? res : (res?.content || [])));
+    async listarPorCuestionario(idCuestionario) {
+        const res = await listarTodo(`/tests-respondidos?cuestionarioId=${idCuestionario}`);
+        return procesarListado(res);
     },
 
-    crearTestRespondido(testRespondido) {
-        return peticionApi('/tests-respondidos', {
+    async crearTestRespondido(testRespondido) {
+        return await peticionApi('/tests-respondidos', {
             method: 'POST',
             body: JSON.stringify(testRespondido)
         });
     },
 
-    actualizarTestRespondido(id, testRespondido) {
-        return peticionApi(`/tests-respondidos/${id}`, {
+    async actualizarTestRespondido(id, testRespondido) {
+        return await peticionApi(`/tests-respondidos/${id}`, {
             method: 'PUT',
             body: JSON.stringify(testRespondido)
         });
     },
 
-    eliminarTestRespondido(id) {
-        return peticionApi(`/tests-respondidos/${id}`, { method: 'DELETE' });
+    async eliminarTestRespondido(id) {
+        return await peticionApi(`/tests-respondidos/${id}`, { method: 'DELETE' });
     },
 
-    listarEstudiantes() {
-        return peticionApi('/estudiantes').then(res => typeof normalizarListado === 'function' ? normalizarListado(res) : (Array.isArray(res) ? res : (res?.content || [])));
+    // ==========================================
+    // DETALLES DE RESPUESTAS
+    // ==========================================
+    async listarDetallesPorTest(idTestRespondido) {
+        const res = await peticionApi(`/detalles-respuestas?idTestRespondido=${idTestRespondido}`);
+        return procesarListado(res);
+    },
+
+    async crearDetalleRespuesta(detalle) {
+        return await peticionApi('/detalles-respuestas', {
+            method: 'POST',
+            body: JSON.stringify(detalle)
+        });
+    },
+
+    // ==========================================
+    // ESTUDIANTES
+    // ==========================================
+    async listarEstudiantes() {
+        const res = await peticionApi('/estudiantes');
+        return procesarListado(res);
     }
 };

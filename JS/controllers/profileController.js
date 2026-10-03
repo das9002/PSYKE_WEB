@@ -1,17 +1,14 @@
-document.addEventListener('DOMContentLoaded', () => {
-    const form = document.getElementById('editProfileForm');
+document.addEventListener('DOMContentLoaded', async () => {
+    'use strict';
 
-    const btnVolver = document.getElementById('btnVolver');
-    if (btnVolver) {
-        btnVolver.addEventListener('click', (e) => {
-            e.preventDefault();
-            
-            Notif.exito('Regresando...', 'Espere');
-            
-            setTimeout(() => {
-                window.location.href = "../HTML/config.html";
-            }, 600);
-        });
+    const avatar = document.getElementById('avatarCircle');
+    const perfilNombre = document.getElementById('perfilNombre');
+    const perfilRol = document.getElementById('perfilRol');
+    const avisoSinPerfil = document.getElementById('avisoSinPerfil');
+
+    function poner(id, valor) {
+        const elemento = document.getElementById(id);
+        if (elemento) elemento.textContent = valor || '—';
     }
 
     function iniciales(nombres, apellidos) {
@@ -21,203 +18,55 @@ document.addEventListener('DOMContentLoaded', () => {
         return ((n ? n[0] : '') + (a ? a[0] : '')).toUpperCase();
     }
 
-    async function obtenerUsuarioSesion() {
-        try {
-            const baseUrl = window.AUTH_API_URL || 'http://localhost:8081/api/auth';
-            const respuesta = await fetch(`${baseUrl}/me`, {
-                method: 'GET',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include'
-            });
-
-            if (respuesta.status === 401) {
-                window.location.replace(resolverLogin());
-                return null;
-            }
-
-            if (respuesta.status === 403) {
-                console.warn('[profileController] Acceso denegado (403), pero se mantiene la sesión');
-                return null;
-            }
-
-            if (respuesta.status >= 500) {
-                console.error('[profileController] Error del servidor (5xx), se mantiene la sesión');
-                return null;
-            }
-
-            if (respuesta.ok) {
-                return await respuesta.json();
-            }
-        } catch (e) {
-            console.error('[profileController] Error de red al verificar sesión:', e);
-        }
-        return null;
+    function nombreRol(tipo) {
+        return { ADMIN: 'Administrador', PSICOLOGO: 'Psicólogo' }[tipo] || tipo || '';
     }
 
-    function resolverLogin() {
-        const path = window.location.pathname;
-        const carpeta = path.substring(0, path.lastIndexOf('/'));
-        const profundidad = carpeta.split('/').filter(Boolean).length;
-        return profundidad > 0 ? '../index.html' : 'index.html';
+    function nombreEstado(estado) {
+        return { ACTIVO: 'Activa', INACTIVO: 'Inactiva', BLOQUEADO: 'Bloqueada' }[estado] || estado || '';
     }
 
     async function cargarPerfil() {
-        const usuarioSesion = await obtenerUsuarioSesion();
-        if (!usuarioSesion || !usuarioSesion.idUsuario) return;
-
+        let sesion;
         try {
-            const datos = await ProfileService.obtenerPerfil(usuarioSesion.idUsuario);
-            if (!datos) return;
-
-            const inputNombre = document.getElementById('inputNombre');
-            const inputApellido = document.getElementById('inputApellido');
-            const inputEspecialidad = document.getElementById('inputEspecialidad');
-            const inputEmail = document.getElementById('inputEmail');
-            const inputTelefono = document.getElementById('inputTelefono');
-            const avatarEl = document.querySelector('.avatar-circle');
-
-            const nombres = datos.nombres ?? datos.nombre ?? inputNombre?.value;
-            const apellidos = datos.apellidos ?? datos.apellido ?? inputApellido?.value;
-
-            if (inputNombre && nombres) inputNombre.value = String(nombres).trim();
-            if (inputApellido && apellidos) inputApellido.value = String(apellidos).trim();
-            if (inputEspecialidad && datos.especialidad) inputEspecialidad.value = String(datos.especialidad).trim();
-            if (inputEmail && (datos.correo ?? datos.email)) inputEmail.value = String(datos.correo ?? datos.email).trim();
-            if (inputTelefono && (datos.telefono ?? datos.telefonoContacto)) inputTelefono.value = String(datos.telefono ?? datos.telefonoContacto).trim();
-            if (avatarEl && (nombres || apellidos)) avatarEl.textContent = iniciales(nombres, apellidos);
+            sesion = await AuthService.obtenerSesion();
         } catch (error) {
-            const status = error?.status;
-            if (status === 401) throw error;
-            if (status === 403) {
-                Notif.error('Acceso denegado: Permisos insuficientes para cargar el perfil.');
-            } else if (status >= 500) {
-                Notif.error('Error interno del servidor al cargar el perfil. Intente nuevamente más tarde.');
+            if (error.status === 401) {
+                Notif.error('Tu sesión ha expirado. Inicia sesión nuevamente.', 'Sesión expirada');
+                setTimeout(() => window.location.replace('../index.html'), 1500);
+            } else {
+                Notif.error(error.message, 'No se pudo cargar el perfil');
             }
+            return;
         }
-    }
 
-    const actionCambiarEmail = document.getElementById('actionCambiarEmail');
-    if (actionCambiarEmail) {
-        actionCambiarEmail.addEventListener('click', (e) => {
-            e.preventDefault();
-            const emailInput = document.getElementById('inputEmail');
-            if (emailInput) {
-                emailInput.removeAttribute('readonly');
-                emailInput.focus();
-            }
-        });
-    }
+        const rol = nombreRol(sesion.tipoUsuario);
+        poner('verCorreo', sesion.correo);
+        poner('verRol', rol);
+        poner('verEstadoCuenta', nombreEstado(sesion.estadoCuenta));
+        if (perfilRol) perfilRol.textContent = rol;
 
-    const actionAgregarTelefono = document.getElementById('actionAgregarTelefono');
-    if (actionAgregarTelefono) {
-        actionAgregarTelefono.addEventListener('click', (e) => {
-            e.preventDefault();
-            const telInput = document.getElementById('inputTelefono');
-            if (telInput) {
-                telInput.removeAttribute('readonly');
-                telInput.focus();
-            }
-        });
-    }
+        let psicologo = null;
+        try {
+            psicologo = await ProfileService.obtenerPsicologoPorUsuario(sesion.idUsuario);
+        } catch (error) {
+            Notif.error(error.message, 'No se pudo cargar el perfil');
+        }
 
-    if (form) {
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
+        if (!psicologo) {
+            if (avisoSinPerfil) avisoSinPerfil.classList.remove('d-none');
+            if (perfilNombre) perfilNombre.textContent = rol || sesion.correo || 'Mi perfil';
+            if (avatar) avatar.textContent = iniciales(sesion.correo, '');
+            return;
+        }
 
-            const nombres = document.getElementById('inputNombre').value.trim();
-            const apellidos = document.getElementById('inputApellido').value.trim();
-            const especialidad = document.getElementById('inputEspecialidad').value.trim();
-            const correo = document.getElementById('inputEmail').value.trim();
-            const telefono = document.getElementById('inputTelefono').value.trim();
-
-            const usuarioSesion = await obtenerUsuarioSesion();
-            if (!usuarioSesion || !usuarioSesion.idUsuario) {
-                Notif.error('No se encontró el usuario de sesión. Inicie sesión nuevamente.', 'Error de sesión');
-                return;
-            }
-
-            const datosPerfil = {
-                nombres,
-                apellidos,
-                especialidad,
-                correo,
-                telefono,
-                tipoUsuario: usuarioSesion.tipoUsuario || 'PSICOLOGO',
-                estadoCuenta: 'ACTIVO'
-            };
-
-            const avatarEl = document.querySelector('.avatar-circle');
-            if (avatarEl) avatarEl.textContent = iniciales(nombres, apellidos);
-
-            try {
-                await ProfileService.actualizarPerfil(usuarioSesion.idUsuario, datosPerfil);
-                Notif.exito('¡Perfil actualizado con éxito!');
-            } catch (error) {
-                const status = error?.status;
-                if (status === 401) throw error;
-                if (status === 403) {
-                    Notif.error('Acceso denegado: Permisos insuficientes para actualizar el perfil.');
-                } else if (status >= 500) {
-                    Notif.error('Error interno del servidor al actualizar el perfil. Intente nuevamente más tarde.');
-                } else {
-                    Notif.exito('¡Perfil actualizado en la sesión!');
-                }
-            }
-        });
+        const nombres = psicologo.nombresCompletos || '';
+        const apellidos = psicologo.apellidosCompletos || '';
+        poner('verNombres', nombres);
+        poner('verApellidos', apellidos);
+        if (perfilNombre) perfilNombre.textContent = `${nombres} ${apellidos}`.trim() || sesion.correo;
+        if (avatar) avatar.textContent = iniciales(nombres, apellidos);
     }
 
     cargarPerfil();
 });
-
-document.addEventListener('DOMContentLoaded', () => {
-        const hamburgerBtn = document.getElementById('hamburgerBtn');
-        const sidebar = document.querySelector('.sidebar');
-        const overlay = document.getElementById('sidebarOverlay');
-
-        if (hamburgerBtn && sidebar && overlay) {
-            hamburgerBtn.addEventListener('click', () => {
-                sidebar.classList.toggle('open');
-                overlay.classList.toggle('active');
-                hamburgerBtn.innerHTML = sidebar.classList.contains('open')
-                    ? '<i class="bi bi-x"></i>'
-                    : '<i class="bi bi-list"></i>';
-            });
-
-            overlay.addEventListener('click', () => {
-                sidebar.classList.remove('open');
-                overlay.classList.remove('active');
-                hamburgerBtn.innerHTML = '<i class="bi bi-list"></i>';
-            });
-
-            document.querySelectorAll('.sidebar .nav-link').forEach(link => {
-                link.addEventListener('click', () => {
-                    sidebar.classList.remove('open');
-                    overlay.classList.remove('active');
-                    hamburgerBtn.innerHTML = '<i class="bi bi-list"></i>';
-                });
-            });
-        }
-
-        const switchOscuro = document.getElementById('switchOscuro');
-        if (switchOscuro) {
-            switchOscuro.addEventListener('change', (e) => {
-                if(e.target.checked) {
-                    console.log("Modo oscuro activado");
-                } else {
-                    console.log("Modo oscuro desactivado");
-                }
-            });
-        }
-
-        const logoutBtn = document.getElementById('logoutBtn');
-        if (logoutBtn) {
-            logoutBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                Notif.confirmar('Cerrar sesión', '¿Estás seguro de que deseas cerrar sesión?').then(confirmado => {
-                    if (confirmado) {
-                        Notif.exito('Sesión cerrada correctamente.');
-                    }
-                });
-            });
-        }
-    });
