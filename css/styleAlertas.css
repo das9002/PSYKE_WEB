@@ -1,0 +1,287 @@
+.swal2-container {
+    z-index: 99999 !important;
+}
+
+.swal2-container.swal2-top-end,
+.swal2-container.swal2-top-start {
+    pointer-events: none;
+}
+
+.swal2-container .swal2-popup {
+    pointer-events: auto;
+}
+
+.psyke-alerta.swal2-popup {
+    border-radius: 18px;
+    padding: 1.75rem 1.5rem 1.5rem;
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    box-shadow: 0 20px 45px rgba(15, 23, 42, 0.18);
+}
+
+.psyke-alerta .swal2-title {
+    color: #0f172a;
+    font-weight: 700;
+    font-size: 1.3rem;
+}
+
+.psyke-alerta .swal2-html-container {
+    color: #475569;
+    font-size: 0.92rem;
+    line-height: 1.5;
+}
+
+.psyke-alerta .swal2-actions {
+    gap: 0.5rem;
+}
+
+.psyke-alerta .swal2-styled.psyke-alerta-confirmar,
+.psyke-alerta .swal2-styled.psyke-alerta-cancelar {
+    border-radius: 10px;
+    padding: 10px 22px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    margin: 0;
+}
+
+.psyke-alerta .swal2-styled.psyke-alerta-cancelar {
+    background-color: #f1f5f9 !important;
+    color: #475569 !important;
+}
+
+.psyke-alerta .swal2-styled.psyke-alerta-cancelar:hover {
+    background-color: #e2e8f0 !important;
+}
+
+.psyke-alerta .swal2-styled:focus {
+    box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.25);
+}
+
+.psyke-alerta .swal2-input {
+    border-radius: 10px;
+    font-size: 0.95rem;
+}
+
+.psyke-toast.swal2-popup {
+    border-radius: 14px;
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.16);
+    max-width: 380px;
+}
+
+.psyke-toast .swal2-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.psyke-toast .swal2-html-container {
+    font-size: 0.85rem;
+    color: #475569;
+    margin: 0.25rem 0 0;
+}
+
+html.dark-mode .psyke-alerta.swal2-popup,
+html.dark-mode .psyke-toast.swal2-popup {
+    background-color: #111827;
+    border: 1px solid #1f2937;
+    box-shadow: 0 20px 45px rgba(0, 0, 0, 0.5);
+}
+
+html.dark-mode .psyke-alerta .swal2-title,
+html.dark-mode .psyke-toast .swal2-title {
+    color: #f3f4f6;
+}
+
+html.dark-mode .psyke-alerta .swal2-html-container,
+html.dark-mode .psyke-toast .swal2-html-container {
+    color: #9ca3af;
+}
+
+html.dark-mode .psyke-alerta .swal2-styled.psyke-alerta-cancelar {
+    background-color: #1f2937 !important;
+    color: #d1d5db !important;
+}
+
+html.dark-mode .psyke-alerta .swal2-styled.psyke-alerta-cancelar:hover {
+    background-color: #374151 !important;
+}
+
+html.dark-mode .psyke-alerta .swal2-input {
+    background-color: #0b1220;
+    border-color: #374151;
+    color: #f3f4f6;
+}
+
+html.dark-mode .swal2-timer-progress-bar {
+    background: rgba(255, 255, 255, 0.25);
+}
+
+@media (max-width: 540px) {
+    .psyke-toast.swal2-popup {
+        max-width: calc(100vw - 32px);
+    }
+}
+
+.psyke-alerta-subtitulo {
+    color: #0f172a;
+}
+
+html.dark-mode .psyke-alerta-subtitulo {
+    color: #f3f4f6;
+}
+
+.psyke-credenciales {
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.psyke-credencial-fila {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px 14px;
+    border-radius: 12px;
+    background: #f1f5f9;
+}
+
+.psyke-credencial-fila span {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #64748b;
+}
+
+.psyke-credencial-fila strong {
+    color: #0f172a;
+    word-break: break-all;
+}
+
+.psyke-credencial-fila code {
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: #1d4ed8;
+    background: none;
+    padding: 0;
+}
+
+.psyke-btn-copiar {
+    align-self: flex-start;
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+    color: #334155;
+    border-radius: 10px;
+    padding: 6px 14px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.psyke-btn-copiar:hover {
+    background: #f8fafc;
+}
+
+.psyke-credencial-nota {
+    margin: 0;
+    font-size: 0.82rem;
+    color: #64748b;
+    line-height: 1.45;
+}
+
+html.dark-mode .psyke-credencial-fila {
+    background: #1f2937;
+}
+
+html.dark-mode .psyke-credencial-fila strong {
+    color: #f3f4f6;
+}
+
+html.dark-mode .psyke-credencial-fila code {
+    color: #60a5fa;
+}
+
+html.dark-mode .psyke-btn-copiar {
+    background: #111827;
+    border-color: #374151;
+    color: #d1d5db;
+}
+
+html.dark-mode .psyke-credencial-nota {
+    color: #9ca3af;
+}
+
+.rec-popup {
+    width: min(480px, calc(100vw - 32px)) !important;
+}
+
+.rec-form {
+    text-align: left;
+}
+
+.rec-destino {
+    font-size: 0.9rem;
+    color: #64748b;
+    margin-bottom: 14px;
+}
+
+.rec-tipos {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+
+.rec-tipo {
+    flex: 1;
+    min-width: 110px;
+    border: 1px solid #dbe2ec;
+    background: #ffffff;
+    color: #334155;
+    border-radius: 12px;
+    padding: 10px 12px;
+    font-size: 0.86rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: all 0.15s ease;
+}
+
+.rec-tipo:hover {
+    border-color: #a8bdf7;
+}
+
+.rec-tipo.activo {
+    background: #2F6DF6;
+    border-color: #2F6DF6;
+    color: #ffffff;
+}
+
+.rec-form textarea {
+    border-radius: 12px;
+    resize: vertical;
+    font-size: 0.92rem;
+}
+
+.rec-contador {
+    text-align: right;
+    font-size: 0.75rem;
+    color: #94a3b8;
+    margin-top: 4px;
+}
+
+html.dark-mode .rec-tipo {
+    background: #111827;
+    border-color: #374151;
+    color: #e5e7eb;
+}
+
+html.dark-mode .rec-tipo.activo {
+    background: #2F6DF6;
+    border-color: #2F6DF6;
+    color: #ffffff;
+}

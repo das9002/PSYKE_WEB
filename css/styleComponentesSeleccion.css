@@ -1,0 +1,487 @@
+/* ===== Selector buscable ===== */
+.sb-select-original,
+.cal-input-original {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+}
+
+.sb-selector,
+.cal-selector {
+    position: relative;
+    width: 100%;
+    font-family: var(--font-base, 'Plus Jakarta Sans', sans-serif);
+}
+
+.sb-disparador,
+.cal-disparador {
+    width: 100%;
+    min-height: 46px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 14px;
+    background: #ffffff;
+    border: 1px solid #dbe2ec;
+    border-radius: 12px;
+    color: #1e293b;
+    font-size: 0.92rem;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.sb-disparador:hover,
+.cal-disparador:hover {
+    border-color: #a8bdf7;
+}
+
+.sb-abierto .sb-disparador,
+.cal-abierto .cal-disparador,
+.sb-disparador:focus-visible,
+.cal-disparador:focus-visible {
+    outline: none;
+    border-color: #2F6DF6;
+    box-shadow: 0 0 0 4px rgba(47, 109, 246, 0.14);
+}
+
+.sb-invalido .sb-disparador,
+.cal-invalido .cal-disparador {
+    border-color: #dc3545;
+}
+
+.sb-deshabilitado .sb-disparador {
+    background: #f1f5f9;
+    cursor: not-allowed;
+    opacity: 0.85;
+}
+
+.sb-valor {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.sb-placeholder,
+.cal-selector:not(.cal-con-valor) .cal-etiqueta {
+    color: #94a3b8;
+}
+
+.sb-flecha {
+    color: #64748b;
+    font-size: 0.8rem;
+    transition: transform 0.2s ease;
+}
+
+.sb-abierto .sb-flecha {
+    transform: rotate(180deg);
+}
+
+.sb-avatar {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.sb-textos {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    line-height: 1.25;
+}
+
+.sb-texto {
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sb-subtitulo {
+    font-size: 0.76rem;
+    color: #64748b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sb-panel,
+.cal-panel {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    z-index: 1080;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.16);
+    animation: sb-aparecer 0.14s ease-out;
+}
+
+.sb-panel {
+    right: 0;
+    overflow: hidden;
+}
+
+@keyframes sb-aparecer {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.sb-busqueda {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-bottom: 1px solid #eef2f7;
+    color: #94a3b8;
+}
+
+.sb-busqueda input {
+    flex: 1;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: 0.9rem;
+    color: #1e293b;
+}
+
+.sb-lista {
+    max-height: 290px;
+    overflow-y: auto;
+    padding: 6px;
+}
+
+.sb-grupo {
+    padding: 10px 10px 4px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #94a3b8;
+}
+
+.sb-opcion {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    cursor: pointer;
+    color: #1e293b;
+}
+
+.sb-opcion:hover,
+.sb-opcion.sb-resaltada {
+    background: #eef3ff;
+}
+
+.sb-opcion.sb-seleccionada {
+    background: #e0e9ff;
+}
+
+.sb-check {
+    margin-left: auto;
+    color: #2F6DF6;
+    font-size: 1.1rem;
+}
+
+.sb-insignia {
+    margin-left: auto;
+    flex-shrink: 0;
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: #2F6DF6;
+    background: rgba(47, 109, 246, 0.1);
+    padding: 3px 8px;
+    border-radius: 999px;
+}
+
+.sb-insignia + .sb-check {
+    margin-left: 6px;
+}
+
+.sb-vacio {
+    padding: 18px;
+    text-align: center;
+    color: #94a3b8;
+    font-size: 0.88rem;
+}
+
+/* ===== Calendario ===== */
+.cal-icono {
+    color: #2F6DF6;
+}
+
+.cal-etiqueta {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 600;
+}
+
+.cal-limpiar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #64748b;
+    font-size: 0.75rem;
+}
+
+.cal-limpiar:hover {
+    background: #f1f5f9;
+    color: #dc3545;
+}
+
+.cal-panel {
+    display: flex;
+    padding: 14px;
+    gap: 14px;
+}
+
+.cal-rango .cal-panel {
+    min-width: 470px;
+}
+
+.cal-atajos {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 140px;
+    padding-right: 14px;
+    border-right: 1px solid #eef2f7;
+}
+
+.cal-atajo {
+    border: none;
+    background: transparent;
+    text-align: left;
+    padding: 9px 12px;
+    border-radius: 10px;
+    font-size: 0.86rem;
+    font-weight: 600;
+    color: #334155;
+}
+
+.cal-atajo:hover {
+    background: #eef3ff;
+}
+
+.cal-atajo.activo {
+    background: #2F6DF6;
+    color: #ffffff;
+}
+
+.cal-mes {
+    width: 300px;
+}
+
+.cal-cabecera {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.cal-titulo {
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.cal-nav {
+    width: 34px;
+    height: 34px;
+    border: none;
+    border-radius: 10px;
+    background: #f1f5f9;
+    color: #334155;
+}
+
+.cal-nav:hover {
+    background: #e2e8f0;
+}
+
+.cal-semana,
+.cal-dias {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+    text-align: center;
+}
+
+.cal-semana span {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #94a3b8;
+    padding: 4px 0;
+}
+
+.cal-dia {
+    height: 40px;
+    border: none;
+    background: transparent;
+    border-radius: 10px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: #1e293b;
+}
+
+.cal-dia:not(.vacio):not(:disabled):hover {
+    background: #eef3ff;
+}
+
+.cal-dia.hoy {
+    box-shadow: inset 0 0 0 2px #2F6DF6;
+}
+
+.cal-dia.en-rango {
+    background: #e0e9ff;
+    border-radius: 0;
+}
+
+.cal-dia.seleccionado {
+    background: #2F6DF6;
+    color: #ffffff;
+}
+
+.cal-dia.inicio {
+    border-radius: 10px 0 0 10px;
+}
+
+.cal-dia.fin {
+    border-radius: 0 10px 10px 0;
+}
+
+.cal-dia:disabled {
+    color: #cbd5e1;
+    cursor: not-allowed;
+    text-decoration: line-through;
+}
+
+.cal-pie {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid #eef2f7;
+}
+
+.cal-ayuda {
+    font-size: 0.75rem;
+    color: #94a3b8;
+}
+
+.cal-btn-limpiar {
+    border: none;
+    background: transparent;
+    color: #dc3545;
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+
+@media (max-width: 576px) {
+    .cal-rango .cal-panel {
+        min-width: 0;
+        flex-direction: column;
+    }
+
+    .cal-atajos {
+        flex-direction: row;
+        flex-wrap: wrap;
+        border-right: none;
+        border-bottom: 1px solid #eef2f7;
+        padding: 0 0 10px;
+    }
+
+    .cal-mes {
+        width: 280px;
+    }
+}
+
+/* ===== Modo oscuro ===== */
+html.dark-mode .sb-disparador,
+html.dark-mode .cal-disparador,
+html.dark-mode .sb-panel,
+html.dark-mode .cal-panel {
+    background: #111827;
+    border-color: #374151;
+    color: #f3f4f6;
+}
+
+html.dark-mode .sb-deshabilitado .sb-disparador {
+    background: #1f2937;
+}
+
+html.dark-mode .sb-busqueda,
+html.dark-mode .cal-atajos,
+html.dark-mode .cal-pie {
+    border-color: #1f2937;
+}
+
+html.dark-mode .sb-busqueda input,
+html.dark-mode .sb-opcion,
+html.dark-mode .cal-titulo,
+html.dark-mode .cal-dia,
+html.dark-mode .cal-atajo {
+    color: #f3f4f6;
+}
+
+html.dark-mode .sb-opcion:hover,
+html.dark-mode .sb-opcion.sb-resaltada,
+html.dark-mode .cal-atajo:hover,
+html.dark-mode .cal-dia:not(.vacio):not(:disabled):hover {
+    background: #1e293b;
+}
+
+html.dark-mode .sb-opcion.sb-seleccionada,
+html.dark-mode .cal-dia.en-rango {
+    background: rgba(47, 109, 246, 0.25);
+}
+
+html.dark-mode .cal-nav,
+html.dark-mode .cal-limpiar:hover {
+    background: #1f2937;
+    color: #f3f4f6;
+}
+
+html.dark-mode .cal-dia:disabled {
+    color: #4b5563;
+}
+
+html.dark-mode .sb-subtitulo,
+html.dark-mode .cal-ayuda {
+    color: #9ca3af;
+}
+
+.sb-panel:focus {
+    outline: none;
+}
+
+.sb-panel.panel-arriba,
+.cal-panel.panel-arriba {
+    animation-name: sb-aparecer-arriba;
+}
+
+@keyframes sb-aparecer-arriba {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+}

@@ -1,0 +1,165 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+
+:root {
+    --primary: #2F6DF6;
+    --primary-hover: #1e56d4;
+    --danger: #E95A5A;
+    --warning: #F5C451;
+    --success: #22c55e;
+    --sidebar-bg: #141C4D;
+    --sidebar-hover: #424cbd;
+    --bg: #F4F5FA;
+    --font-base: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+* {
+    font-family: var(--font-base);
+    box-sizing: border-box;
+}
+
+body {
+    background: var(--bg);
+    font-family: var(--font-base);
+    color: #1e293b;
+    margin: 0;
+    padding: 0;
+    -webkit-font-smoothing: antialiased;
+}
+
+.sidebar {
+    background-color: var(--sidebar-bg);
+    width: 280px;
+    height: 100vh;
+    position: sticky;
+    top: 0;
+    overflow-y: auto;
+    color: #ffffff;
+    flex-shrink: 0;
+    transition: all 0.3s ease;
+}
+
+.sidebar .nav-link {
+    color: rgba(255, 255, 255, 0.85);
+    text-decoration: none;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    padding: 12px 20px;
+    border-radius: 12px;
+    font-weight: 500;
+    font-size: 0.95rem;
+    transition: all 0.25s ease;
+    margin-bottom: 4px;
+}
+
+.sidebar .nav-link i {
+    font-size: 1.15rem;
+}
+
+.sidebar .nav-link:hover, 
+.sidebar .nav-link.active {
+    color: #ffffff;
+    background-color: var(--sidebar-hover);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.main {
+    padding: 25px 30px;
+    min-height: 100vh;
+}
+
+.topbar {
+    background: #ffffff;
+    padding: 16px 24px;
+    border-radius: 16px;
+    margin-bottom: 24px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+    border: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+.topbar h4 {
+    color: #0f172a;
+    font-size: 1.25rem;
+}
+
+.btn-user-profile {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 8px 14px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: #1e293b;
+    transition: all 0.2s ease;
+}
+
+.card-form {
+    background: #ffffff;
+    border-radius: 16px;
+    border: 1px solid rgba(226, 232, 240, 0.8);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+    padding: 30px;
+}
+
+.custom-form-label {
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: #475569;
+    margin-bottom: 6px;
+}
+
+.btn-primary-custom {
+    background: linear-gradient(135deg, #2F6DF6, #1d4ed8);
+    color: #ffffff;
+    border: none;
+    border-radius: 10px;
+    font-weight: 600;
+    padding: 10px 24px;
+    transition: all 0.2s ease;
+}
+
+.btn-primary-custom:hover {
+    background: linear-gradient(135deg, #1e56d4, #173db3);
+    color: #ffffff;
+}
+
+.buttonRegresar {
+    text-decoration: none;
+    color: #475569;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+#formAgregarEstudianteStandalone .col-md-4,
+#formAgregarEstudianteStandalone .col-md-6 {
+    margin-bottom: 0.5rem;
+}
+
+#formAgregarEstudianteStandalone .form-control,
+#formAgregarEstudianteStandalone .form-select {
+    margin-bottom: 0.25rem;
+}
+
+#formAgregarEstudianteStandalone .form-select.is-invalid {
+    padding-right: 4.5rem;
+}
+
+#formAgregarEstudianteStandalone .invalid-feedback {
+    display: block;
+    margin-top: 6px;
+    margin-bottom: 0;
+    padding: 5px 10px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    line-height: 1.4;
+    border-radius: 6px;
+    background: rgba(233, 90, 90, 0.08);
+    color: var(--danger);
+}
+
+html.dark-mode #formAgregarEstudianteStandalone .invalid-feedback {
+    background: rgba(233, 90, 90, 0.16);
+    color: #ff8a8a;
+}
