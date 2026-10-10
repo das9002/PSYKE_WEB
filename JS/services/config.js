@@ -16,6 +16,55 @@
     var usuarioSesion = null;
     var sesionPendiente = null;
 
+    // Caché de listados en memoria: si varias partes de la misma página piden el mismo listado,
+    // se descarga una sola vez. Se vacía en cuanto se guarda, edita o elimina algo.
+    var DURACION_CACHE_LISTADOS_MS = 30000;
+    var cacheListados = {};
+    var listadosEnCurso = {};
+
+    // Caché entre páginas (sessionStorage) para datos que casi no cambian: nombre del perfil,
+    // contactos del chat y catálogos. Se borra al cerrar sesión o al guardar cambios.
+    var PREFIJO_CACHE_SESION = 'psyke_cache:';
+    var RUTAS_QUE_NO_INVALIDAN = /^\/(mensajes|notificaciones|v1\/ai)(\/|\?|$)/;
+
+    function leerCacheSesion(clave) {
+        try {
+            var texto = global.sessionStorage.getItem(PREFIJO_CACHE_SESION + clave);
+            if (!texto) return null;
+            var guardado = JSON.parse(texto);
+            if (!guardado || guardado.expira <= Date.now()) {
+                global.sessionStorage.removeItem(PREFIJO_CACHE_SESION + clave);
+                return null;
+            }
+            return guardado;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function guardarCacheSesion(clave, datos, duracionMs) {
+        try {
+            global.sessionStorage.setItem(PREFIJO_CACHE_SESION + clave, JSON.stringify({ expira: Date.now() + duracionMs, datos: datos }));
+        } catch (e) { }
+    }
+
+    function limpiarCaches() {
+        cacheListados = {};
+        try {
+            Object.keys(global.sessionStorage)
+                .filter(function (clave) { return clave.indexOf(PREFIJO_CACHE_SESION) === 0; })
+                .forEach(function (clave) { global.sessionStorage.removeItem(clave); });
+        } catch (e) { }
+    }
+
+    async function conCacheDeSesion(clave, duracionMs, cargar) {
+        var guardado = leerCacheSesion(clave);
+        if (guardado) return guardado.datos;
+        var datos = await cargar();
+        guardarCacheSesion(clave, datos, duracionMs);
+        return datos;
+    }
+
     var Preferencias = {
         leer: function (clave) {
             var patron = new RegExp('(?:^|;\\s*)' + clave + '=([^;]*)');
@@ -72,6 +121,7 @@
         sesionCerradaEnCurso = true;
         usuarioSesion = null;
         sesionPendiente = null;
+        limpiarCaches();
 
         if (typeof Notif !== 'undefined') {
             if (voluntario) {
@@ -172,6 +222,12 @@
             throw eApi;
         }
 
+        // Un cambio (POST, PUT, DELETE...) deja desactualizados los listados guardados. El chat, las
+        // notificaciones y la IA no afectan a esos listados, así que no vacían la caché.
+        if (String(opciones.method || 'GET').toUpperCase() !== 'GET' && !RUTAS_QUE_NO_INVALIDAN.test(normalizarRuta(ruta))) {
+            limpiarCaches();
+        }
+
         if (respuesta.status === 204) return null;
 
         var texto = await respuesta.text();
@@ -225,6 +281,34 @@
     }
 
     async function listarTodo(ruta, tamano) {
+        var clave = ruta + '|' + (tamano || 50);
+        var guardado = cacheListados[clave];
+        if (guardado && guardado.expira > Date.now()) {
+            return guardado.datos.slice();
+        }
+
+        // Si otra parte de la página ya está descargando este listado, se reutiliza esa misma descarga
+        if (!listadosEnCurso[clave]) {
+            var cacheAlIniciar = cacheListados;
+            listadosEnCurso[clave] = descargarPaginas(ruta, tamano)
+                .then(function (datos) {
+                    // Si mientras tanto se guardó algún cambio, no se guarda este resultado (puede estar viejo)
+                    if (cacheListados === cacheAlIniciar) {
+                        cacheListados[clave] = { expira: Date.now() + DURACION_CACHE_LISTADOS_MS, datos: datos };
+                    }
+                    return datos;
+                })
+                .finally(function () {
+                    delete listadosEnCurso[clave];
+                });
+        }
+        var datos = await listadosEnCurso[clave];
+        return datos.slice();
+    }
+
+    // Las páginas se piden una detrás de otra. Antes se pedían todas a la vez con Promise.all:
+    // un listado de 20 páginas eran 20 consultas simultáneas contra un servidor de 512 MB.
+    async function descargarPaginas(ruta, tamano) {
         var porPagina = tamano || 50;
         var separador = String(ruta).indexOf('?') === -1 ? '?' : '&';
         var base = ruta + separador + 'size=' + porPagina + '&page=';
@@ -236,16 +320,12 @@
 
         var totalPaginas = Number(primera.totalPages != null ? primera.totalPages : (primera.page && primera.page.totalPages)) || 1;
         totalPaginas = Math.min(totalPaginas, 200);
-        if (totalPaginas <= 1) return primera.content.slice();
 
-        var pendientes = [];
+        var resultado = primera.content.slice();
         for (var p = 1; p < totalPaginas; p++) {
-            pendientes.push(apiFetch(base + p));
+            resultado = resultado.concat(normalizarListado(await apiFetch(base + p)));
         }
-        var resto = await Promise.all(pendientes);
-        return resto.reduce(function (acumulado, pagina) {
-            return acumulado.concat(normalizarListado(pagina));
-        }, primera.content.slice());
+        return resultado;
     }
 
     function peticionApi(ruta, opciones) {
@@ -263,6 +343,8 @@
     global.authFetch = authFetch;
     global.peticionApi = peticionApi;
     global.listarTodo = listarTodo;
+    global.conCacheDeSesion = conCacheDeSesion;
+    global.limpiarCaches = limpiarCaches;
     global.verificarSesion = verificarSesion;
     global.Preferencias = Preferencias;
     global.normalizarListado = normalizarListado;

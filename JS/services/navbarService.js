@@ -22,18 +22,26 @@
         return `${psi.nombresCompletos ?? ''} ${psi.apellidosCompletos ?? ''}`.replace(/\s+/g, ' ').trim();
     }
 
+    async function obtenerNombreDelPerfil() {
+        try {
+            return nombreDePsicologo(await window.peticionApi('/psicologos/mi-perfil'));
+        } catch (error) {
+            if (error && error.status === 404) return '';
+            throw error;
+        }
+    }
+
+    // Antes se descargaba la lista completa de psicólogos en cada página solo para mostrar este nombre.
+    // Ahora se pide únicamente el perfil propio y se guarda durante la sesión del navegador.
     async function nombreVisible(datos, rol) {
         if (datos.nombre) return datos.nombre;
 
-        if (typeof window.listarTodo === 'function') {
+        if (typeof window.peticionApi === 'function') {
             try {
-                const psicologos = await window.listarTodo('/psicologos');
-                const correo = String(datos.correo || '').toLowerCase();
-                const propio = psicologos.find(p =>
-                    (datos.idUsuario && Number(p?.usuario?.idUsuario) === Number(datos.idUsuario)) ||
-                    (correo && String(p?.usuario?.correo || '').toLowerCase() === correo)
-                );
-                const nombre = nombreDePsicologo(propio);
+                const clave = `perfil:${datos.idUsuario || datos.correo || ''}`;
+                const nombre = typeof window.conCacheDeSesion === 'function'
+                    ? await window.conCacheDeSesion(clave, 30 * 60 * 1000, obtenerNombreDelPerfil)
+                    : await obtenerNombreDelPerfil();
                 if (nombre) return nombre;
             } catch (e) { }
         }

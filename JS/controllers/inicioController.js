@@ -273,76 +273,6 @@ document.addEventListener('DOMContentLoaded', () => {
         mostrarAlerta(mensaje);
     }
 
-    function esMismoDia(fechaVal) {
-        if (!fechaVal) return false;
-        const strFecha = String(fechaVal).split('T')[0];
-        const partes = strFecha.split('-');
-        if (partes.length !== 3) return false;
-
-        const hoy = new Date();
-        const ano = String(hoy.getFullYear());
-        const mes = String(hoy.getMonth() + 1).padStart(2, '0');
-        const dia = String(hoy.getDate()).padStart(2, '0');
-
-        return partes[0] === ano && partes[1] === mes && partes[2] === dia;
-    }
-
-    function normalizarEstudiantes(lista) {
-        return (Array.isArray(lista) ? lista : []).map((est) => ({
-            ...est,
-            riesgo: (est.estadoClinico || '').toLowerCase() === 'prioritario'
-                ? 'Alto'
-                : (est.estadoClinico || '').toLowerCase() === 'en seguimiento'
-                    ? 'Moderado'
-                    : 'Bajo',
-            estado: est.estadoClinico || est.estado || 'Sin estado'
-        }));
-    }
-
-    async function cargarConteosIndividuales() {
-        const data = await DashboardService.obtenerConteosParalelos();
-
-        // Soporta respuesta tanto en formato de Objeto { estudiantes, citas, sesiones } como Arreglo de resultados
-        let estudiantesRaw = [];
-        let citasRaw = [];
-        let sesionesRaw = [];
-
-        if (data && typeof data === 'object') {
-            if (Array.isArray(data)) {
-                estudiantesRaw = data[0]?.status === 'fulfilled' ? data[0].value : [];
-                citasRaw = data[1]?.status === 'fulfilled' ? data[1].value : [];
-                sesionesRaw = data[2]?.status === 'fulfilled' ? data[2].value : [];
-            } else {
-                estudiantesRaw = data.estudiantes || [];
-                citasRaw = data.citas || [];
-                sesionesRaw = data.sesiones || [];
-            }
-        }
-
-        const estudiantes = normalizarEstudiantes(estudiantesRaw);
-        const citas = Array.isArray(citasRaw) ? citasRaw : [];
-        const sesiones = Array.isArray(sesionesRaw) ? sesionesRaw : [];
-
-        const resumen = {
-            totalEstudiantes: estudiantes.length,
-            citasHoy: citas.filter((cita) => esMismoDia(cita.fechaHoraCita || cita.fecha)).length,
-            riesgoAlto: estudiantes.filter((est) => est.riesgo === 'Alto').length,
-            seguimientosPendientes: sesiones.filter((sesion) => (sesion.estadoEstudiante || sesion.estado || '').toLowerCase() === 'seguimiento').length,
-            sesionesTotales: sesiones.length,
-            citasRecientes: citas.slice(0, 5),
-            estudiantesRecientes: estudiantes.slice(0, 5),
-            resumenIA: ''
-        };
-
-        estado.resumen = resumen;
-        estado.apiDisponible = true;
-
-        renderMetricas(resumen);
-        renderCitasRecientes(resumen.citasRecientes);
-        renderEstudiantesRecientes(resumen.estudiantesRecientes);
-        renderResumenIA(resumen.resumenIA);
-    }
-
     async function cargarDashboard() {
         mostrarEstadoCarga();
 
@@ -369,27 +299,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw error;
             }
 
-            try {
-                await cargarConteosIndividuales();
-                if (esErrorPermisos) {
-                    mostrarAlerta('Acceso denegado: Permisos insuficientes para ver el panel completo.', false);
-                } else if (esErrorServidor) {
-                    mostrarAlerta('Error interno del servidor. Mostrando datos cargados en paralelo.', true);
-                }
-            } catch (errorSecundario) {
-                estado.apiDisponible = false;
-                const baseUrl = typeof API_BASE_URL !== 'undefined' ? API_BASE_URL : (window.API_BASE_URL || 'servidor');
-                let mensaje;
+            // Sin respaldo que descargue todas las tablas: si el servidor falla, cargarlo más lo empeora
+            estado.apiDisponible = false;
+            const baseUrl = typeof API_BASE_URL !== 'undefined' ? API_BASE_URL : (window.API_BASE_URL || 'servidor');
+            let mensaje;
 
-                if (esErrorPermisos) {
-                    mensaje = 'Acceso denegado: Permisos insuficientes.';
-                } else if (esErrorServidor) {
-                    mensaje = `Error interno del servidor (${status}). Mostrando valores en cero.`;
-                } else {
-                    mensaje = `No se pudo conectar con el servidor en ${baseUrl}. Mostrando valores en cero.`;
-                }
-                aplicarEstadoError(mensaje);
+            if (esErrorPermisos) {
+                mensaje = 'Acceso denegado: Permisos insuficientes.';
+            } else if (esErrorServidor) {
+                mensaje = `Error interno del servidor (${status}). Mostrando valores en cero.`;
+            } else {
+                mensaje = `No se pudo conectar con el servidor en ${baseUrl}. Mostrando valores en cero.`;
             }
+            aplicarEstadoError(mensaje);
         }
     }
 

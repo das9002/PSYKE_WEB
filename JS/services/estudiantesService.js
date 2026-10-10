@@ -1,4 +1,9 @@
-
+// Grados, secciones y especialidades casi no cambian: se guardan 10 minutos entre páginas
+// (la caché se vacía sola al crear o eliminar uno)
+function listarCatalogo(ruta) {
+    if (typeof conCacheDeSesion !== 'function') return listarTodo(ruta);
+    return conCacheDeSesion(`catalogo:${ruta}`, 10 * 60 * 1000, () => listarTodo(ruta));
+}
 
 const EstudiantesService = {
     listar() {
@@ -28,7 +33,7 @@ const EstudiantesService = {
     },
 
     listarGrados() {
-        return listarTodo('/grados');
+        return listarCatalogo('/grados');
     },
 
     crearGrado(grado) {
@@ -40,7 +45,7 @@ const EstudiantesService = {
     },
 
     listarSecciones() {
-        return listarTodo('/secciones');
+        return listarCatalogo('/secciones');
     },
 
     crearSeccion(seccion) {
@@ -52,7 +57,7 @@ const EstudiantesService = {
     },
 
     listarEspecialidades() {
-        return listarTodo('/especialidades');
+        return listarCatalogo('/especialidades');
     },
 
     crearEspecialidad(esp) {

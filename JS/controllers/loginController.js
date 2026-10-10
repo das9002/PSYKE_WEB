@@ -64,6 +64,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             try {
                 await AuthService.loginUsuario(credenciales);
+                // Datos guardados de una sesión anterior en esta pestaña no deben mezclarse con la nueva
+                if (typeof window.limpiarCaches === 'function') window.limpiarCaches();
                 window.location.href = 'HTML/inicio.html?bienvenida=1';
             } catch (error) {
                 const titulo = error.tipo === 'RED' ? 'Sin conexión' : 'No se pudo iniciar sesión';

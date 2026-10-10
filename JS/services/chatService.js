@@ -1,5 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const INTERVALO_RESPALDO = 10000;
+    // Consulta de respaldo solo mientras el WebSocket está caído
+    const INTERVALO_RESPALDO = 30000;
     const MENSAJES_POR_CARGA = 30;
     const ESPERA_CONFIRMACION = 10000;
     const AVISO_ESCRIBIENDO_MS = 2500;
@@ -71,13 +72,21 @@ document.addEventListener('DOMContentLoaded', () => {
         return miUsuarioId;
     }
 
+    // Lista ligera de contactos (solo id, nombre y carnet). Antes se descargaba en cada página
+    // la tabla completa de estudiantes con todas sus relaciones.
+    function pedirContactos() {
+        return peticionApi('/estudiantes/contactos-chat');
+    }
+
     async function cargarPacientes() {
-        const estudiantes = await listarTodo('/estudiantes');
-        patientsData = estudiantes
-            .filter(est => est.usuario && est.usuario.idUsuario !== null && est.usuario.idUsuario !== undefined)
+        const contactos = typeof conCacheDeSesion === 'function'
+            ? await conCacheDeSesion(`contactos-chat:${miUsuarioId}`, 5 * 60 * 1000, pedirContactos)
+            : await pedirContactos();
+        patientsData = (Array.isArray(contactos) ? contactos : [])
+            .filter(est => est.idUsuario !== null && est.idUsuario !== undefined)
             .map(est => ({
                 id: String(est.idEstudiante),
-                userId: Number(est.usuario.idUsuario),
+                userId: Number(est.idUsuario),
                 name: `${est.nombres || ''} ${est.apellidos || ''}`.trim() || 'Estudiante',
                 carnet: est.codigoCarnet || '',
                 iniciales: inicialesDe(est.nombres, est.apellidos),
@@ -269,8 +278,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function iniciarRespaldo() {
         if (temporizadorRespaldo) return;
-        temporizadorRespaldo = setInterval(() => resincronizar(true), INTERVALO_RESPALDO);
+        temporizadorRespaldo = setInterval(() => {
+            // Las pestañas en segundo plano no consultan; se ponen al día al volver a ellas
+            if (!document.hidden) resincronizar(true);
+        }, INTERVALO_RESPALDO);
     }
+
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && temporizadorRespaldo) resincronizar(true);
+    });
 
     function detenerRespaldo() {
         clearInterval(temporizadorRespaldo);
