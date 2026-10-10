@@ -1,7 +1,10 @@
 (function () {
     'use strict';
 
+    // Conversación actual ({rol, contenido}); se envía al servidor para que Cloudee recuerde el contexto
+    const MAXIMO_HISTORIAL = 12;
     let mensajesHistorial = [];
+    let esperandoRespuesta = false;
 
     const cloudeeConfig = {
         bodyColor: "#dcacdb",
@@ -199,7 +202,9 @@
 
         const bubble = document.createElement('div');
         bubble.className = `ai-msg-bubble ${tipo}`;
-        bubble.innerHTML = texto;
+        // Texto plano: lo que escribe el usuario o devuelve la IA nunca se interpreta como HTML
+        bubble.textContent = texto;
+        bubble.style.whiteSpace = 'pre-wrap';
         area.appendChild(bubble);
 
         setTimeout(() => {
@@ -236,24 +241,33 @@
         if (!input) return;
 
         const texto = input.value.trim();
-        if (!texto) return;
+        if (!texto || esperandoRespuesta) return;
 
         agregarMensaje(texto, 'sent');
         input.value = '';
 
+        const historialPrevio = mensajesHistorial.slice(-MAXIMO_HISTORIAL);
+        esperandoRespuesta = true;
+        const botonEnviar = document.getElementById('aiSendBtn');
+        if (botonEnviar) botonEnviar.disabled = true;
         mostrarCargando();
 
         try {
-            const respuesta = await aiService.enviarPrompt(texto);
+            const respuesta = await aiService.enviarPrompt(texto, historialPrevio);
             ocultarCargando();
-            
-            if (respuesta && respuesta.respuesta) {
+
+            if (respuesta && respuesta.exito && respuesta.respuesta) {
                 renderCloudeeAvatar('happy');
                 agregarMensaje(respuesta.respuesta, 'received');
+                // Solo los intercambios exitosos forman parte del contexto de la conversación
+                mensajesHistorial.push({ rol: 'usuario', contenido: texto });
+                mensajesHistorial.push({ rol: 'asistente', contenido: respuesta.respuesta });
+                mensajesHistorial = mensajesHistorial.slice(-MAXIMO_HISTORIAL);
                 setTimeout(() => renderCloudeeAvatar('neutral'), 3000);
             } else {
                 renderCloudeeAvatar('error');
-                agregarMensaje('No se pudo obtener una respuesta. Inténtalo de nuevo.', 'received error');
+                const mensaje = (respuesta && respuesta.respuesta) || 'No se pudo obtener una respuesta. Inténtalo de nuevo.';
+                agregarMensaje(mensaje, 'received error');
             }
         } catch (error) {
             ocultarCargando();
@@ -261,6 +275,9 @@
             let mensaje = 'Error al conectar con el asistente.';
             if (error.message) mensaje = error.message;
             agregarMensaje(mensaje, 'received error');
+        } finally {
+            esperandoRespuesta = false;
+            if (botonEnviar) botonEnviar.disabled = false;
         }
     }
 
