@@ -83,14 +83,107 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function renderResumenIA(texto) {
+    const TEMAS_RESUMEN = [
+        { patron: /estr[eé]s(?:\s+acad[eé]mico)?/gi, clase: 'ia-tema-rojo' },
+        { patron: /ansiedad(?:\s+por\s+evaluaciones)?/gi, clase: 'ia-tema-ambar' },
+        { patron: /depresi[oó]n|tristeza|duelo/gi, clase: 'ia-tema-morado' },
+        { patron: /acoso(?:\s+escolar)?|bullying|violencia/gi, clase: 'ia-tema-rojo' },
+        { patron: /autoestima|conducta|problemas familiares/gi, clase: 'ia-tema-azul' }
+    ];
+
+    function escaparResumen(texto) {
+        const div = document.createElement('div');
+        div.textContent = texto;
+        return div.innerHTML;
+    }
+
+    function resaltarOracion(oracion) {
+        let html = escaparResumen(oracion)
+            .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\*([^*]+)\*/g, '$1');
+
+        html = html.replace(/\b(\d+)(\s+(?:estudiantes?|casos?)\s+(?:en|con|presentan?)\s+riesgo\s+alto)/gi,
+            '<mark class="ia-marca ia-riesgo">$1$2</mark>');
+        html = html.replace(/\b(\d+)(\s+presentan?\s+riesgo\s+alto)/gi, '<mark class="ia-marca ia-riesgo">$1$2</mark>');
+        html = html.replace(/(ninguno\s+presenta\s+riesgo\s+alto)/gi, '<mark class="ia-marca ia-ok">$1</mark>');
+        html = html.replace(/(\b\d+\s+(?:casos?|estudiantes?)\s+requieren?\s+seguimiento\s+prioritario)/gi,
+            '<mark class="ia-marca ia-prioridad">$1</mark>');
+        html = html.replace(/(?<![\w>])(\d+)(\s+(?:estudiantes?|citas?|casos?|sesiones?)(?:\s+(?:asignados?|programadas?|activos?|nuevos?|pendientes?))?)(?![^<]*<\/(?:strong|mark)>)/gi,
+            '<strong>$1$2</strong>');
+        html = html.replace(/(no hay citas programadas)/gi, '<strong>$1</strong>');
+        html = html.replace(/<strong>(<mark class="[^"]+">[^<]*<\/mark>)<\/strong>/g, '$1');
+
+        TEMAS_RESUMEN.forEach(({ patron, clase }) => {
+            html = html.replace(patron, (coincidencia) => `<span class="ia-tema ${clase}">${coincidencia}</span>`);
+        });
+        return html;
+    }
+
+    function saludoDelMomento() {
+        const hora = new Date().getHours();
+        if (hora < 12) return 'Buenos días';
+        if (hora < 19) return 'Buenas tardes';
+        return 'Buenas noches';
+    }
+
+    function renderEncabezadoResumen(resumen) {
+        const saludo = el('iaSaludo');
+        const fecha = el('iaFecha');
+        if (saludo) saludo.textContent = `${saludoDelMomento()}, este es tu resumen`;
+        if (fecha) {
+            const texto = new Date().toLocaleDateString('es-SV', { weekday: 'long', day: 'numeric', month: 'long' });
+            fecha.textContent = texto.charAt(0).toUpperCase() + texto.slice(1);
+        }
+
+        const chips = el('iaChips');
+        if (!chips) return;
+        if (!resumen) {
+            chips.innerHTML = '';
+            return;
+        }
+        const n = (valor) => Number(valor) || 0;
+        const citas = n(resumen.citasHoy);
+        const riesgo = n(resumen.riesgoAlto ?? resumen.casosPrioritarios);
+        const seguimiento = n(resumen.seguimientosPendientes);
+        const estudiantes = n(resumen.totalEstudiantes);
+        const items = [
+            { icono: 'bi-calendar-event', texto: citas === 1 ? '1 cita hoy' : `${citas} citas hoy`, clase: 'azul' },
+            { icono: 'bi-exclamation-triangle', texto: riesgo === 1 ? '1 en riesgo alto' : `${riesgo} en riesgo alto`, clase: riesgo > 0 ? 'rojo activo' : 'verde' },
+            { icono: 'bi-activity', texto: seguimiento === 1 ? '1 en seguimiento' : `${seguimiento} en seguimiento`, clase: 'ambar' },
+            { icono: 'bi-people', texto: estudiantes === 1 ? '1 estudiante' : `${estudiantes} estudiantes`, clase: 'gris' }
+        ];
+        chips.innerHTML = items.map((item) =>
+            `<span class="ia-chip ${item.clase}"><i class="bi ${item.icono}"></i>${escaparResumen(item.texto)}</span>`).join('');
+    }
+
+    function renderResumenIA(texto, resumen) {
         const parrafo = el('aiSummaryText');
         if (!parrafo) return;
-        if (texto) {
-            parrafo.textContent = texto;
-        } else {
-            parrafo.innerHTML = `Consulta el panel para obtener el resumen del estado actual de los estudiantes.`;
+        renderEncabezadoResumen(resumen);
+
+        const limpio = String(texto || '').replace(/\s+/g, ' ').trim();
+        if (!limpio) {
+            parrafo.innerHTML = '<p class="ia-cuerpo ia-vacio">Aún no hay datos suficientes para generar el resumen. Vuelve a intentarlo en unos minutos.</p>';
+            return;
         }
+
+        const indice = limpio.search(/(?:se recomienda|recomendaci[oó]n:)/i);
+        const cuerpo = indice > 0 ? limpio.slice(0, indice).trim() : limpio;
+        const recomendacion = indice > 0 ? limpio.slice(indice).replace(/^recomendaci[oó]n:\s*/i, '').trim() : '';
+
+        parrafo.innerHTML = `
+            <p class="ia-cuerpo">${resaltarOracion(cuerpo)}</p>
+            ${recomendacion ? `
+            <div class="ia-recomendacion">
+                <div class="ia-recomendacion-icono"><i class="bi bi-lightbulb-fill"></i></div>
+                <div>
+                    <span class="ia-recomendacion-titulo">Sugerencia</span>
+                    <p>${resaltarOracion(recomendacion)}</p>
+                </div>
+            </div>` : ''}`;
+        parrafo.classList.remove('ia-aparecer');
+        void parrafo.offsetWidth;
+        parrafo.classList.add('ia-aparecer');
     }
 
     function renderCitasRecientes(lista = []) {
@@ -288,7 +381,7 @@ document.addEventListener('DOMContentLoaded', () => {
             renderMetricas(resumen);
             renderCitasRecientes(resumen.citasRecientes || []);
             renderEstudiantesRecientes(resumen.estudiantesRecientes || []);
-            renderResumenIA(resumen.resumenIA || resumen.resumen || '');
+            renderResumenIA(resumen.resumenIA || resumen.resumen || '', resumen);
         } catch (error) {
             const status = error?.status;
             const esErrorAutenticacion = status === 401;
