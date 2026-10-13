@@ -24,18 +24,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function obtenerUsuarioSesion() {
-        if (typeof verificarSesion === 'function') {
-            return await verificarSesion();
-        }
-        try {
-            const respuesta = await fetch((window.AUTH_API_URL || 'http://localhost:8081/api/auth') + '/me', {
-                method: 'GET',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include'
-            });
-            if (respuesta.ok) return await respuesta.json();
-        } catch (e) { }
-        return null;
+        return await verificarSesion();
     }
 
     const NIVEL_ID = { 'Bachillerato': 2, 'Tercer Ciclo': 1 };
@@ -611,9 +600,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function cargarMisEstudiantes() {
         if (estado.usuarioSesion?.tipoUsuario !== 'PSICOLOGO') return;
         try {
-            const datos = typeof peticionApi === 'function'
-                ? await peticionApi('/estudiantes/mis-estudiantes')
-                : null;
+            const datos = await EstudiantesService.misEstudiantes();
             if (!datos || datos.todos) return;
             estado.misEstudiantes = new Set((datos.ids || []).map(Number));
             estado.vista = 'mios';

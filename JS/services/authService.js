@@ -5,15 +5,18 @@
         return String(global.AUTH_API_URL || '').replace(/\/+$/, '');
     }
 
+    const CLAVES_INTERNAS = ['segundosRestantes', 'intentosRestantes'];
+
+    function mensajeDelCuerpo(cuerpo, mensajePorDefecto) {
+        const detalles = global.detallesDeErrorApi(cuerpo);
+        const mensajesCampos = Object.entries(detalles)
+            .filter(([clave, valor]) => !CLAVES_INTERNAS.includes(clave) && typeof valor === 'string')
+            .map(([, valor]) => valor);
+        return mensajesCampos.length ? mensajesCampos.join('\n') : global.mensajeDeErrorApi(cuerpo, mensajePorDefecto);
+    }
+
     async function leerMensajeError(respuesta, mensajePorDefecto) {
-        try {
-            const cuerpo = await respuesta.json();
-            if (cuerpo.details && typeof cuerpo.details === 'object' && Object.keys(cuerpo.details).length) {
-                return Object.values(cuerpo.details).join('\n');
-            }
-            if (cuerpo.message) return cuerpo.message;
-        } catch (e) { }
-        return mensajePorDefecto;
+        return mensajeDelCuerpo(await global.leerCuerpoApi(respuesta), mensajePorDefecto);
     }
 
     async function postLogin(correo, contrasena) {
@@ -43,7 +46,7 @@
             throw error;
         }
 
-        const datos = await respuesta.json();
+        const datos = global.desempaquetarApi(await global.leerCuerpoApi(respuesta)) || {};
         const usuario = {
             idUsuario: datos.idUsuario,
             correo: datos.correo,
@@ -93,16 +96,16 @@
             e.status = respuesta.status;
             throw e;
         }
-        return respuesta.json();
+        return global.desempaquetarApi(await global.leerCuerpoApi(respuesta));
     }
 
-    async function postPublico(ruta, cuerpo, mensajePorDefecto) {
+    async function postPublico(ruta, carga, mensajePorDefecto) {
         let respuesta;
         try {
             respuesta = await fetch(`${urlAuth()}${ruta}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(cuerpo),
+                body: JSON.stringify(carga),
                 credentials: 'include'
             });
         } catch (e) {
@@ -111,17 +114,15 @@
             throw error;
         }
 
-        const datos = await respuesta.json().catch(() => ({}));
+        const cuerpo = await global.leerCuerpoApi(respuesta);
         if (!respuesta.ok) {
-            const detalles = datos.details && typeof datos.details === 'object' ? datos.details : {};
-            const mensajesCampos = Object.entries(detalles)
-                .filter(([clave]) => !['segundosRestantes', 'intentosRestantes'].includes(clave))
-                .map(([, valor]) => valor);
-            const error = new Error(mensajesCampos.length ? mensajesCampos.join('\n') : (datos.message || mensajePorDefecto));
+            const error = new Error(mensajeDelCuerpo(cuerpo, mensajePorDefecto));
             error.status = respuesta.status;
-            error.detalles = detalles;
+            error.detalles = global.detallesDeErrorApi(cuerpo);
             throw error;
         }
+        const datos = global.desempaquetarApi(cuerpo) || {};
+        if (cuerpo && cuerpo.mensaje && typeof datos === 'object' && !datos.message) datos.message = cuerpo.mensaje;
         return datos;
     }
 
@@ -137,13 +138,24 @@
         return postPublico('/restablecer-contrasena', { correo, tokenRestablecimiento, nuevaContrasena }, 'No se pudo cambiar la contraseña.');
     }
 
-    async function logoutUsuario() {
+    function actualizarCuenta(idUsuario, datos) {
+        return global.apiFetch(`/usuarios/${idUsuario}`, {
+            method: 'PUT',
+            body: datos
+        });
+    }
+
+    async function cerrarSesionServidor() {
         try {
             await fetch(`${urlAuth()}/logout`, {
                 method: 'POST',
                 credentials: 'include'
             });
         } catch (e) { }
+    }
+
+    async function logoutUsuario() {
+        await cerrarSesionServidor();
 
         if (typeof global.cerrarSesionGlobal === 'function') {
             global.cerrarSesionGlobal({ voluntario: true });
@@ -155,6 +167,8 @@
     global.AuthService = {
         loginUsuario,
         logoutUsuario,
+        cerrarSesionServidor,
+        actualizarCuenta,
         verificarContrasenaActual,
         solicitarCodigoRecuperacion,
         verificarCodigoRecuperacion,

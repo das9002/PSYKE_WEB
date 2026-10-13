@@ -9,9 +9,11 @@ document.addEventListener('DOMContentLoaded', () => {
         return '../index.html';
     }
 
-    verificarSesion().then(usuario => {
+    async function exigirSesion() {
+        const usuario = await verificarSesion();
         if (!usuario) window.location.replace(rutaLogin());
-    });
+    }
+    exigirSesion();
 
     ContrasenaValidaciones.activarOjos();
     ContrasenaValidaciones.pintarRequisitos('');
@@ -74,14 +76,11 @@ document.addEventListener('DOMContentLoaded', () => {
             throw error;
         }
 
-        await apiFetch(`/usuarios/${sesion.idUsuario}`, {
-            method: 'PUT',
-            body: {
-                correo: sesion.correo,
-                contrasena: inputNueva.value,
-                tipoUsuario: sesion.tipoUsuario,
-                estadoCuenta: sesion.estadoCuenta || 'ACTIVO'
-            }
+        await AuthService.actualizarCuenta(sesion.idUsuario, {
+            correo: sesion.correo,
+            contrasena: inputNueva.value,
+            tipoUsuario: sesion.tipoUsuario,
+            estadoCuenta: sesion.estadoCuenta || 'ACTIVO'
         });
     }
 

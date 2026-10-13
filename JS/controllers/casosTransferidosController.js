@@ -13,18 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     async function obtenerUsuarioSesion() {
-        if (typeof verificarSesion === 'function') {
-            return await verificarSesion();
-        }
-        try {
-            const respuesta = await fetch((window.AUTH_API_URL || 'http://localhost:8081/api/auth') + '/me', {
-                method: 'GET',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include'
-            });
-            if (respuesta.ok) return await respuesta.json();
-        } catch (e) { }
-        return null;
+        return await verificarSesion();
     }
 
     const MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
@@ -527,48 +516,44 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
-    window.abrirConfirmarEliminar = function (id) {
+    window.abrirConfirmarEliminar = async function (id) {
         const c = estado.transferencias.find(item => Number(item.id) === Number(id));
         if (!c) return;
 
-        Notif.confirmarEliminar(
+        const confirmado = await Notif.confirmarEliminar(
             'Eliminar Caso Transferido',
             `¿Desea eliminar la transferencia del caso de ${c.estudianteNombre}? Esta acción no se puede deshacer.`
-        ).then(confirmado => {
-            if (!confirmado) return;
+        );
+        if (!confirmado) return;
 
-            CasosTransferidosService.eliminar(id)
-                .then(async () => {
-                    await recargarTransferencias();
-                    Notif.exito('¡Transferencia eliminada exitosamente!');
-                })
-                .catch(error => {
-                    Notif.error(mensajeErrorAmigable(error), 'No se pudo completar la acción');
-                });
-        });
+        try {
+            await CasosTransferidosService.eliminar(id);
+            await recargarTransferencias();
+            Notif.exito('¡Transferencia eliminada exitosamente!');
+        } catch (error) {
+            Notif.error(mensajeErrorAmigable(error), 'No se pudo completar la acción');
+        }
     };
 
-    window.abrirConfirmarRechazo = function (id) {
+    window.abrirConfirmarRechazo = async function (id) {
         const c = estado.transferencias.find(item => Number(item.id) === Number(id));
         if (!c) return;
 
-        Notif.confirmar(
+        const confirmado = await Notif.confirmar(
             'Rechazar Transferencia',
             `¿Desea declinar la transferencia del caso de ${c.estudianteNombre}? El estado cambiará a RECHAZADA.`,
             'Sí, rechazar'
-        ).then(confirmado => {
-            if (!confirmado) return;
+        );
+        if (!confirmado) return;
 
+        try {
             const payload = construirPayloadDesdeRegistro({ ...c, estadoTransferencia: 'RECHAZADA' });
-            CasosTransferidosService.actualizar(id, payload)
-                .then(async () => {
-                    await recargarTransferencias();
-                    Notif.exito('¡Transferencia rechazada exitosamente!');
-                })
-                .catch(error => {
-                    Notif.error(mensajeErrorAmigable(error), 'No se pudo completar la acción');
-                });
-        });
+            await CasosTransferidosService.actualizar(id, payload);
+            await recargarTransferencias();
+            Notif.exito('¡Transferencia rechazada exitosamente!');
+        } catch (error) {
+            Notif.error(mensajeErrorAmigable(error), 'No se pudo completar la acción');
+        }
     };
 
 

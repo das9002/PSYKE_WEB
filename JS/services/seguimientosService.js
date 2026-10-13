@@ -1,6 +1,10 @@
 
 
 const SeguimientosService = {
+    misEstudiantes() {
+        return peticionApi('/estudiantes/mis-estudiantes');
+    },
+
     listar() {
         return listarTodo('/sesiones');
     },

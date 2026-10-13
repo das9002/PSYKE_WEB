@@ -184,5 +184,12 @@ const CitasService = {
 
     estadosPermitidos() {
         return ESTADOS_CITA.slice();
+    },
+
+    registrarSesion(sesion) {
+        return peticionApi('/sesiones', {
+            method: 'POST',
+            body: JSON.stringify(sesion)
+        });
     }
 };

@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap');
 
 :root {
     --primary: #2F6DF6;
@@ -632,3 +632,244 @@ html.dark-mode .btn-user-profile {
     border-color: #374151 !important;
     color: #f3f4f6 !important;
 }
+
+/* ===== Resumen con IA ===== */
+.ia-panel {
+    position: relative;
+    overflow: hidden;
+    background:
+        radial-gradient(circle at 100% 0%, rgba(47, 109, 246, 0.10), transparent 45%),
+        radial-gradient(circle at 0% 100%, rgba(124, 58, 237, 0.07), transparent 40%),
+        #ffffff;
+}
+
+.ia-encabezado {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 16px;
+}
+
+.ia-avatar {
+    width: 48px;
+    height: 48px;
+    flex-shrink: 0;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    color: #ffffff;
+    background: linear-gradient(135deg, #2F6DF6, #7c3aed);
+    box-shadow: 0 8px 18px rgba(47, 109, 246, 0.28);
+}
+
+.ia-titulos {
+    flex: 1;
+    min-width: 0;
+}
+
+.ia-titulo {
+    margin: 0;
+    font-size: 1.12rem;
+    font-weight: 800;
+    color: #0f172a;
+}
+
+.ia-subtitulo {
+    font-size: 0.85rem;
+    color: #64748b;
+}
+
+.ia-etiqueta {
+    flex-shrink: 0;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #5b21b6;
+    background: rgba(124, 58, 237, 0.1);
+    padding: 5px 10px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.ia-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.ia-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 0.84rem;
+    font-weight: 700;
+    border: 1px solid transparent;
+}
+
+.ia-chip.azul { background: #eff6ff; color: #1d4ed8; border-color: #dbeafe; }
+.ia-chip.rojo { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
+.ia-chip.verde { background: #f0fdf4; color: #15803d; border-color: #bbf7d0; }
+.ia-chip.ambar { background: #fffbeb; color: #b45309; border-color: #fde68a; }
+.ia-chip.gris { background: #f8fafc; color: #475569; border-color: #e2e8f0; }
+
+.ia-chip.rojo.activo i {
+    animation: ia-latido 1.6s ease-in-out infinite;
+}
+
+@keyframes ia-latido {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+}
+
+.ia-texto {
+    font-size: 1rem;
+    line-height: 1.75;
+    color: #334155;
+}
+
+.ia-cuerpo {
+    margin: 0;
+}
+
+.ia-texto strong {
+    color: #0f172a;
+    font-weight: 800;
+}
+
+.ia-marca {
+    padding: 1px 6px;
+    border-radius: 6px;
+    font-weight: 800;
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+}
+
+.ia-marca.ia-riesgo { background: #fee2e2; color: #b91c1c; }
+.ia-marca.ia-prioridad { background: #fef3c7; color: #92400e; }
+.ia-marca.ia-ok { background: #dcfce7; color: #166534; }
+
+.ia-tema {
+    font-weight: 700;
+}
+
+.ia-tema-rojo { color: #dc2626; }
+.ia-tema-ambar { color: #b45309; }
+.ia-tema-morado { color: #7c3aed; }
+.ia-tema-azul { color: #2563eb; }
+
+.ia-recomendacion {
+    display: flex;
+    gap: 12px;
+    margin-top: 14px;
+    padding: 14px 16px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #eff6ff, #f5f3ff);
+    border: 1px solid #dbeafe;
+}
+
+.ia-recomendacion-icono {
+    width: 34px;
+    height: 34px;
+    flex-shrink: 0;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #fef3c7;
+    color: #d97706;
+}
+
+.ia-recomendacion-titulo {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #4338ca;
+    margin-bottom: 2px;
+}
+
+.ia-recomendacion p {
+    margin: 0;
+    color: #1e293b;
+    font-weight: 600;
+    line-height: 1.6;
+}
+
+.ia-vacio {
+    color: #64748b;
+}
+
+.ia-cargando {
+    display: inline-flex;
+    gap: 6px;
+    padding: 8px 0;
+}
+
+.ia-cargando span {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #93c5fd;
+    animation: ia-puntos 1s ease-in-out infinite;
+}
+
+.ia-cargando span:nth-child(2) { animation-delay: 0.15s; }
+.ia-cargando span:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes ia-puntos {
+    0%, 100% { opacity: 0.3; transform: translateY(0); }
+    50% { opacity: 1; transform: translateY(-4px); }
+}
+
+.ia-aparecer .ia-cuerpo,
+.ia-aparecer .ia-recomendacion {
+    animation: ia-aparecer 0.5s ease both;
+}
+
+.ia-aparecer .ia-recomendacion {
+    animation-delay: 0.15s;
+}
+
+@keyframes ia-aparecer {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 576px) {
+    .ia-etiqueta { display: none; }
+}
+
+html.dark-mode .ia-panel {
+    background:
+        radial-gradient(circle at 100% 0%, rgba(47, 109, 246, 0.18), transparent 45%),
+        radial-gradient(circle at 0% 100%, rgba(124, 58, 237, 0.14), transparent 40%),
+        #111827 !important;
+}
+
+html.dark-mode .ia-titulo,
+html.dark-mode .ia-texto strong,
+html.dark-mode .ia-recomendacion p { color: #f8fafc; }
+html.dark-mode .ia-subtitulo { color: #94a3b8; }
+html.dark-mode .ia-texto { color: #cbd5e1; }
+html.dark-mode .ia-etiqueta { background: rgba(167, 139, 250, 0.15); color: #c4b5fd; }
+html.dark-mode .ia-chip.azul { background: rgba(59, 130, 246, 0.15); color: #93c5fd; border-color: transparent; }
+html.dark-mode .ia-chip.rojo { background: rgba(239, 68, 68, 0.15); color: #fca5a5; border-color: transparent; }
+html.dark-mode .ia-chip.verde { background: rgba(34, 197, 94, 0.15); color: #86efac; border-color: transparent; }
+html.dark-mode .ia-chip.ambar { background: rgba(245, 158, 11, 0.15); color: #fcd34d; border-color: transparent; }
+html.dark-mode .ia-chip.gris { background: #1f2937; color: #cbd5e1; border-color: transparent; }
+html.dark-mode .ia-marca.ia-riesgo { background: rgba(239, 68, 68, 0.2); color: #fca5a5; }
+html.dark-mode .ia-marca.ia-prioridad { background: rgba(245, 158, 11, 0.2); color: #fcd34d; }
+html.dark-mode .ia-marca.ia-ok { background: rgba(34, 197, 94, 0.2); color: #86efac; }
+html.dark-mode .ia-tema-rojo { color: #f87171; }
+html.dark-mode .ia-tema-ambar { color: #fbbf24; }
+html.dark-mode .ia-tema-morado { color: #a78bfa; }
+html.dark-mode .ia-tema-azul { color: #60a5fa; }
+html.dark-mode .ia-recomendacion { background: rgba(59, 130, 246, 0.1); border-color: rgba(59, 130, 246, 0.25); }
+html.dark-mode .ia-recomendacion-titulo { color: #a5b4fc; }

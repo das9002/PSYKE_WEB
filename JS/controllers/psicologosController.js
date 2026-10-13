@@ -13,18 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     async function obtenerUsuarioSesion() {
-        if (typeof verificarSesion === 'function') {
-            return await verificarSesion();
-        }
-        try {
-            const respuesta = await fetch((window.AUTH_API_URL || 'http://localhost:8081/api/auth') + '/me', {
-                method: 'GET',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include'
-            });
-            if (respuesta.ok) return await respuesta.json();
-        } catch (e) { }
-        return null;
+        return await verificarSesion();
     }
 
     function el(id) {

@@ -30,14 +30,14 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    if (typeof verificarSesion === 'function') {
-        verificarSesion().then((usuario) => {
-            if (usuario && String(usuario.tipoUsuario).toUpperCase() === 'ADMIN') {
-                const opcionMensajes = document.getElementById('switchMensajes')?.closest('.settings-item');
-                if (opcionMensajes) opcionMensajes.style.display = 'none';
-            }
-        });
+    async function ocultarOpcionesDeAdmin() {
+        const usuario = await verificarSesion();
+        if (usuario && String(usuario.tipoUsuario).toUpperCase() === 'ADMIN') {
+            const opcionMensajes = document.getElementById('switchMensajes')?.closest('.settings-item');
+            if (opcionMensajes) opcionMensajes.style.display = 'none';
+        }
     }
+    ocultarOpcionesDeAdmin();
 
     const switchOscuro = document.getElementById('switchOscuro'); 
     if (switchOscuro) {
@@ -259,7 +259,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    function showCookiePreferencesModal() {
+    async function showCookiePreferencesModal() {
         const savedPrefs = Preferencias.leer('psyke_cookie_preferences');
         let currentPrefs = { preferences: true, analytics: true };
 
@@ -271,7 +271,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        Swal.fire({
+        const result = await Swal.fire({
             title: 'Preferencias de Cookies',
             html: `
                 <div class="text-muted mb-4" style="font-size: 0.9rem;">
@@ -326,10 +326,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     analytics: analCheckbox.checked
                 }));
             }
-        }).then((result) => {
-            if (result.isConfirmed) {
-                Notif.exito('Tus preferencias de privacidad han sido registradas y aplicadas.', 'Preferencias Actualizadas');
-            }
         });
+        if (result.isConfirmed) {
+            Notif.exito('Tus preferencias de privacidad han sido registradas y aplicadas.', 'Preferencias Actualizadas');
+        }
     }
 });

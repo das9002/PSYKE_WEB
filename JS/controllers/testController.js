@@ -284,11 +284,11 @@ document.addEventListener('DOMContentLoaded', () => {
         mostrarNivelCuestionarios();
     });
 
-    if (tabSinResponder) tabSinResponder.addEventListener('click', () => {
+    if (tabSinResponder) tabSinResponder.addEventListener('click', async () => {
         activarPestana(tabSinResponder, vistaSinResponder);
-        cargarTestsRespondidos()
-            .then(cargarEstudiantes)
-            .then(() => renderTablaSinResponder());
+        await cargarTestsRespondidos();
+        await cargarEstudiantes();
+        renderTablaSinResponder();
     });
 
     function mostrarFilaCargando(tbody, colspan) {
@@ -384,26 +384,24 @@ document.addEventListener('DOMContentLoaded', () => {
     if (buscarTestInput) {
         buscarTestInput.addEventListener('input', (e) => {
             clearTimeout(timerBusqueda);
-            timerBusqueda = setTimeout(() => {
+            timerBusqueda = setTimeout(async () => {
                 const val = e.target.value.toLowerCase().trim();
                 if (!val) {
                     cargarCatalogo();
                     return;
                 }
-                TestService.buscarCuestionarios(val)
-                    .then(lista => {
-                        estado.cuestionarios = Array.isArray(lista) ? lista : [];
-                        estado.catalogoCargado = true;
-                        renderTablaTests();
-                    })
-                    .catch(() => {
-                        estado.cuestionarios = estado.cuestionarios.filter(c =>
-                            nombreCuestionario(c).toLowerCase().includes(val) ||
-                            objetivoCuestionario(c).toLowerCase().includes(val) ||
-                            creadorCuestionario(c).toLowerCase().includes(val)
-                        );
-                        renderTablaTests();
-                    });
+                try {
+                    const lista = await TestService.buscarCuestionarios(val);
+                    estado.cuestionarios = Array.isArray(lista) ? lista : [];
+                    estado.catalogoCargado = true;
+                } catch (error) {
+                    estado.cuestionarios = estado.cuestionarios.filter(c =>
+                        nombreCuestionario(c).toLowerCase().includes(val) ||
+                        objetivoCuestionario(c).toLowerCase().includes(val) ||
+                        creadorCuestionario(c).toLowerCase().includes(val)
+                    );
+                }
+                renderTablaTests();
             }, 300);
         });
     }
@@ -785,25 +783,24 @@ document.addEventListener('DOMContentLoaded', () => {
         activarPestana(tabCrear, vistaCrearTest);
     };
 
-    window.eliminarCuestionario = function (id) {
+    window.eliminarCuestionario = async function (id) {
         const c = estado.cuestionarios.find(item => Number(idCuestionario(item)) === Number(id));
         if (!c) return;
 
-        Notif.confirmarEliminar(
+        const confirmado = await Notif.confirmarEliminar(
             'Eliminar cuestionario',
-            `¿Estás seguro de que deseas eliminar el cuestionario "${nombreCuestionario(c)}"? Esta acción también borrará sus preguntas asociadas.`
-        ).then(confirmado => {
-            if (!confirmado) return;
-            TestService.eliminarCuestionario(id)
-                .then(() => {
-                    estado.cuestionarios = estado.cuestionarios.filter(item => Number(idCuestionario(item)) !== Number(id));
-                    Notif.exito('¡Cuestionario eliminado correctamente!');
-                    renderTablaTests();
-                })
-                .catch(error => {
-                    Notif.error(mensajeErrorAmigable(error), 'No se pudo eliminar el cuestionario');
-                });
-        });
+            `¿Estás seguro de que deseas eliminar el cuestionario "${nombreCuestionario(c)}"? Solo se puede eliminar si ningún estudiante lo ha respondido.`
+        );
+        if (!confirmado) return;
+
+        try {
+            await TestService.eliminarCuestionario(id);
+            estado.cuestionarios = estado.cuestionarios.filter(item => Number(idCuestionario(item)) !== Number(id));
+            Notif.exito('¡Cuestionario eliminado correctamente!');
+            renderTablaTests();
+        } catch (error) {
+            Notif.error(mensajeErrorAmigable(error), 'No se pudo eliminar el cuestionario');
+        }
     };
 
     window.verPreguntasModal = async function (id) {
@@ -1238,13 +1235,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    window.verSinResponderTest = function (idCuestionario) {
-        cargarTestsRespondidos()
-            .then(cargarEstudiantes)
-            .then(() => {
-                activarPestana(tabSinResponder, vistaSinResponder);
-                renderTablaSinResponder(idCuestionario);
-            });
+    window.verSinResponderTest = async function (idCuestionario) {
+        await cargarTestsRespondidos();
+        await cargarEstudiantes();
+        activarPestana(tabSinResponder, vistaSinResponder);
+        renderTablaSinResponder(idCuestionario);
     };
 
     window.recordarEstudiante = function (nombreEstudiante) {

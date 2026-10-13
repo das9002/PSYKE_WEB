@@ -243,7 +243,7 @@ document.addEventListener('DOMContentLoaded', () => {
         estado.misEstudiantes = null;
         if (usuario?.tipoUsuario !== 'PSICOLOGO') return;
         try {
-            const respuesta = await peticionApi('/estudiantes/mis-estudiantes');
+            const respuesta = await SeguimientosService.misEstudiantes();
             if (respuesta && !respuesta.todos) {
                 estado.misEstudiantes = new Set((respuesta.ids || []).map(Number));
             }
@@ -558,29 +558,27 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
 
-    window.eliminarSesion = function (idSesion) {
-        Notif.confirmarEliminar(
+    window.eliminarSesion = async function (idSesion) {
+        const confirmado = await Notif.confirmarEliminar(
             'Eliminar registro de sesión',
             '¿Desea eliminar este registro de sesión?'
-        ).then(confirmado => {
-            if (!confirmado) return;
+        );
+        if (!confirmado) return;
 
-            SeguimientosService.eliminar(idSesion)
-                .then(() => {
-                    estado.sesiones = estado.sesiones.filter(item => Number(item.idSesion) !== Number(idSesion));
-                    renderTablaHistorial();
-                    renderListaEstudiantes();
-                    const badge = el('detBadgeEstado');
-                    if (badge && estado.expedienteSeleccionado) {
-                        badge.className = '';
-                        badge.innerHTML = generarBadgeEstado(estadoDeTarjeta(estado.expedienteSeleccionado));
-                    }
-                    Notif.exito('¡Registro de sesión eliminado exitosamente!');
-                })
-                .catch(error => {
-                    Notif.error(mensajeErrorAmigable(error), 'No se pudo eliminar el registro');
-                });
-        });
+        try {
+            await SeguimientosService.eliminar(idSesion);
+            estado.sesiones = estado.sesiones.filter(item => Number(item.idSesion) !== Number(idSesion));
+            renderTablaHistorial();
+            renderListaEstudiantes();
+            const badge = el('detBadgeEstado');
+            if (badge && estado.expedienteSeleccionado) {
+                badge.className = '';
+                badge.innerHTML = generarBadgeEstado(estadoDeTarjeta(estado.expedienteSeleccionado));
+            }
+            Notif.exito('¡Registro de sesión eliminado exitosamente!');
+        } catch (error) {
+            Notif.error(mensajeErrorAmigable(error), 'No se pudo eliminar el registro');
+        }
     };
 
 

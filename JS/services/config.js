@@ -15,6 +15,7 @@
     var sesionCerradaEnCurso = false;
     var usuarioSesion = null;
     var sesionPendiente = null;
+    var ultimoMensajeApi = null;
 
     // Caché de listados en memoria: si varias partes de la misma página piden el mismo listado,
     // se descarga una sola vez. Se vacía en cuanto se guarda, edita o elimina algo.
@@ -136,6 +137,38 @@
         }, 900);
     }
 
+    // Las dos APIs responden con ApiResponse: { status, exito, mensaje, data }.
+    // Estas funciones sacan los datos y el mensaje para que el resto del frontend no dependa del formato.
+    function esApiResponse(cuerpo) {
+        return Boolean(cuerpo) && typeof cuerpo === 'object' && !Array.isArray(cuerpo)
+            && typeof cuerpo.exito === 'boolean' && 'status' in cuerpo;
+    }
+
+    function desempaquetar(cuerpo) {
+        if (!esApiResponse(cuerpo)) return cuerpo;
+        return cuerpo.data === undefined ? null : cuerpo.data;
+    }
+
+    function mensajeDeError(cuerpo, mensajePorDefecto) {
+        if (!cuerpo || typeof cuerpo !== 'object') return mensajePorDefecto;
+        return cuerpo.mensaje || cuerpo.message || mensajePorDefecto;
+    }
+
+    function detallesDeError(cuerpo) {
+        if (!cuerpo || typeof cuerpo !== 'object') return {};
+        if (esApiResponse(cuerpo) && cuerpo.data && typeof cuerpo.data === 'object') return cuerpo.data;
+        return cuerpo.details && typeof cuerpo.details === 'object' ? cuerpo.details : {};
+    }
+
+    async function leerCuerpo(respuesta) {
+        try {
+            const texto = await respuesta.text();
+            return texto ? JSON.parse(texto) : null;
+        } catch (e) {
+            return null;
+        }
+    }
+
     // Peticiones a la API de Servicios Principal (api-service)
     async function apiFetch(ruta, opciones, cuerpoData) {
         if (typeof opciones === 'string') {
@@ -189,36 +222,28 @@
 
         // Manejo de Estado HTTP 403 - Sin Permisos
         if (respuesta.status === 403) {
-            var ePermiso = new Error('No tiene permisos para realizar esta acción.');
+            var cuerpoPermiso = await leerCuerpo(respuesta);
+            var ePermiso = new Error(mensajeDeError(cuerpoPermiso, 'No tiene permisos para realizar esta acción.'));
             ePermiso.status = 403;
             throw ePermiso;
         }
 
         // Manejo de Errores 5xx (Server Error / 503 Service Unavailable)
         if (respuesta.status >= 500) {
-            var mensajeServidor = respuesta.status === 503 
-                ? 'El servicio no está disponible temporalmente (Timeout/503).' 
-                : 'Error interno del servidor.';
-            
-            try {
-                var jsonErr = await respuesta.json();
-                if (jsonErr.message) mensajeServidor = jsonErr.message;
-            } catch (e) { }
-
-            var eServidor = new Error(mensajeServidor);
+            var cuerpoServidor = await leerCuerpo(respuesta);
+            var eServidor = new Error(mensajeDeError(cuerpoServidor, respuesta.status === 503
+                ? 'El servicio no está disponible temporalmente. Intenta en unos segundos.'
+                : 'Ocurrió un error inesperado en el servidor.'));
             eServidor.status = respuesta.status;
             throw eServidor;
         }
 
         // Manejo de Errores 4xx
         if (!respuesta.ok) {
-            var mensaje = 'Ocurrió un error en la petición al servidor.';
-            try {
-                var cuerpo = await respuesta.json();
-                if (cuerpo.message) mensaje = cuerpo.message;
-            } catch (e) { }
-            var eApi = new Error(mensaje);
+            var cuerpoError = await leerCuerpo(respuesta);
+            var eApi = new Error(mensajeDeError(cuerpoError, 'Ocurrió un error en la petición al servidor.'));
             eApi.status = respuesta.status;
+            eApi.detalles = detallesDeError(cuerpoError);
             throw eApi;
         }
 
@@ -230,8 +255,9 @@
 
         if (respuesta.status === 204) return null;
 
-        var texto = await respuesta.text();
-        return texto ? JSON.parse(texto) : null;
+        var cuerpoOk = await leerCuerpo(respuesta);
+        if (esApiResponse(cuerpoOk)) ultimoMensajeApi = cuerpoOk.mensaje || null;
+        return desempaquetar(cuerpoOk);
     }
 
     // Peticiones a la API de Autenticación (api-auth)
@@ -260,24 +286,22 @@
         });
     }
 
-    function verificarSesion() {
-        if (usuarioSesion) return Promise.resolve(usuarioSesion);
-        if (sesionPendiente) return sesionPendiente;
+    async function consultarSesion() {
+        try {
+            const respuesta = await authFetch('/me');
+            return respuesta.ok ? desempaquetar(await leerCuerpo(respuesta)) : null;
+        } catch (e) {
+            return null;
+        }
+    }
 
-        sesionPendiente = authFetch('/me')
-            .then(function (respuesta) {
-                return respuesta.ok ? respuesta.json() : null;
-            })
-            .catch(function () {
-                return null;
-            })
-            .then(function (datos) {
-                usuarioSesion = datos || null;
-                sesionPendiente = null;
-                return usuarioSesion;
-            });
-
-        return sesionPendiente;
+    async function verificarSesion() {
+        if (usuarioSesion) return usuarioSesion;
+        if (!sesionPendiente) sesionPendiente = consultarSesion();
+        const datos = await sesionPendiente;
+        usuarioSesion = datos || null;
+        sesionPendiente = null;
+        return usuarioSesion;
     }
 
     async function listarTodo(ruta, tamano) {
@@ -290,17 +314,18 @@
         // Si otra parte de la página ya está descargando este listado, se reutiliza esa misma descarga
         if (!listadosEnCurso[clave]) {
             var cacheAlIniciar = cacheListados;
-            listadosEnCurso[clave] = descargarPaginas(ruta, tamano)
-                .then(function (datos) {
+            listadosEnCurso[clave] = (async function () {
+                try {
+                    var descargados = await descargarPaginas(ruta, tamano);
                     // Si mientras tanto se guardó algún cambio, no se guarda este resultado (puede estar viejo)
                     if (cacheListados === cacheAlIniciar) {
-                        cacheListados[clave] = { expira: Date.now() + DURACION_CACHE_LISTADOS_MS, datos: datos };
+                        cacheListados[clave] = { expira: Date.now() + DURACION_CACHE_LISTADOS_MS, datos: descargados };
                     }
-                    return datos;
-                })
-                .finally(function () {
+                    return descargados;
+                } finally {
                     delete listadosEnCurso[clave];
-                });
+                }
+            })();
         }
         var datos = await listadosEnCurso[clave];
         return datos.slice();
@@ -341,6 +366,11 @@
     global.cerrarSesionGlobal = cerrarSesionGlobal;
     global.apiFetch = apiFetch;
     global.authFetch = authFetch;
+    global.desempaquetarApi = desempaquetar;
+    global.mensajeDeErrorApi = mensajeDeError;
+    global.detallesDeErrorApi = detallesDeError;
+    global.leerCuerpoApi = leerCuerpo;
+    global.ultimoMensajeApi = function () { return ultimoMensajeApi; };
     global.peticionApi = peticionApi;
     global.listarTodo = listarTodo;
     global.conCacheDeSesion = conCacheDeSesion;

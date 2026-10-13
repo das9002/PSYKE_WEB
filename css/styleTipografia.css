@@ -1,0 +1,76 @@
+/* Tipografía general de Psyke: Nunito es redondeada y amable, y se lee bien en tablas y párrafos. */
+:root {
+    --font-base: 'Nunito', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+    --font-main: 'Nunito', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+}
+
+html {
+    -webkit-text-size-adjust: 100%;
+}
+
+body {
+    font-family: var(--font-base);
+    font-size: 15.5px;
+    line-height: 1.6;
+    letter-spacing: 0.005em;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+}
+
+body,
+button,
+input,
+select,
+textarea,
+.swal2-popup,
+.swal2-popup *,
+.psyke-alerta,
+.psyke-toast {
+    font-family: var(--font-base) !important;
+}
+
+h1, h2, h3, h4, h5, h6,
+.h1, .h2, .h3, .h4, .h5, .h6 {
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    line-height: 1.3;
+}
+
+p,
+li,
+td {
+    line-height: 1.6;
+}
+
+.table th,
+thead th {
+    font-weight: 800;
+    letter-spacing: 0.04em;
+}
+
+.table td {
+    font-weight: 500;
+}
+
+.form-control,
+.form-select {
+    font-size: 0.95rem;
+}
+
+label,
+.form-label,
+.custom-form-label {
+    font-weight: 700;
+}
+
+.btn {
+    font-weight: 700;
+    letter-spacing: 0.01em;
+}
+
+small,
+.small,
+.text-muted {
+    letter-spacing: 0.01em;
+}

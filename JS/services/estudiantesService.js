@@ -14,6 +14,10 @@ const EstudiantesService = {
         return peticionApi(`/estudiantes/${id}`);
     },
 
+    misEstudiantes() {
+        return peticionApi('/estudiantes/mis-estudiantes');
+    },
+
     crear(estudiante) {
         return peticionApi('/estudiantes', {
             method: 'POST',

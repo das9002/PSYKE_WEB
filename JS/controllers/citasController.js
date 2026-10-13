@@ -27,18 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     async function obtenerUsuarioSesion() {
-        if (typeof verificarSesion === 'function') {
-            return await verificarSesion();
-        }
-        try {
-            const respuesta = await fetch((window.AUTH_API_URL || 'http://localhost:8081/api/auth') + '/me', {
-                method: 'GET',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include'
-            });
-            if (respuesta.ok) return await respuesta.json();
-        } catch (e) { }
-        return null;
+        return await verificarSesion();
     }
 
     const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -566,7 +555,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function cargarMisEstudiantes() {
         if (estado.usuarioSesion?.tipoUsuario !== 'PSICOLOGO') return;
         try {
-            const respuesta = await peticionApi('/estudiantes/mis-estudiantes');
+            const respuesta = await EstudiantesService.misEstudiantes();
             if (respuesta && !respuesta.todos) {
                 estado.misEstudiantes = new Set((respuesta.ids || []).map(Number));
             }
@@ -985,18 +974,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            await peticionApi('/sesiones', {
-                method: 'POST',
-                body: {
-                    expediente: { idExpediente: Number(idExpediente) },
-                    psicologo: { idPsicologo: Number(cita.psicologo?.idPsicologo ?? idPsicologoPorDefecto()) },
-                    cita: { idCita: Number(idCitaTarget) },
-                    fechaAtencion: fechaCita(cita),
-                    tipoProceso: 'Sesión de seguimiento',
-                    estadoEstudiante: 'Seguimiento',
-                    notasAnotaciones: notas,
-                    marcadorCritico: 'NO'
-                }
+            await CitasService.registrarSesion({
+                expediente: { idExpediente: Number(idExpediente) },
+                psicologo: { idPsicologo: Number(cita.psicologo?.idPsicologo ?? idPsicologoPorDefecto()) },
+                cita: { idCita: Number(idCitaTarget) },
+                fechaAtencion: fechaCita(cita),
+                tipoProceso: 'Sesión de seguimiento',
+                estadoEstudiante: 'Seguimiento',
+                notasAnotaciones: notas,
+                marcadorCritico: 'NO'
             });
 
             if (estadoCita(cita) !== 'REALIZADA') {
@@ -1018,11 +1004,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function ejecutarCancelacionCita(idCitaTarget) {
         try {
             const citaObj = estado.citas.find(c => Number(idCita(c)) === Number(idCitaTarget));
-            if (typeof CitasService !== 'undefined' && CitasService.cambiarEstado) {
-                await CitasService.cambiarEstado(idCitaTarget, 'CANCELADA', citaObj);
-            } else {
-                await peticionApi(`/citas/${idCitaTarget}`, 'PUT', { estado: 'CANCELADA' });
-            }
+            await CitasService.cambiarEstado(idCitaTarget, 'CANCELADA', citaObj);
 
             Notif.exito('La cita se canceló correctamente.', 'Cita cancelada');
 
@@ -1222,14 +1204,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
-            if (typeof CasosTransferidosService !== 'undefined' && CasosTransferidosService.crear) {
-                await CasosTransferidosService.crear(payload);
-            } else {
-                await peticionApi('/transferencias', {
-                    method: 'POST',
-                    body: JSON.stringify(payload)
-                });
-            }
+            await CasosTransferidosService.crear(payload);
 
             const modalInstance = bootstrap.Modal.getInstance(el('modalTransferir'));
             if (modalInstance) modalInstance.hide();
