@@ -15,6 +15,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let sincronizando = false;
     let ultimoAvisoEscribiendo = 0;
     const temporizadoresEscribiendo = new Map();
+    let filtroChat = 'todos';
+    let misEstudiantesChat = null;
+    let respuestaPendiente = null;
 
     function escapeHTML(texto) {
         const div = document.createElement('div');
@@ -117,8 +120,21 @@ document.addEventListener('DOMContentLoaded', () => {
             time: formatearHora(m.fechaEnvio),
             leido: m.leido === 1,
             emisorId: emisor,
-            receptorId: receptor
+            receptorId: receptor,
+            respuestaA: m.idRespuestaA ?? null,
+            citado: m.citado ? { id: m.citado.idMensaje, emisorId: Number(m.citado.idEmisor), text: m.citado.contenido } : null
         };
+    }
+
+    async function cargarMisEstudiantesChat() {
+        try {
+            const datos = await peticionApi('/estudiantes/mis-estudiantes');
+            if (datos && !datos.todos) misEstudiantesChat = new Set((datos.ids || []).map(String));
+        } catch (error) {
+            misEstudiantesChat = null;
+        }
+        const chipMios = document.querySelector('.chat-filtro[data-filtro="mios"]');
+        if (chipMios) chipMios.hidden = !misEstudiantesChat;
     }
 
     function actualizarUltimoMensaje(paciente, mensaje) {
@@ -562,6 +578,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     <i class="bi bi-search"></i>
                     <input type="text" class="chat-search-input" id="chatSearchInput" placeholder="Buscar estudiante...">
                 </div>
+                <div class="chat-filtros" role="tablist">
+                    <button type="button" class="chat-filtro activo" data-filtro="todos">Todos</button>
+                    <button type="button" class="chat-filtro" data-filtro="no_leidos">No leídos <span class="chat-filtro-contador" id="chatContadorNoLeidos" hidden></span></button>
+                    <button type="button" class="chat-filtro" data-filtro="mios" hidden>Mis estudiantes</button>
+                </div>
             </div>
             <div class="chat-patient-list" id="chatPatientList"></div>
         </div>
@@ -572,6 +593,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 <button class="chat-close-btn" id="chatCloseBtn"><i class="bi bi-x-lg"></i></button>
             </div>
             <div class="chat-conversation-area" id="chatConversationArea"></div>
+            <div class="chat-respuesta-barra" id="chatRespuestaBarra" hidden>
+                <div class="chat-respuesta-contenido">
+                    <strong id="chatRespuestaAutor"></strong>
+                    <span id="chatRespuestaTexto"></span>
+                </div>
+                <button type="button" class="chat-respuesta-cancelar" id="chatRespuestaCancelar" aria-label="Cancelar respuesta"><i class="bi bi-x-lg"></i></button>
+            </div>
             <form class="chat-input-area" id="chatInputForm">
                 <div class="chat-input-wrapper">
                     <input type="text" class="chat-input-field" id="chatInputField" placeholder="Escribe un mensaje aquí..." maxlength="4000" autocomplete="off">
@@ -633,11 +661,22 @@ document.addEventListener('DOMContentLoaded', () => {
         chatInputForm.addEventListener('submit', handleSendMessage);
     }
 
+    document.getElementById('chatRespuestaCancelar')?.addEventListener('click', cancelarRespuesta);
+    document.getElementById('chatInputField')?.addEventListener('keydown', (evento) => {
+        if (evento.key === 'Escape' && respuestaPendiente) cancelarRespuesta();
+    });
+
+    chatPanel.querySelectorAll('.chat-filtro').forEach((chip) => {
+        chip.addEventListener('click', () => {
+            filtroChat = chip.dataset.filtro;
+            chatPanel.querySelectorAll('.chat-filtro').forEach(c => c.classList.toggle('activo', c === chip));
+            refrescarListas();
+        });
+    });
+
     const chatSearchInput = document.getElementById('chatSearchInput');
     if (chatSearchInput) {
-        chatSearchInput.addEventListener('input', (e) => {
-            renderPatientList(e.target.value.toLowerCase());
-        });
+        chatSearchInput.addEventListener('input', () => refrescarListas());
     }
 
     const markAllReadBtn = document.getElementById('markAllReadBtn');
@@ -760,8 +799,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
         patientContainer.innerHTML = '';
 
+        const totalNoLeidos = patientsData.filter(p => p.unread > 0).length;
+        const contador = document.getElementById('chatContadorNoLeidos');
+        if (contador) {
+            contador.textContent = totalNoLeidos;
+            contador.hidden = totalNoLeidos === 0;
+        }
+
         const filteredPatients = patientsData
             .filter(p => p.name.toLowerCase().includes(filterQuery))
+            .filter(p => {
+                if (filtroChat === 'no_leidos') return p.unread > 0;
+                if (filtroChat === 'mios') return !misEstudiantesChat || misEstudiantesChat.has(String(p.id));
+                return true;
+            })
             .sort((a, b) => {
                 if (a.lastDate && b.lastDate) return String(b.lastDate).localeCompare(String(a.lastDate));
                 if (a.lastDate) return -1;
@@ -770,7 +821,10 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
         if (filteredPatients.length === 0) {
-            patientContainer.innerHTML = '<div class="p-4 text-center text-muted">No se encontraron estudiantes</div>';
+            const vacio = filtroChat === 'no_leidos' && !filterQuery
+                ? '<i class="bi bi-check2-all d-block fs-3 mb-1"></i>Estás al día, no tienes mensajes sin leer.'
+                : 'No se encontraron estudiantes';
+            patientContainer.innerHTML = `<div class="p-4 text-center text-muted">${vacio}</div>`;
             return;
         }
 
@@ -790,6 +844,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             `;
             item.addEventListener('click', () => {
+                if (activeChatId !== p.id) cancelarRespuesta();
                 activeChatId = p.id;
                 document.querySelectorAll('.chat-patient-item').forEach(el => el.classList.remove('active'));
                 item.classList.add('active');
@@ -874,10 +929,14 @@ document.addEventListener('DOMContentLoaded', () => {
         patient.messages.forEach(msg => {
             const bubble = document.createElement('div');
             bubble.className = `chat-msg-bubble ${msg.sender === 'doctor' ? 'sent' : 'received'}${msg.pendiente ? ' pendiente' : ''}${msg.fallido ? ' fallido' : ''}`;
+            if (msg.id) bubble.dataset.id = msg.id;
             bubble.innerHTML = `
-                ${escapeHTML(msg.text)}
+                ${citaHTML(msg, patient)}
+                <span class="chat-msg-texto">${escapeHTML(msg.text)}</span>
                 <span class="chat-msg-time">${escapeHTML(msg.time)}${estadoEnvioHTML(msg)}</span>
+                ${msg.id ? '<button type="button" class="chat-msg-responder" title="Responder" aria-label="Responder"><i class="bi bi-reply-fill"></i></button>' : ''}
             `;
+            if (msg.id) activarRespuesta(bubble, msg, patient);
             conversationArea.appendChild(bubble);
         });
 
@@ -888,13 +947,93 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function autorDe(emisorId, patient) {
+        return Number(emisorId) === miUsuarioId ? 'Tú' : patient.name;
+    }
+
+    function citaHTML(msg, patient) {
+        if (!msg.respuestaA) return '';
+        if (!msg.citado) {
+            return '<div class="chat-cita eliminada"><span>Mensaje eliminado</span></div>';
+        }
+        return `
+            <div class="chat-cita${Number(msg.citado.emisorId) === miUsuarioId ? ' propia' : ''}" data-ir="${msg.citado.id}" role="button" tabindex="0">
+                <strong>${escapeHTML(autorDe(msg.citado.emisorId, patient))}</strong>
+                <span>${escapeHTML(recortar(msg.citado.text, 120))}</span>
+            </div>`;
+    }
+
+    function activarRespuesta(bubble, msg, patient) {
+        bubble.querySelector('.chat-msg-responder')?.addEventListener('click', () => prepararRespuesta(msg, patient));
+        bubble.addEventListener('dblclick', () => prepararRespuesta(msg, patient));
+
+        const cita = bubble.querySelector('.chat-cita[data-ir]');
+        if (cita) cita.addEventListener('click', () => irAMensaje(cita.dataset.ir));
+
+        let inicioX = null;
+        let inicioY = null;
+        let desplazamiento = 0;
+        bubble.addEventListener('touchstart', (evento) => {
+            inicioX = evento.touches[0].clientX;
+            inicioY = evento.touches[0].clientY;
+            desplazamiento = 0;
+            bubble.style.transition = 'none';
+        }, { passive: true });
+        bubble.addEventListener('touchmove', (evento) => {
+            if (inicioX === null) return;
+            const dx = evento.touches[0].clientX - inicioX;
+            const dy = Math.abs(evento.touches[0].clientY - inicioY);
+            if (dy > 30) { inicioX = null; bubble.style.transform = ''; return; }
+            desplazamiento = Math.max(0, Math.min(dx, 80));
+            bubble.style.transform = `translateX(${desplazamiento}px)`;
+            bubble.classList.toggle('deslizando', desplazamiento > 50);
+        }, { passive: true });
+        bubble.addEventListener('touchend', () => {
+            bubble.style.transition = '';
+            bubble.style.transform = '';
+            bubble.classList.remove('deslizando');
+            if (desplazamiento > 50) prepararRespuesta(msg, patient);
+            inicioX = null;
+            desplazamiento = 0;
+        });
+    }
+
+    function prepararRespuesta(msg, patient) {
+        respuestaPendiente = { id: msg.id, emisorId: msg.emisorId, text: msg.text };
+        const barra = document.getElementById('chatRespuestaBarra');
+        document.getElementById('chatRespuestaAutor').textContent = `Respondiendo a ${autorDe(msg.emisorId, patient)}`;
+        document.getElementById('chatRespuestaTexto').textContent = recortar(msg.text, 140);
+        barra.classList.toggle('propia', Number(msg.emisorId) === miUsuarioId);
+        barra.hidden = false;
+        document.getElementById('chatInputField')?.focus();
+    }
+
+    function cancelarRespuesta() {
+        respuestaPendiente = null;
+        const barra = document.getElementById('chatRespuestaBarra');
+        if (barra) barra.hidden = true;
+    }
+
+    function irAMensaje(id) {
+        const destino = document.querySelector(`#chatConversationArea .chat-msg-bubble[data-id="${id}"]`);
+        if (!destino) {
+            if (typeof Notif !== 'undefined') Notif.info('Ese mensaje es más antiguo. Carga los mensajes anteriores para verlo.', 'Mensaje anterior');
+            return;
+        }
+        destino.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        destino.classList.remove('resaltado');
+        void destino.offsetWidth;
+        destino.classList.add('resaltado');
+    }
+
     async function enviarPorRest(patient, text, provisional) {
         try {
             const creado = await peticionApi('/mensajes', {
                 method: 'POST',
                 body: JSON.stringify({
                     receptor: { idUsuario: patient.userId },
-                    contenido: text
+                    contenido: text,
+                    idRespuestaA: provisional.respuestaA || null
                 })
             });
             const mensaje = convertirMensaje(creado);
@@ -937,9 +1076,12 @@ document.addEventListener('DOMContentLoaded', () => {
             leido: false,
             pendiente: true,
             emisorId: miUsuarioId,
-            receptorId: patient.userId
+            receptorId: patient.userId,
+            respuestaA: respuestaPendiente ? respuestaPendiente.id : null,
+            citado: respuestaPendiente ? { id: respuestaPendiente.id, emisorId: respuestaPendiente.emisorId, text: respuestaPendiente.text } : null
         };
         patient.messages.push(provisional);
+        cancelarRespuesta();
         inputField.value = '';
         renderMessages(patient);
         inputField.focus();
@@ -948,7 +1090,8 @@ document.addEventListener('DOMContentLoaded', () => {
             tipo: 'enviar',
             receptorId: patient.userId,
             contenido: text,
-            clienteId: provisional.clienteId
+            clienteId: provisional.clienteId,
+            respuestaA: provisional.respuestaA
         });
 
         if (!enviadoPorSocket) {
@@ -998,6 +1141,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             await cargarPacientes();
+            cargarMisEstudiantesChat().then(refrescarListas);
             await cargarResumen(false);
         } catch (error) {
             if (error && error.status === 403) return;
