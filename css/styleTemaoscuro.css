@@ -41,6 +41,7 @@ html.dark-mode .sidebar .section-initial {
 
 html.dark-mode .topbar,
 html.dark-mode .card,
+html.dark-mode .card-form,
 html.dark-mode .card-dashboard,
 html.dark-mode .card-section,
 html.dark-mode .card-custom,
@@ -361,9 +362,119 @@ html.dark-mode .modal-header {
 html.dark-mode .modal-footer {
     border-top-color: #1f2937 !important;
 }
-html.dark-mode .modal-body .card.bg-light {
+/* ========================================================
+   MODALES Y CONTENEDORES (CREDENCIALES, RESÚMENES Y DETALLES)
+   ======================================================== */
+html.dark-mode .bg-light,
+html.dark-mode div.bg-light,
+html.dark-mode .modal-body .bg-light,
+html.dark-mode .modal-body div.bg-light,
+html.dark-mode .bg-white,
+html.dark-mode div.bg-white,
+html.dark-mode .modal-body .bg-white,
+html.dark-mode .modal-body div.bg-white,
+html.dark-mode .credenciales-encabezado-card {
     background-color: #182235 !important;
+    border-color: #2d3748 !important;
+    color: #f3f4f6 !important;
+}
+
+/* Títulos y nombres dentro de las credenciales */
+html.dark-mode .credenciales-encabezado-card #credEstNombre,
+html.dark-mode .credenciales-encabezado-card #credPsiNombre,
+html.dark-mode #credEstNombre,
+html.dark-mode #credPsiNombre,
+html.dark-mode #transferirNombreEstudiante,
+html.dark-mode #modalBadgeCarnet {
+    color: #f8fafc !important;
+}
+
+/* Grado, sección y subtítulos en credenciales */
+html.dark-mode .credenciales-encabezado-card #credEstGrado,
+html.dark-mode #credEstGrado,
+html.dark-mode #transferirCarnetEstudiante,
+html.dark-mode .credenciales-encabezado-card small {
+    color: #94a3b8 !important;
+}
+
+html.dark-mode #modalCredencialesEstudiante .modal-body,
+html.dark-mode #modalCredencialesPsicologo .modal-body,
+html.dark-mode #modalTransferir .modal-body,
+html.dark-mode #expedienteModalBody {
+    color: #f3f4f6 !important;
+}
+
+html.dark-mode #modalCredencialesEstudiante input[readonly],
+html.dark-mode #modalCredencialesPsicologo input[readonly] {
+    background-color: #1f2937 !important;
+    border-color: #374151 !important;
+    color: #e2e8f0 !important;
+}
+
+/* List group items en modales y paneles */
+html.dark-mode .list-group-item {
+    background-color: #182235 !important;
+    border-color: #2d3748 !important;
+    color: #e2e8f0 !important;
+}
+html.dark-mode .list-group-item:hover,
+html.dark-mode .list-group-item-action:hover,
+html.dark-mode .list-group-item-action:focus {
+    background-color: #1f2937 !important;
+    color: #f8fafc !important;
+}
+
+/* Alertas Bootstrap en Modo Oscuro */
+html.dark-mode .alert-info {
+    background-color: rgba(14, 165, 233, 0.15) !important;
+    border-color: rgba(14, 165, 233, 0.35) !important;
+    color: #7dd3fc !important;
+}
+html.dark-mode .alert-warning {
+    background-color: rgba(245, 158, 11, 0.15) !important;
+    border-color: rgba(245, 158, 11, 0.35) !important;
+    color: #fcd34d !important;
+}
+html.dark-mode .alert-danger {
+    background-color: rgba(239, 68, 68, 0.15) !important;
+    border-color: rgba(239, 68, 68, 0.35) !important;
+    color: #fca5a5 !important;
+}
+html.dark-mode .alert-success {
+    background-color: rgba(16, 185, 129, 0.15) !important;
+    border-color: rgba(16, 185, 129, 0.35) !important;
+    color: #6ee7b7 !important;
+}
+
+/* Pestañas (nav-tabs) */
+html.dark-mode .nav-tabs {
+    border-bottom-color: #374151 !important;
+}
+html.dark-mode .nav-tabs .nav-link {
+    color: #9ca3af !important;
+    border-color: transparent !important;
+}
+html.dark-mode .nav-tabs .nav-link:hover {
+    color: #f3f4f6 !important;
+    border-color: #374151 #374151 transparent !important;
+}
+html.dark-mode .nav-tabs .nav-link.active {
+    background-color: #1f2937 !important;
+    border-color: #374151 #374151 #1f2937 !important;
+    color: #60a5fa !important;
+}
+
+/* Utilidades adicionales */
+html.dark-mode .text-secondary {
+    color: #94a3b8 !important;
+}
+html.dark-mode strong,
+html.dark-mode b {
+    color: inherit;
+}
+html.dark-mode hr {
     border-color: #1f2937 !important;
+    opacity: 0.8 !important;
 }
 
 html.dark-mode .settings-group {

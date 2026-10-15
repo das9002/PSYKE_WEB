@@ -195,6 +195,10 @@ html.dark-mode .psyke-credencial-fila {
     background: #1f2937;
 }
 
+html.dark-mode .psyke-credencial-fila span {
+    color: #94a3b8;
+}
+
 html.dark-mode .psyke-credencial-fila strong {
     color: #f3f4f6;
 }

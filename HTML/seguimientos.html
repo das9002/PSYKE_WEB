@@ -156,17 +156,23 @@
 
                     <div class="col-12 col-lg-8 d-flex">
                         <div class="card card-custom p-4 w-100 d-flex flex-column">
-                            <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                                 <h5 class="fw-bold text-dark mb-0 d-flex align-items-center gap-2">
                                     <i class="bi bi-robot text-primary"></i>
                                     <span>Resumen Asistido del Caso</span>
                                 </h5>
-                                <button type="button" id="btnGuardarResumen" class="btn btn-sm btn-primary-custom d-flex align-items-center gap-1">
-                                    <i class="bi bi-floppy-fill"></i> Guardar Resumen
-                                </button>
+                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                    <button type="button" id="btnGenerarResumenIA" class="btn btn-sm btn-outline-primary d-flex align-items-center gap-1 shadow-sm" title="Analizar el caso del estudiante y redactar la síntesis con IA">
+                                        <i class="bi bi-stars"></i>
+                                        <span id="btnGenerarResumenIATexto">Generar con IA</span>
+                                    </button>
+                                    <button type="button" id="btnGuardarResumen" class="btn btn-sm btn-primary-custom d-flex align-items-center gap-1 shadow-sm">
+                                        <i class="bi bi-floppy-fill"></i> Guardar Resumen
+                                    </button>
+                                </div>
                             </div>
                             <textarea id="resumenCasoTextarea" class="form-control custom-textarea-resumen flex-grow-1" maxlength="4000"
-                                placeholder="Escriba aquí el resumen clínico del caso, antecedentes relevantes y notas diagnósticas..."></textarea>
+                                placeholder="Escriba aquí el resumen clínico del caso, antecedentes relevantes y notas diagnósticas... O haga clic en 'Generar con IA' para una síntesis asistida."></textarea>
                         </div>
                     </div>
                 </div>
@@ -313,6 +319,7 @@
     <script src="../JS/services/chatSocket.js"></script>
     <script src="../JS/services/mensajesService.js"></script>
     <script src="../JS/controllers/chatController.js"></script>
+    <script src="../JS/services/aiService.js"></script>
     <script src="../JS/services/seguimientosService.js"></script>
     <script src="../JS/componentes/notificaciones.js"></script>
     <script src="../JS/services/sesionService.js"></script>

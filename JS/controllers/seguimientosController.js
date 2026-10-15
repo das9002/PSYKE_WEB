@@ -582,6 +582,156 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
 
+    async function generarResumenConIA() {
+        if (!estado.expedienteSeleccionado) {
+            Notif.informar('Seleccione primero un estudiante para generar el resumen asistido con IA.');
+            return;
+        }
+
+        const exp = estado.expedienteSeleccionado;
+        const est = exp.estudiante || {};
+        const nombre = nombreEstudiante(est) || 'Estudiante';
+        const carnet = est.codigoCarnet || 'Sin carnet';
+        const grado = `${est.grado?.nombreGrado ?? 'Sin grado'} "${est.seccion?.nombreSeccion ?? '—'}"`;
+        const especialidad = est.especialidad?.nombreEspecialidad ?? 'General';
+        const estadoActual = estadoDeTarjeta(exp) || 'Seguimiento';
+
+        const textarea = el('resumenCasoTextarea');
+        const valorActual = textarea ? textarea.value.trim() : '';
+
+        let modoInsercion = 'reemplazar';
+        if (valorActual) {
+            if (typeof Swal !== 'undefined') {
+                const decision = await Swal.fire({
+                    title: '¿Cómo deseas aplicar el resumen?',
+                    text: 'Ya existe un resumen en este expediente. ¿Deseas reemplazar el texto actual o agregarlo al final?',
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonText: '<i class="bi bi-arrow-repeat me-1"></i> Reemplazar',
+                    denyButtonText: '<i class="bi bi-plus-circle me-1"></i> Agregar al final',
+                    cancelButtonText: 'Cancelar',
+                    showDenyButton: true,
+                    confirmButtonColor: '#2F6DF6',
+                    denyButtonColor: '#10b981',
+                    cancelButtonColor: '#6b7280'
+                });
+
+                if (decision.isDismissed) return;
+                modoInsercion = decision.isConfirmed ? 'reemplazar' : 'agregar';
+            }
+        }
+
+        const btnIA = el('btnGenerarResumenIA');
+        if (btnIA) {
+            btnIA.disabled = true;
+            btnIA.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Analizando caso...';
+        }
+
+        // Obtener sesiones cronológicas de este expediente
+        const sesiones = estado.sesiones
+            .filter(s => Number(s.expediente?.idExpediente) === Number(exp.idExpediente))
+            .slice()
+            .sort((a, b) => String(a.fechaAtencion ?? '').localeCompare(String(b.fechaAtencion ?? '')));
+
+        let detalleSesiones = '';
+        if (sesiones.length > 0) {
+            detalleSesiones = sesiones.map((s, idx) => {
+                const fecha = formatearFechaDisplay(s.fechaAtencion);
+                const tipo = s.tipoProceso || 'Sesión regular';
+                const estSesion = s.estadoEstudiante || 'Regular';
+                const critico = s.marcadorCritico === 'SI' ? 'SÍ (Crítico)' : 'NO';
+                const psi = nombrePsicologo(s.psicologo) || 'Psicólogo institucional';
+                const notas = (s.notasAnotaciones || 'Sin notas registradas').trim();
+                return `Sesión ${idx + 1} (${fecha}):\n- Atención: ${tipo}\n- Profesional: ${psi}\n- Estado: ${estSesion} | Crítico: ${critico}\n- Notas clínicas y evolución: ${notas}`;
+            }).join('\n\n');
+        } else {
+            detalleSesiones = 'No se registran sesiones previas en el expediente aún. Este es el inicio del seguimiento del estudiante.';
+        }
+
+        const prompt = `Actúa como un psicólogo institucional y psicopedagógico experto en la plataforma Psyke.
+Analiza detenidamente la información del expediente clínico del estudiante y redacta un Resumen Asistido del Caso claro, objetivo, profesional y sintético para su ficha de seguimiento.
+
+DATOS DEL ALUMNO:
+- Nombre: ${nombre}
+- Carnet: ${carnet}
+- Grado y Sección: ${grado}
+- Especialidad Técnica: ${especialidad}
+- Estado Clínico Actual: ${estadoActual}
+${exp.resumenCaso ? `- Antecedentes o notas previas registradas: ${exp.resumenCaso}` : ''}
+
+HISTORIAL DE INTERVENCIONES Y SESIONES:
+${detalleSesiones}
+
+INSTRUCCIONES CLÍNICAS DE REDACCIÓN:
+Redacta una síntesis clínica en español profesional, clara y fluida, estructurada con los siguientes apartados:
+
+SÍNTESIS CLÍNICA Y EVOLUCIÓN:
+(Resumen del motivo de consulta o seguimiento, situación observada y evolución del estudiante a lo largo de las intervenciones).
+
+FACTORES DE RIESGO O ATENCIÓN PRIORITARIA:
+(Aspectos emocionales, conductuales, relacionales o académicos que requieran vigilancia o apoyo focalizado. Si el caso es estable, indícalo).
+
+RECOMENDACIONES Y PLAN DE ACCIÓN:
+(Pautas psicopedagógicas concretas para las siguientes sesiones, trabajo colaborativo con docentes o familia, y metas de bienestar).
+
+REGLAS ESTRICTAS DE FORMATO:
+- NO uses asteriscos markdown (*), ni negritas markdown (**), ni títulos con hashtag (#). Escribe títulos en mayúsculas limpias y texto en párrafos naturales sin viñetas de asterisco, ya que este texto va directamente en un textarea clínico.
+- Mantén un tono ético, confidencial, objetivo y una extensión concisa de 2 a 4 párrafos bien estructurados.`;
+
+        try {
+            if (!window.aiService || typeof window.aiService.enviarPrompt !== 'function') {
+                throw new Error('El servicio de IA no está disponible en este momento. Verifique la conexión.');
+            }
+
+            const respuesta = await window.aiService.enviarPrompt(prompt, []);
+
+            let textoGenerado = '';
+            if (respuesta && typeof respuesta === 'object') {
+                if (respuesta.respuesta) textoGenerado = respuesta.respuesta;
+                else if (respuesta.mensaje) textoGenerado = respuesta.mensaje;
+                else if (respuesta.data) textoGenerado = respuesta.data;
+            } else if (typeof respuesta === 'string') {
+                textoGenerado = respuesta;
+            }
+
+            textoGenerado = (textoGenerado || '').trim();
+            // Limpieza preventiva de caracteres markdown
+            textoGenerado = textoGenerado
+                .replace(/\*\*(.*?)\*\*/g, '$1')
+                .replace(/\*(.*?)\*/g, '$1')
+                .replace(/^#{1,6}\s+/gm, '')
+                .trim();
+
+            if (!textoGenerado) {
+                throw new Error('La IA no devolvió un resumen para este caso.');
+            }
+
+            if (textarea) {
+                if (modoInsercion === 'agregar' && valorActual) {
+                    const fechaHoy = new Date().toLocaleDateString('es-ES');
+                    textarea.value = valorActual + `\n\n--- ACTUALIZACIÓN CON IA (${fechaHoy}) ---\n` + textoGenerado;
+                } else {
+                    textarea.value = textoGenerado;
+                }
+
+                textarea.classList.remove('ia-destello-actualizado');
+                void textarea.offsetWidth;
+                textarea.classList.add('ia-destello-actualizado');
+                textarea.focus();
+            }
+
+            Notif.exito('¡Resumen clínico generado con IA! Revisa el texto y haz clic en "Guardar Resumen" para almacenarlo en el expediente.');
+        } catch (error) {
+            console.error('Error al generar resumen asistido con IA:', error);
+            Notif.error(error.message || 'No se pudo generar el resumen asistido con IA.', 'Error de IA');
+        } finally {
+            if (btnIA) {
+                btnIA.disabled = false;
+                btnIA.innerHTML = '<i class="bi bi-stars"></i> Generar con IA';
+            }
+        }
+    }
+
     async function guardarResumen() {
         if (!estado.expedienteSeleccionado) {
             Notif.informar('Seleccione primero un estudiante para guardar su resumen.');
@@ -766,6 +916,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         el('buscarSeguimientoInput')?.addEventListener('input', renderListaEstudiantes);
         el('btnVolverLista')?.addEventListener('click', volverALista);
+        el('btnGenerarResumenIA')?.addEventListener('click', generarResumenConIA);
         el('btnGuardarResumen')?.addEventListener('click', guardarResumen);
         el('formNuevoRegistro')?.addEventListener('submit', manejarSubmitRegistro);
 
