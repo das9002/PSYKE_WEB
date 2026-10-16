@@ -633,50 +633,77 @@ document.addEventListener('DOMContentLoaded', () => {
             .slice()
             .sort((a, b) => String(a.fechaAtencion ?? '').localeCompare(String(b.fechaAtencion ?? '')));
 
+        // Resumen previo acotado (máximo 250 caracteres para no agotar el cupo de la API)
+        const resumenPrevio = exp.resumenCaso
+            ? (exp.resumenCaso.trim().length > 250 
+                ? exp.resumenCaso.trim().slice(0, 247) + '...' 
+                : exp.resumenCaso.trim())
+            : '';
+
+        // Construir detalle de sesiones optimizado (sin importar cuántas sesiones existan)
         let detalleSesiones = '';
         if (sesiones.length > 0) {
-            detalleSesiones = sesiones.map((s, idx) => {
+            const totalSesiones = sesiones.length;
+            // Si hay muchas sesiones, incluimos la primera (caso base) y las últimas más recientes (hasta 6)
+            let sesionesSeleccionadas = sesiones;
+            let avisoCondensado = '';
+
+            if (totalSesiones > 7) {
+                const primera = sesiones[0];
+                const ultimas = sesiones.slice(-6);
+                sesionesSeleccionadas = [primera, ...ultimas];
+                avisoCondensado = `\n(Nota: Hay un total de ${totalSesiones} sesiones registradas. Se presentan la sesión base y las últimas 6 más recientes para análisis).`;
+            }
+
+            detalleSesiones = sesionesSeleccionadas.map((s) => {
+                const num = sesiones.indexOf(s) + 1;
                 const fecha = formatearFechaDisplay(s.fechaAtencion);
                 const tipo = s.tipoProceso || 'Sesión regular';
                 const estSesion = s.estadoEstudiante || 'Regular';
                 const critico = s.marcadorCritico === 'SI' ? 'SÍ (Crítico)' : 'NO';
-                const psi = nombrePsicologo(s.psicologo) || 'Psicólogo institucional';
-                const notas = (s.notasAnotaciones || 'Sin notas registradas').trim();
-                return `Sesión ${idx + 1} (${fecha}):\n- Atención: ${tipo}\n- Profesional: ${psi}\n- Estado: ${estSesion} | Crítico: ${critico}\n- Notas clínicas y evolución: ${notas}`;
-            }).join('\n\n');
+                // Limitar notas por sesión a un tamaño seguro (máx. 140 caracteres)
+                let notas = (s.notasAnotaciones || 'Sin notas registradas').trim();
+                if (notas.length > 140) {
+                    notas = notas.slice(0, 137) + '...';
+                }
+                return `Sesión ${num} (${fecha}): ${tipo} | Est: ${estSesion} | Crítico: ${critico}\nNotas: ${notas}`;
+            }).join('\n\n') + avisoCondensado;
         } else {
             detalleSesiones = 'No se registran sesiones previas en el expediente aún. Este es el inicio del seguimiento del estudiante.';
         }
 
-        const prompt = `Actúa como un psicólogo institucional y psicopedagógico experto en la plataforma Psyke.
-Analiza detenidamente la información del expediente clínico del estudiante y redacta un Resumen Asistido del Caso claro, objetivo, profesional y sintético para su ficha de seguimiento.
+        let prompt = `Actúa como un psicólogo institucional y psicopedagógico experto en la plataforma Psyke.
+Analiza la información del expediente clínico del estudiante y redacta un Resumen Asistido del Caso BREVE, OBJETIVO y SINTÉTICO (máximo 1200 caracteres en total, 2 a 3 párrafos cortos) para su ficha de seguimiento.
 
 DATOS DEL ALUMNO:
-- Nombre: ${nombre}
-- Carnet: ${carnet}
-- Grado y Sección: ${grado}
-- Especialidad Técnica: ${especialidad}
+- Nombre: ${nombre} | Carnet: ${carnet}
+- Grado y Sección: ${grado} | Especialidad: ${especialidad}
 - Estado Clínico Actual: ${estadoActual}
-${exp.resumenCaso ? `- Antecedentes o notas previas registradas: ${exp.resumenCaso}` : ''}
+${resumenPrevio ? `- Antecedentes o notas previas resumidas: ${resumenPrevio}` : ''}
 
-HISTORIAL DE INTERVENCIONES Y SESIONES:
+HISTORIAL DE INTERVENCIONES (${sesiones.length} sesiones en total):
 ${detalleSesiones}
 
 INSTRUCCIONES CLÍNICAS DE REDACCIÓN:
-Redacta una síntesis clínica en español profesional, clara y fluida, estructurada con los siguientes apartados:
+Redacta una síntesis clínica compacta y profesional estructurada exactamente con estos 3 apartados:
 
 SÍNTESIS CLÍNICA Y EVOLUCIÓN:
-(Resumen del motivo de consulta o seguimiento, situación observada y evolución del estudiante a lo largo de las intervenciones).
+(1 párrafo breve con el motivo central, estado observado y evolución del estudiante a lo largo de las intervenciones).
 
 FACTORES DE RIESGO O ATENCIÓN PRIORITARIA:
-(Aspectos emocionales, conductuales, relacionales o académicos que requieran vigilancia o apoyo focalizado. Si el caso es estable, indícalo).
+(2 a 3 líneas con puntos clave de vigilancia o si el caso está estable).
 
 RECOMENDACIONES Y PLAN DE ACCIÓN:
-(Pautas psicopedagógicas concretas para las siguientes sesiones, trabajo colaborativo con docentes o familia, y metas de bienestar).
+(2 a 3 pautas psicopedagógicas concisas para el seguimiento).
 
-REGLAS ESTRICTAS DE FORMATO:
-- NO uses asteriscos markdown (*), ni negritas markdown (**), ni títulos con hashtag (#). Escribe títulos en mayúsculas limpias y texto en párrafos naturales sin viñetas de asterisco, ya que este texto va directamente en un textarea clínico.
-- Mantén un tono ético, confidencial, objetivo y una extensión concisa de 2 a 4 párrafos bien estructurados.`;
+REGLAS ESTRICTAS DE FORMATO Y EXTENSIÓN:
+- La respuesta DEBE ser un resumen pequeño y sintético (máximo 1200 caracteres). No redactes textos extensos ni repetitivos.
+- NO uses asteriscos (*), ni negritas (**), ni títulos con hashtag (#). Usa mayúsculas limpias para los títulos y texto en párrafos naturales sin viñetas de asterisco, ya que va directo a un textarea clínico.`;
+
+        // Garantía estricta contra el límite de 4000 caracteres del backend
+        if (prompt.length > 3700) {
+            prompt = prompt.slice(0, 3700);
+        }
 
         try {
             if (!window.aiService || typeof window.aiService.enviarPrompt !== 'function') {
@@ -709,9 +736,15 @@ REGLAS ESTRICTAS DE FORMATO:
             if (textarea) {
                 if (modoInsercion === 'agregar' && valorActual) {
                     const fechaHoy = new Date().toLocaleDateString('es-ES');
-                    textarea.value = valorActual + `\n\n--- ACTUALIZACIÓN CON IA (${fechaHoy}) ---\n` + textoGenerado;
+                    const textoCombinado = valorActual + `\n\n--- ACTUALIZACIÓN CON IA (${fechaHoy}) ---\n` + textoGenerado;
+                    if (textoCombinado.length > 4000) {
+                        textarea.value = textoCombinado.slice(0, 4000);
+                        Notif.alerta('El resumen acumulado superaba 4000 caracteres y fue ajustado al límite permitido.', 'Texto Ajustado');
+                    } else {
+                        textarea.value = textoCombinado;
+                    }
                 } else {
-                    textarea.value = textoGenerado;
+                    textarea.value = textoGenerado.slice(0, 4000);
                 }
 
                 textarea.classList.remove('ia-destello-actualizado');
