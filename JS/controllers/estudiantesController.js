@@ -604,16 +604,9 @@ document.addEventListener('DOMContentLoaded', () => {
         return Boolean(estado.conSeguimiento && estado.conSeguimiento.has(Number(idEstudiante(est))));
     }
 
-    window.abrirSeguimientoEstudiante = async function (id) {
-        try {
-            if (estado.conSeguimiento && !estado.conSeguimiento.has(Number(id))) {
-                await EstudiantesService.abrirExpediente(id);
-                estado.conSeguimiento.add(Number(id));
-            }
-            window.location.href = `seguimientos.html?estudiante=${encodeURIComponent(id)}`;
-        } catch (error) {
-            Notif.error(error?.message || 'No se pudo abrir el seguimiento del caso.', 'Seguimiento');
-        }
+    // Seguimiento abre el caso (y lo crea si todavía no existe), así que aquí solo se navega
+    window.abrirSeguimientoEstudiante = function (id) {
+        window.location.href = `seguimientos.html?estudiante=${encodeURIComponent(id)}`;
     };
 
     function normalizarTexto(valor) {

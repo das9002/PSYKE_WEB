@@ -248,3 +248,34 @@ html.dark-mode .notas-seccion { background: rgba(47, 109, 246, 0.08); }
 html.dark-mode .notas-seccion h6 { color: #93C5FD; }
 html.dark-mode .notas-seccion p, html.dark-mode .notas-libre { color: #CBD5E1; }
 html.dark-mode .notas-duracion { background: #1E293B; color: #CBD5E1; }
+
+.rs-cronometro.manual {
+    background: #EEF2FF;
+    color: #4338CA;
+}
+
+.rs-fijo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 12px;
+    border-radius: 10px;
+    background: #F1F5F9;
+    color: #0F172A;
+    font-weight: 600;
+    min-height: 38px;
+}
+
+.rs-duracion {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    max-width: 360px;
+}
+
+.rs-duracion .input-group {
+    max-width: 140px;
+}
+
+html.dark-mode .rs-cronometro.manual { background: rgba(99, 102, 241, 0.18); color: #C7D2FE; }
+html.dark-mode .rs-fijo { background: #1E293B; color: #E2E8F0; }

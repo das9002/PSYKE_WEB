@@ -141,25 +141,63 @@
         return h ? `${h}:${dos(m)}:${dos(s)}` : `${dos(m)}:${dos(s)}`;
     }
 
+    function hoyLocal() {
+        const d = new Date();
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
+
     /**
      * Abre el registro de sesión.
      * @param {object} opciones
+     *   modo: 'vivo' (sesión que está ocurriendo, con cronómetro) | 'manual' (registrar o editar una sesión pasada)
      *   estudiante: { nombre, carnet, iniciales }
-     *   cita: { numero, fechaTexto } (opcional; sin cita = atención directa)
-     *   tipoInicial, estadoInicial
+     *   cita: { numero, fechaTexto } en modo vivo con cita
+     *   psicologo: { id, nombre } fijo: el de la cuenta que registra
+     *   psicologos: [{ id, nombre }] solo si quien registra es administrador y debe elegir
+     *   citasDisponibles: [{ id, fecha, texto }] para vincular en modo manual
+     *   inicial: { fecha, idCita, tipo, estado, critico, notas, idPsicologo } valores al editar
+     *   titulo: texto de la etiqueta superior
      *   claveBorrador: texto para recordar lo escrito si se cierra sin guardar
-     *   guardar: async ({ tipoProceso, estadoEstudiante, marcadorCritico, notasAnotaciones }) => void
+     *   guardar: async ({ tipoProceso, estadoEstudiante, marcadorCritico, notasAnotaciones, fechaAtencion, idCita, idPsicologo }) => void
      */
     function abrir(opciones) {
-        const { estudiante = {}, cita = null, guardar, claveBorrador } = opciones;
-        const borrador = claveBorrador ? leerBorrador(claveBorrador) : null;
+        const {
+            modo = 'vivo', estudiante = {}, cita = null, guardar, claveBorrador,
+            psicologo = null, psicologos = null, citasDisponibles = [], inicial = {}
+        } = opciones;
+        const manual = modo === 'manual';
+        const editando = Boolean(inicial && inicial.notas !== undefined);
+        const borrador = claveBorrador && !editando ? leerBorrador(claveBorrador) : null;
         const inicio = borrador && borrador.inicio ? borrador.inicio : Date.now();
-        const tipoInicial = (borrador && borrador.tipo) || opciones.tipoInicial || (cita ? 'Sesión de seguimiento' : 'Atención sin cita');
-        const estadoInicial = (borrador && borrador.estado) || opciones.estadoInicial || 'Seguimiento';
-        const criticoInicial = Boolean(borrador && borrador.critico);
-        const secciones = (borrador && Array.isArray(borrador.secciones) && borrador.secciones.length)
-            ? borrador.secciones
-            : SECCIONES_BASE.map((titulo) => ({ titulo, contenido: '' }));
+
+        const notasIniciales = editando ? leerNotas(inicial.notas) : null;
+        const tipoInicial = (borrador && borrador.tipo) || inicial.tipo || opciones.tipoInicial
+            || (manual ? 'Sesión de seguimiento' : (cita ? 'Sesión de seguimiento' : 'Atención sin cita'));
+        const estadoInicial = (borrador && borrador.estado) || inicial.estado || opciones.estadoInicial || 'Seguimiento';
+        const criticoInicial = Boolean((borrador && borrador.critico) || inicial.critico);
+        const fechaInicial = (borrador && borrador.fecha) || inicial.fecha || hoyLocal();
+        const citaInicial = (borrador && borrador.idCita) || inicial.idCita || '';
+
+        let secciones;
+        if (borrador && Array.isArray(borrador.secciones) && borrador.secciones.length) {
+            secciones = borrador.secciones;
+        } else if (notasIniciales) {
+            secciones = notasIniciales.secciones.map((s) => ({ titulo: s.titulo, contenido: s.contenido }));
+            if (notasIniciales.libre) secciones.unshift({ titulo: 'Observaciones', contenido: notasIniciales.libre });
+            if (!secciones.length) secciones = [{ titulo: 'Observaciones', contenido: '' }];
+        } else {
+            secciones = SECCIONES_BASE.map((titulo) => ({ titulo, contenido: '' }));
+        }
+        const duracionPrevia = notasIniciales && notasIniciales.duracion;
+
+        const etiqueta = opciones.titulo
+            || (manual ? (editando ? 'Editar registro de sesión' : 'Registro de una sesión pasada')
+                : (cita ? `Cita #${cita.numero}${cita.fechaTexto ? ` · ${cita.fechaTexto}` : ''}` : 'Atención sin cita previa'));
+
+        const opcionesCita = citasDisponibles.map((c) => `<option value="${escapar(c.id)}" data-fecha="${escapar(c.fecha)}" ${String(c.id) === String(citaInicial) ? 'selected' : ''}>${escapar(c.texto)}</option>`).join('');
+        const campoPsicologo = psicologos && psicologos.length
+            ? `<select class="form-select" id="rsPsicologo">${psicologos.map((p) => `<option value="${escapar(p.id)}" ${String(p.id) === String(inicial.idPsicologo || (psicologo && psicologo.id)) ? 'selected' : ''}>${escapar(p.nombre)}</option>`).join('')}</select>`
+            : `<div class="rs-fijo"><i class="bi bi-person-badge"></i> ${escapar(psicologo ? psicologo.nombre : 'Tu cuenta')}</div>`;
 
         const modalEl = document.createElement('div');
         modalEl.className = 'modal fade registro-sesion-modal';
@@ -172,21 +210,42 @@
                         <div class="d-flex align-items-center gap-3">
                             <div class="student-avatar-badge rs-avatar">${escapar(estudiante.iniciales || '')}</div>
                             <div>
-                                <span class="rs-etiqueta">${cita ? `Cita #${escapar(cita.numero)}${cita.fechaTexto ? ` · ${escapar(cita.fechaTexto)}` : ''}` : 'Atención sin cita previa'}</span>
+                                <span class="rs-etiqueta">${escapar(etiqueta)}</span>
                                 <h4 class="modal-title fw-bold mb-0">${escapar(estudiante.nombre || 'Estudiante')}</h4>
                                 ${estudiante.carnet ? `<small class="text-muted">Carnet ${escapar(estudiante.carnet)}</small>` : ''}
                             </div>
                         </div>
                         <div class="d-flex align-items-center gap-3">
-                            <span class="rs-cronometro" title="Tiempo desde que se abrió la sesión"><span class="rs-punto"></span> En curso · <strong id="rsCronometro">00:00</strong></span>
+                            ${manual
+                                ? `<span class="rs-cronometro manual"><i class="bi bi-journal-text"></i> ${editando ? 'Editando' : 'Registro manual'}</span>`
+                                : '<span class="rs-cronometro" title="Tiempo desde que se abrió la sesión"><span class="rs-punto"></span> En curso · <strong id="rsCronometro">00:00</strong></span>'}
                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                         </div>
                     </div>
                     <div class="modal-body">
                         ${borrador ? '<div class="rs-aviso-borrador"><i class="bi bi-arrow-counterclockwise"></i> Recuperamos lo que habías escrito antes de cerrar.</div>' : ''}
+                        ${manual ? `
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold small" for="rsFecha">Fecha de atención</label>
+                                <input type="date" class="form-control" id="rsFecha" value="${escapar(fechaInicial)}" max="${hoyLocal()}">
+                            </div>
+                            <div class="col-md-5">
+                                <label class="form-label fw-semibold small" for="rsCita">Cita vinculada</label>
+                                <select class="form-select" id="rsCita">
+                                    <option value="">Sin cita (atención directa)</option>
+                                    ${opcionesCita}
+                                </select>
+                                <small class="text-muted" id="rsCitaAyuda"></small>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold small">Psicólogo</label>
+                                ${campoPsicologo}
+                            </div>
+                        </div>` : ''}
                         <div class="row g-3 mb-3">
                             <div class="col-md-5">
-                                <label class="form-label fw-semibold small">Tipo de atención</label>
+                                <label class="form-label fw-semibold small" for="rsTipo">Tipo de atención</label>
                                 <select class="form-select" id="rsTipo">
                                     ${TIPOS_ATENCION.map((t) => `<option ${t === tipoInicial ? 'selected' : ''}>${escapar(t)}</option>`).join('')}
                                     ${TIPOS_ATENCION.includes(tipoInicial) ? '' : `<option selected>${escapar(tipoInicial)}</option>`}
@@ -202,7 +261,7 @@
                                 </div>
                             </div>
                             <div class="col-md-2">
-                                <label class="form-label fw-semibold small">Caso crítico</label>
+                                <label class="form-label fw-semibold small" for="rsCritico">Caso crítico</label>
                                 <div class="form-check form-switch rs-switch">
                                     <input class="form-check-input" type="checkbox" id="rsCritico" ${criticoInicial ? 'checked' : ''}>
                                     <label class="form-check-label small" for="rsCritico">Requiere atención urgente</label>
@@ -210,24 +269,32 @@
                             </div>
                         </div>
 
-                        <div class="d-flex align-items-center justify-content-between mb-2">
+                        <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
                             <h6 class="fw-bold mb-0"><i class="bi bi-journal-text me-1 text-primary"></i> Notas de la sesión</h6>
                             <small class="text-muted">Llena solo las secciones que necesites. Las vacías no se guardan.</small>
                         </div>
                         <div class="rs-secciones" id="rsSecciones">
-                            ${secciones.map((s, i) => tarjetaSeccion(s.titulo, s.contenido, i < SECCIONES_BASE.length)).join('')}
+                            ${secciones.map((s) => tarjetaSeccion(s.titulo, s.contenido, SECCIONES_BASE.includes(s.titulo))).join('')}
                         </div>
                         <div class="rs-agregar">
                             <span class="small text-muted me-1">Agregar sección:</span>
                             ${SECCIONES_SUGERIDAS.map((s) => `<button type="button" class="rs-sugerencia" data-sugerencia="${escapar(s)}"><i class="bi bi-plus"></i> ${escapar(s)}</button>`).join('')}
                             <button type="button" class="rs-sugerencia personalizada" data-sugerencia=""><i class="bi bi-pencil"></i> Personalizada</button>
                         </div>
+                        ${manual ? `
+                        <div class="rs-duracion mt-3">
+                            <label class="form-label fw-semibold small mb-0" for="rsDuracion"><i class="bi bi-stopwatch me-1"></i> Duración aproximada</label>
+                            <div class="input-group input-group-sm">
+                                <input type="number" class="form-control" id="rsDuracion" min="0" max="240" step="5" value="${escapar(String(duracionPrevia || '').replace(/\D/g, '') || '')}" placeholder="30">
+                                <span class="input-group-text">min</span>
+                            </div>
+                        </div>` : ''}
                         <p class="rs-error" id="rsError" hidden></p>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cerrar</button>
                         <button type="button" class="btn btn-primary-custom d-flex align-items-center gap-2" id="rsGuardar">
-                            <i class="bi bi-floppy-fill"></i> Guardar sesión
+                            <i class="bi bi-floppy-fill"></i> ${editando ? 'Guardar cambios' : 'Guardar sesión'}
                         </button>
                     </div>
                 </div>
@@ -239,13 +306,40 @@
         const cronometro = modalEl.querySelector('#rsCronometro');
         const error = modalEl.querySelector('#rsError');
         const botonGuardar = modalEl.querySelector('#rsGuardar');
+        const campoFecha = modalEl.querySelector('#rsFecha');
+        const campoCita = modalEl.querySelector('#rsCita');
+        const ayudaCita = modalEl.querySelector('#rsCitaAyuda');
         let guardado = false;
+        let temporizador = null;
 
-        const actualizarCronometro = () => {
-            cronometro.textContent = formatearCronometro(Math.max(0, Math.floor((Date.now() - inicio) / 1000)));
-        };
-        actualizarCronometro();
-        const temporizador = setInterval(actualizarCronometro, 1000);
+        if (cronometro) {
+            const actualizarCronometro = () => {
+                cronometro.textContent = formatearCronometro(Math.max(0, Math.floor((Date.now() - inicio) / 1000)));
+            };
+            actualizarCronometro();
+            temporizador = setInterval(actualizarCronometro, 1000);
+        }
+
+        // Al cambiar la fecha se propone la cita de ese día (si la hay)
+        function proponerCitaDelDia() {
+            if (!campoCita || !campoFecha) return;
+            const delDia = citasDisponibles.find((c) => c.fecha === campoFecha.value);
+            if (delDia && !campoCita.dataset.manual) campoCita.value = String(delDia.id);
+            if (!delDia && !campoCita.dataset.manual) campoCita.value = '';
+            if (ayudaCita) ayudaCita.textContent = delDia ? '' : 'No hay cita para esa fecha.';
+        }
+        if (campoFecha) {
+            campoFecha.addEventListener('change', proponerCitaDelDia);
+            if (!citaInicial) proponerCitaDelDia();
+        }
+        if (campoCita) {
+            campoCita.addEventListener('change', () => {
+                campoCita.dataset.manual = '1';
+                const elegida = campoCita.selectedOptions[0];
+                if (elegida && elegida.dataset.fecha && campoFecha) campoFecha.value = elegida.dataset.fecha;
+                if (ayudaCita) ayudaCita.textContent = '';
+            });
+        }
 
         function estadoElegido() {
             const activo = modalEl.querySelector('.rs-estado.activo');
@@ -260,15 +354,16 @@
         }
 
         function recordar() {
-            if (!claveBorrador || guardado) return;
+            if (!claveBorrador || guardado || editando) return;
             const datos = leerSecciones();
-            const hayTexto = datos.some((s) => s.contenido.trim());
-            if (!hayTexto) return borrarBorrador(claveBorrador);
+            if (!datos.some((s) => s.contenido.trim())) return borrarBorrador(claveBorrador);
             guardarBorrador(claveBorrador, {
                 inicio,
                 tipo: modalEl.querySelector('#rsTipo').value,
                 estado: estadoElegido(),
                 critico: modalEl.querySelector('#rsCritico').checked,
+                fecha: campoFecha ? campoFecha.value : undefined,
+                idCita: campoCita ? campoCita.value : undefined,
                 secciones: datos
             });
         }
@@ -282,7 +377,6 @@
                     b.classList.toggle('activo', activo);
                     b.setAttribute('aria-checked', String(activo));
                 });
-                if (estadoBtn.dataset.estado === 'Prioritario') modalEl.querySelector('#rsCritico').focus();
                 recordar();
                 return;
             }
@@ -308,46 +402,61 @@
             }
         });
 
+        function mostrarError(texto, campo) {
+            error.textContent = texto;
+            error.hidden = false;
+            if (campo) campo.focus();
+        }
+
         botonGuardar.addEventListener('click', async () => {
             error.hidden = true;
-            const minutos = Math.max(1, Math.round((Date.now() - inicio) / 60000));
-            const notas = componerNotas(leerSecciones(), minutos);
-            if (!leerSecciones().some((s) => s.contenido.trim())) {
-                error.textContent = 'Escribe al menos una sección de notas antes de guardar la sesión.';
-                error.hidden = false;
-                contenedor.querySelector('.rs-seccion-texto').focus();
-                return;
+            const seccionesActuales = leerSecciones();
+            if (!seccionesActuales.some((s) => s.contenido.trim())) {
+                return mostrarError('Escribe al menos una sección de notas antes de guardar la sesión.', contenedor.querySelector('.rs-seccion-texto'));
             }
-            const tipo = modalEl.querySelector('#rsTipo').value;
+            let minutos;
+            if (manual) {
+                if (!campoFecha.value) return mostrarError('Elige la fecha en que se atendió al estudiante.', campoFecha);
+                if (campoFecha.value > hoyLocal()) return mostrarError('La fecha de atención no puede ser futura.', campoFecha);
+                minutos = Number(modalEl.querySelector('#rsDuracion').value) || 0;
+            } else {
+                minutos = Math.max(1, Math.round((Date.now() - inicio) / 60000));
+            }
+            const selectorPsicologo = modalEl.querySelector('#rsPsicologo');
+            const idPsicologo = selectorPsicologo ? selectorPsicologo.value : (psicologo && psicologo.id);
+            if (manual && !idPsicologo) return mostrarError('No se encontró el psicólogo de tu cuenta para registrar la sesión.');
+
             botonGuardar.disabled = true;
             botonGuardar.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Guardando...';
             try {
                 await guardar({
-                    tipoProceso: tipo,
+                    tipoProceso: modalEl.querySelector('#rsTipo').value,
                     estadoEstudiante: estadoElegido(),
                     marcadorCritico: modalEl.querySelector('#rsCritico').checked ? 'SI' : 'NO',
-                    notasAnotaciones: notas
+                    notasAnotaciones: componerNotas(seccionesActuales, minutos),
+                    fechaAtencion: campoFecha ? campoFecha.value : hoyLocal(),
+                    idCita: campoCita && campoCita.value ? Number(campoCita.value) : null,
+                    idPsicologo: idPsicologo ? Number(idPsicologo) : null
                 });
                 guardado = true;
                 if (claveBorrador) borrarBorrador(claveBorrador);
                 modal.hide();
             } catch (e) {
-                error.textContent = (e && e.message) || 'No se pudo guardar la sesión.';
-                error.hidden = false;
+                mostrarError((e && e.message) || 'No se pudo guardar la sesión.');
                 botonGuardar.disabled = false;
-                botonGuardar.innerHTML = '<i class="bi bi-floppy-fill"></i> Guardar sesión';
+                botonGuardar.innerHTML = `<i class="bi bi-floppy-fill"></i> ${editando ? 'Guardar cambios' : 'Guardar sesión'}`;
             }
         });
 
         modalEl.addEventListener('hidden.bs.modal', () => {
-            clearInterval(temporizador);
+            if (temporizador) clearInterval(temporizador);
             recordar();
             modal.dispose();
             modalEl.remove();
         });
         modalEl.addEventListener('shown.bs.modal', () => {
             const primero = contenedor.querySelector('.rs-seccion-texto');
-            if (primero) primero.focus();
+            if (primero && !manual) primero.focus();
         });
 
         modal.show();

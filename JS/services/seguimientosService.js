@@ -35,6 +35,13 @@ const SeguimientosService = {
         return listarTodo('/expedientes');
     },
 
+    abrirExpediente(idEstudiante) {
+        return peticionApi('/expedientes', {
+            method: 'POST',
+            body: JSON.stringify({ estudiante: { idEstudiante: Number(idEstudiante) } })
+        });
+    },
+
     listarEstudiantes() {
         return listarTodo('/estudiantes');
     },

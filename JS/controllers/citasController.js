@@ -267,14 +267,10 @@ document.addEventListener('DOMContentLoaded', () => {
         return { expediente: nuevo, creado: true };
     }
 
-    window.abrirSeguimiento = async function (idEstudiante) {
+    // Seguimiento abre el caso (y lo crea si todavía no existe), así que aquí solo se navega
+    window.abrirSeguimiento = function (idEstudiante) {
         if (!idEstudiante) return;
-        try {
-            await asegurarExpediente(idEstudiante);
-            window.location.href = `seguimientos.html?estudiante=${encodeURIComponent(idEstudiante)}`;
-        } catch (error) {
-            Notif.error(mensajeErrorAmigable(error), 'No se pudo abrir el seguimiento');
-        }
+        window.location.href = `seguimientos.html?estudiante=${encodeURIComponent(idEstudiante)}`;
     };
 
     function estadoCita(cita) {
@@ -1168,7 +1164,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     psicologo: { idPsicologo: Number(cita.psicologo?.idPsicologo ?? idPsicologoPorDefecto()) },
                     cita: { idCita: Number(id) },
                     fechaAtencion: fechaCita(cita),
-                    ...datos
+                    tipoProceso: datos.tipoProceso,
+                    estadoEstudiante: datos.estadoEstudiante,
+                    marcadorCritico: datos.marcadorCritico,
+                    notasAnotaciones: datos.notasAnotaciones
                 });
                 if (estadoCita(cita) !== 'REALIZADA') {
                     try {

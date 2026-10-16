@@ -8,6 +8,10 @@ document.addEventListener('DOMContentLoaded', () => {
         apiDisponible: false,
         expedienteSeleccionado: null,
         sesionEnEdicion: null,
+        sesionesCargadas: false,
+        filtroCaso: '',
+        ordenCasos: 'actividad',
+        historial: { texto: '', tipo: '', estado: '', orden: 'recientes' },
         citas: [],
         usuarioSesion: null
     };
@@ -37,60 +41,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (fechaISO === hoy) return 'Hoy';
         if (fechaISO === ayerISO) return 'Ayer';
         return formatearFechaDisplay(fechaISO);
-    }
-
-    function buscarCitaDelDia(fechaISO) {
-        const idEstudiante = estado.expedienteSeleccionado?.estudiante?.idEstudiante;
-        if (!idEstudiante || !fechaISO) return null;
-        const idPsicologo = Number(el('psicologoCitaSeg')?.value) || null;
-
-        return estado.citas
-            .filter(c => Number(c.estudiante?.idEstudiante) === Number(idEstudiante))
-            .filter(c => fechaDeCita(c) === fechaISO)
-            .filter(c => String(c.estadoConfirmacion ?? c.estado ?? '').toUpperCase() !== 'CANCELADA')
-            .sort((a, b) => {
-                const mismoA = Number(a.psicologo?.idPsicologo) === idPsicologo ? 0 : 1;
-                const mismoB = Number(b.psicologo?.idPsicologo) === idPsicologo ? 0 : 1;
-                return mismoA - mismoB || horaDeCita(a).localeCompare(horaDeCita(b));
-            })[0] || null;
-    }
-
-    function actualizarAyudaFecha() {
-        const ayuda = el('fechaCitaSegAyuda');
-        if (ayuda) ayuda.textContent = describirFecha(el('fechaCitaSeg')?.value);
-    }
-
-    function autocompletarCita() {
-        const campo = el('citaVinculadaSeg');
-        const ayuda = el('citaVinculadaSegAyuda');
-        if (!campo || campo.dataset.manual === '1') return;
-
-        const fecha = el('fechaCitaSeg')?.value;
-        const cita = buscarCitaDelDia(fecha);
-        campo.value = cita ? `CIT-${cita.idCita}` : '';
-        if (ayuda) {
-            const dia = describirFecha(fecha).toLowerCase();
-            ayuda.textContent = cita
-                ? `Cita de ${dia === 'hoy' || dia === 'ayer' ? dia : `el ${dia}`}${horaDeCita(cita) ? ` a las ${horaDeCita(cita)}` : ''}`
-                : 'No hay cita registrada para esta fecha';
-        }
-    }
-
-    function prepararNuevoRegistro() {
-        const fechaInput = el('fechaCitaSeg');
-        if (fechaInput && !fechaInput.value) fechaInput.value = SeguimientosValidaciones.hoyLocal();
-
-        const idPropio = idPsicologoDeSesion();
-        const select = el('psicologoCitaSeg');
-        if (select && idPropio && select.querySelector(`option[value="${idPropio}"]`)) {
-            select.value = String(idPropio);
-        }
-
-        const campoCita = el('citaVinculadaSeg');
-        if (campoCita) delete campoCita.dataset.manual;
-
-        actualizarAyudaFecha();
-        autocompletarCita();
     }
 
     const MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
@@ -199,41 +149,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return error.message || 'Ocurrió un error inesperado.';
     }
 
-    function limpiarErrores() {
-        document.querySelectorAll('#formNuevoRegistro .is-invalid')
-            .forEach(c => c.classList.remove('is-invalid'));
-        document.querySelectorAll('#formNuevoRegistro .invalid-feedback')
-            .forEach(fb => fb.remove());
-    }
-
-    function mostrarErrores(errores) {
-        const mapa = {
-            fecha: 'fechaCitaSeg',
-            proceso: 'procesoCitaSeg',
-            observaciones: 'observacionCitaSeg',
-            estado: 'estadoCitaSeg',
-            psicologo: 'psicologoCitaSeg',
-            cita: 'citaVinculadaSeg'
-        };
-
-        Object.entries(errores).forEach(([campo, mensaje]) => {
-            const id = mapa[campo];
-            if (!id) return;
-            const campoEl = el(id);
-            if (!campoEl) return;
-
-            campoEl.classList.add('is-invalid');
-            let fb = campoEl.nextElementSibling;
-            if (!fb || !fb.classList.contains('invalid-feedback')) {
-                fb = document.createElement('div');
-                fb.className = 'invalid-feedback';
-                campoEl.parentNode.insertBefore(fb, campoEl.nextSibling);
-            }
-            fb.textContent = mensaje;
-        });
-    }
-
-
     function esMiEstudiante(est) {
         if (!estado.misEstudiantes) return true;
         return estado.misEstudiantes.has(Number(est.idEstudiante));
@@ -252,36 +167,100 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    const COLORES_CASO = ['#2F6DF6', '#059669', '#7C3AED', '#DB2777', '#D97706', '#0891B2', '#4F46E5', '#DC2626'];
+
+    function sesionesDe(idExpediente) {
+        return estado.sesiones
+            .filter(s => Number(s.expediente?.idExpediente) === Number(idExpediente))
+            .slice()
+            .sort((a, b) => String(a.fechaAtencion ?? '').localeCompare(String(b.fechaAtencion ?? '')) || (a.idSesion - b.idSesion));
+    }
+
+    function proximaCitaDe(idEstudiante) {
+        const ahora = new Date();
+        return estado.citas
+            .filter(c => Number(c.estudiante?.idEstudiante) === Number(idEstudiante))
+            .filter(c => ['PENDIENTE', 'CONFIRMADA'].includes(String(c.estadoConfirmacion ?? '').toUpperCase()))
+            .filter(c => new Date(c.fechaHoraCita) >= ahora)
+            .sort((a, b) => String(a.fechaHoraCita).localeCompare(String(b.fechaHoraCita)))[0] || null;
+    }
+
+    function haceCuanto(fechaISO) {
+        if (!fechaISO) return '';
+        const dias = Math.round((new Date(SeguimientosValidaciones.hoyLocal() + 'T00:00:00') - new Date(String(fechaISO).split('T')[0] + 'T00:00:00')) / 86400000);
+        if (dias <= 0) return 'hoy';
+        if (dias === 1) return 'ayer';
+        if (dias < 30) return `hace ${dias} días`;
+        const meses = Math.round(dias / 30);
+        return meses === 1 ? 'hace 1 mes' : `hace ${meses} meses`;
+    }
+
+    function resumenCaso(exp) {
+        const sesiones = sesionesDe(exp.idExpediente);
+        const ultima = sesiones[sesiones.length - 1] || null;
+        return {
+            exp,
+            est: exp.estudiante || {},
+            total: sesiones.length,
+            ultima,
+            critico: ultima?.marcadorCritico === 'SI',
+            estadoCaso: estadoDeTarjeta(exp),
+            proxima: proximaCitaDe(exp.estudiante?.idEstudiante)
+        };
+    }
+
+    function coincideCaso(caso, texto) {
+        if (!texto) return true;
+        const est = caso.est;
+        return [est.nombres, est.apellidos, `${est.nombres || ''} ${est.apellidos || ''}`, est.codigoCarnet,
+            est.grado?.nombreGrado, est.seccion?.nombreSeccion, est.especialidad?.nombreEspecialidad]
+            .some(v => String(v || '').toLowerCase().includes(texto));
+    }
+
     function renderListaEstudiantes() {
         const contenedor = el('listaEstudiantesSeguimiento');
         const noResults = el('noResultsSeguimiento');
         const buscador = el('buscarSeguimientoInput');
-
         if (!contenedor) return;
         contenedor.innerHTML = '';
 
         const texto = buscador ? buscador.value.toLowerCase().trim() : '';
-
         const exps = typeof normalizarListado === 'function' ? normalizarListado(estado.expedientes) : (Array.isArray(estado.expedientes) ? estado.expedientes : (estado.expedientes?.content || []));
-        let lista = exps.filter(exp => exp.estudiante && esMiEstudiante(exp.estudiante));
+        const casos = exps.filter(exp => exp.estudiante && esMiEstudiante(exp.estudiante)).map(resumenCaso);
 
-        if (texto) {
-            lista = lista.filter(exp => {
-                const est = exp.estudiante || {};
-                return (est.nombres || '').toLowerCase().includes(texto) ||
-                    (est.apellidos || '').toLowerCase().includes(texto) ||
-                    (est.codigoCarnet || '').toLowerCase().includes(texto) ||
-                    (est.grado?.nombreGrado || '').toLowerCase().includes(texto) ||
-                    (est.especialidad?.nombreEspecialidad || '').toLowerCase().includes(texto);
-            });
-        }
+        const contar = (fn) => casos.filter(fn).length;
+        const contadores = {
+            Todos: casos.length,
+            Prioritario: contar(c => c.estadoCaso === 'Prioritario'),
+            Seguimiento: contar(c => c.estadoCaso === 'Seguimiento'),
+            Estable: contar(c => c.estadoCaso === 'Estable'),
+            Critico: contar(c => c.critico)
+        };
+        Object.entries(contadores).forEach(([clave, valor]) => {
+            const span = el(`contadorCasos${clave}`);
+            if (span) span.textContent = valor;
+        });
+
+        const filtro = estado.filtroCaso;
+        let lista = casos
+            .filter(c => coincideCaso(c, texto))
+            .filter(c => !filtro || (filtro === 'critico' ? c.critico : c.estadoCaso === filtro));
+
+        const peso = { Prioritario: 0, Seguimiento: 1, Estable: 2 };
+        const criterios = {
+            actividad: (a, b) => String(b.ultima?.fechaAtencion ?? '').localeCompare(String(a.ultima?.fechaAtencion ?? '')) || (b.ultima?.idSesion ?? 0) - (a.ultima?.idSesion ?? 0),
+            prioridad: (a, b) => (b.critico - a.critico) || (peso[a.estadoCaso] ?? 3) - (peso[b.estadoCaso] ?? 3),
+            nombre: (a, b) => `${a.est.apellidos} ${a.est.nombres}`.localeCompare(`${b.est.apellidos} ${b.est.nombres}`, 'es'),
+            cita: (a, b) => String(a.proxima?.fechaHoraCita ?? '9999').localeCompare(String(b.proxima?.fechaHoraCita ?? '9999'))
+        };
+        lista.sort(criterios[estado.ordenCasos] || criterios.actividad);
 
         if (lista.length === 0) {
             if (noResults) {
                 const mensaje = noResults.querySelector('p');
                 if (mensaje) {
-                    mensaje.textContent = texto
-                        ? 'No se encontraron estudiantes en seguimiento que coincidan con la búsqueda.'
+                    mensaje.textContent = texto || filtro
+                        ? 'No hay casos que coincidan con la búsqueda o el filtro.'
                         : estado.misEstudiantes
                             ? 'Aún no tienes estudiantes a tu cargo. Cuando agendes una cita a un estudiante, su caso aparecerá aquí.'
                             : 'Todavía no hay casos en seguimiento.';
@@ -292,34 +271,40 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (noResults) noResults.classList.add('d-none');
 
-        lista.forEach((exp) => {
-            const est = exp.estudiante || {};
+        lista.forEach((caso) => {
+            const { est, total, ultima, critico, estadoCaso, proxima } = caso;
             const col = document.createElement('div');
-            col.className = 'col-12 col-lg-6';
-
-            const iniciales = obtenerIniciales(est.nombres, est.apellidos);
-            const badgeHTML = generarBadgeEstado(estadoDeTarjeta(exp));
+            col.className = 'col-12 col-lg-6 col-xxl-4';
+            const color = COLORES_CASO[Number(est.idEstudiante || 0) % COLORES_CASO.length];
+            const [fechaProxima, horaProxima = ''] = proxima ? String(proxima.fechaHoraCita).split('T') : [];
+            const proximaTexto = proxima ? formatearFechaDisplay(fechaProxima).replace(/\s\d{4}$/, '') : '';
 
             col.innerHTML = `
-                <div class="card p-3 card-estudiante-item h-100 d-flex flex-column justify-content-between">
-                    <div class="d-flex align-items-start gap-3 mb-3">
-                        <div class="student-avatar-large">${iniciales}</div>
-                        <div class="flex-grow-1 min-w-0">
-                            <h5 class="mb-1 fw-bold text-dark text-truncate">${escapeHTML(nombreEstudiante(est))}</h5>
-                            <div class="small text-muted mb-2">
-                                <span>${escapeHTML(est.grado?.nombreGrado ?? 'Sin grado')} "${escapeHTML(est.seccion?.nombreSeccion ?? '—')}"</span> &bull;
-                                <span>Carnet: <strong class="text-dark">${escapeHTML(est.codigoCarnet ?? '')}</strong></span>
-                            </div>
-                            <div class="d-flex align-items-center gap-2 flex-wrap">
-                                <span class="badge bg-light text-secondary border">${escapeHTML(est.especialidad?.nombreEspecialidad ?? 'General')}</span>
-                                ${badgeHTML}
-                            </div>
+                <div class="caso-card estado-${estadoCaso.toLowerCase()}${critico ? ' critico' : ''}" role="button" tabindex="0"
+                     onclick="abrirDetalleEstudiante(${est.idEstudiante})"
+                     onkeydown="if(event.key==='Enter'){abrirDetalleEstudiante(${est.idEstudiante})}"
+                     aria-label="Abrir el seguimiento de ${escapeHTML(nombreEstudiante(est))}">
+                    <div class="caso-card-cabecera">
+                        <div class="caso-avatar" style="background:${color}">${obtenerIniciales(est.nombres, est.apellidos)}</div>
+                        <div class="caso-identidad">
+                            <h5 class="caso-nombre">${escapeHTML(nombreEstudiante(est))}</h5>
+                            <span class="caso-sub">${escapeHTML(est.grado?.nombreGrado ?? 'Sin grado')} "${escapeHTML(est.seccion?.nombreSeccion ?? '—')}" · Carnet ${escapeHTML(est.codigoCarnet ?? '')}</span>
                         </div>
+                        ${generarBadgeEstado(estadoCaso)}
                     </div>
-                    <div class="pt-2 border-top">
-                        <button class="btn-ver-seguimiento w-100 justify-content-center" onclick="abrirDetalleEstudiante(${est.idEstudiante})">
-                            <i class="bi bi-journal-text"></i> Ver seguimiento
-                        </button>
+                    <div class="caso-etiquetas">
+                        <span class="caso-especialidad">${escapeHTML(est.especialidad?.nombreEspecialidad ?? 'General')}</span>
+                        ${critico ? '<span class="caso-alerta"><i class="bi bi-exclamation-triangle-fill"></i> Caso crítico</span>' : ''}
+                    </div>
+                    <div class="caso-datos">
+                        <div><i class="bi bi-journal-text"></i><strong>${total}</strong><span>${total === 1 ? 'sesión' : 'sesiones'}</span></div>
+                        <div><i class="bi bi-clock-history"></i><strong>${ultima ? escapeHTML(haceCuanto(ultima.fechaAtencion)) : '—'}</strong><span>última sesión</span></div>
+                        <div class="${proxima ? 'con-cita' : ''}"><i class="bi bi-calendar-event"></i><strong>${proxima ? escapeHTML(proximaTexto) : 'Sin cita'}</strong><span>${proxima ? `cita · ${escapeHTML(horaProxima.slice(0, 5))}` : 'próxima cita'}</span></div>
+                    </div>
+                    ${ultima ? `<p class="caso-ultima-nota"><i class="bi bi-chat-left-quote"></i> ${escapeHTML(RegistroSesion.resumenNotas(ultima.notasAnotaciones, 110))}</p>` : '<p class="caso-ultima-nota vacia">Todavía no hay sesiones registradas.</p>'}
+                    <div class="caso-pie">
+                        <span>Ver seguimiento</span>
+                        <i class="bi bi-arrow-right"></i>
                     </div>
                 </div>
             `;
@@ -328,10 +313,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
-    async function cargarSesionesExpediente(idExpediente) {
+    async function cargarSesionesExpediente() {
         try {
             const sesiones = await SeguimientosService.listar();
             estado.sesiones = Array.isArray(sesiones) ? sesiones : [];
+            estado.sesionesCargadas = true;
         } catch (error) {
             estado.sesiones = [];
             Notif.error(mensajeErrorAmigable(error), 'No se pudo cargar el historial de sesiones');
@@ -357,7 +343,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const elBadge = el('detBadgeEstado');
         const elResumen = el('resumenCasoTextarea');
 
-        await cargarSesionesExpediente(expediente.idExpediente);
+        mostrarVista('cargando');
+        if (!estado.sesionesCargadas) await cargarSesionesExpediente();
         const ultimaSesion = obtenerUltimaSesion(expediente.idExpediente);
 
         if (elNombre) elNombre.textContent = nombreEstudiante(est);
@@ -378,40 +365,24 @@ document.addEventListener('DOMContentLoaded', () => {
             elBadge.innerHTML = generarBadgeEstado(estadoDeTarjeta(expediente));
         }
 
-        cargarSelectorPsicologo(idPsicologoDeSesion() ?? ultimaSesion?.psicologo?.idPsicologo);
+        estado.historial = { texto: '', tipo: '', estado: '', orden: 'recientes' };
+        [['buscarHistorialInput', ''], ['filtroHistorialTipo', ''], ['filtroHistorialEstado', ''], ['ordenHistorial', 'recientes']]
+            .forEach(([id, valor]) => { if (el(id)) el(id).value = valor; });
         renderTablaHistorial();
-
-        const vistaLista = el('vista-lista-estudiantes');
-        const vistaDetalle = el('vista-detalle-estudiante');
-        if (vistaLista && vistaDetalle) {
-            vistaLista.classList.add('d-none');
-            vistaDetalle.classList.remove('d-none');
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
+        mostrarVista('detalle');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    function volverALista() {
-        const vistaLista = el('vista-lista-estudiantes');
-        const vistaDetalle = el('vista-detalle-estudiante');
-        if (vistaLista && vistaDetalle) {
-            vistaDetalle.classList.add('d-none');
-            vistaLista.classList.remove('d-none');
-        }
-        estado.expedienteSeleccionado = null;
+    function mostrarVista(nombre) {
+        el('vista-lista-estudiantes')?.classList.toggle('d-none', nombre !== 'lista');
+        el('vista-cargando-caso')?.classList.toggle('d-none', nombre !== 'cargando');
+        el('vista-detalle-estudiante')?.classList.toggle('d-none', nombre !== 'detalle');
     }
 
-    function cargarSelectorPsicologo(idSeleccionado = '') {
-        const select = el('psicologoCitaSeg');
-        if (!select) return;
-
-        select.innerHTML = '<option value="">Seleccionar psicólogo</option>';
-        estado.psicologos.forEach(psi => {
-            const opt = document.createElement('option');
-            opt.value = psi.idPsicologo;
-            opt.textContent = nombrePsicologo(psi);
-            if (String(idSeleccionado) === String(psi.idPsicologo)) opt.selected = true;
-            select.appendChild(opt);
-        });
+    function volverALista() {
+        mostrarVista('lista');
+        estado.expedienteSeleccionado = null;
+        renderListaEstudiantes();
     }
 
     function renderTablaHistorial() {
@@ -419,17 +390,33 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!tbody || !estado.expedienteSeleccionado) return;
         tbody.innerHTML = '';
 
-        const sesiones = estado.sesiones
-            .filter(s => Number(s.expediente?.idExpediente) === Number(estado.expedienteSeleccionado.idExpediente))
-            .slice()
-            .sort((a, b) => String(b.fechaAtencion ?? '').localeCompare(String(a.fechaAtencion ?? '')) || (b.idSesion - a.idSesion));
+        const cronologicas = sesionesDe(estado.expedienteSeleccionado.idExpediente);
+        const numero = new Map(cronologicas.map((s, i) => [s.idSesion, i + 1]));
+        const { texto, tipo, estado: estadoFiltro, orden } = estado.historial;
+        const busqueda = texto.toLowerCase().trim();
+
+        const sesiones = cronologicas
+            .filter(s => !busqueda || `${s.tipoProceso || ''} ${RegistroSesion.resumenNotas(s.notasAnotaciones, 5000)}`.toLowerCase().includes(busqueda))
+            .filter(s => !tipo
+                || (tipo === 'con_cita' && s.cita?.idCita)
+                || (tipo === 'sin_cita' && !s.cita?.idCita)
+                || (tipo === 'critico' && s.marcadorCritico === 'SI'))
+            .filter(s => !estadoFiltro || s.estadoEstudiante === estadoFiltro);
+        if (orden !== 'antiguas') sesiones.reverse();
+
+        const contador = el('contadorHistorial');
+        if (contador) {
+            contador.textContent = sesiones.length === cronologicas.length
+                ? `${cronologicas.length} ${cronologicas.length === 1 ? 'sesión' : 'sesiones'}`
+                : `${sesiones.length} de ${cronologicas.length} sesiones`;
+        }
 
         if (sesiones.length === 0) {
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td colspan="6" class="text-center text-muted py-4">
                     <i class="bi bi-clock-history fs-3 d-block mb-2 opacity-50"></i>
-                    Sin sesiones registradas para este estudiante.
+                    ${cronologicas.length ? 'No hay sesiones que coincidan con el filtro.' : 'Sin sesiones registradas para este estudiante.'}
                 </td>
             `;
             tbody.appendChild(tr);
@@ -438,14 +425,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         sesiones.forEach(s => {
             const tr = document.createElement('tr');
-            const badgeHTML = generarBadgeEstado(s.estadoEstudiante);
+            if (s.marcadorCritico === 'SI') tr.classList.add('sesion-critica');
             const criticoHTML = s.marcadorCritico === 'SI'
                 ? '<span class="badge bg-danger text-white"><i class="bi bi-exclamation-triangle-fill me-1"></i>Crítico</span>'
                 : '<span class="badge bg-light text-muted border">Regular</span>';
 
             tr.innerHTML = `
-                <td class="text-nowrap fw-semibold text-muted">
-                    <i class="bi bi-calendar3 me-1"></i>${escapeHTML(formatearFechaDisplay(s.fechaAtencion))}
+                <td class="text-nowrap">
+                    <span class="sesion-numero">Sesión ${numero.get(s.idSesion)}</span>
+                    <div class="fw-semibold text-muted small"><i class="bi bi-calendar3 me-1"></i>${escapeHTML(formatearFechaDisplay(s.fechaAtencion))}</div>
                 </td>
                 <td>
                     <div class="fw-bold text-dark">${escapeHTML(s.tipoProceso ?? '')}</div>
@@ -453,16 +441,22 @@ document.addEventListener('DOMContentLoaded', () => {
                     <small class="text-muted"><i class="bi bi-person me-1"></i>${escapeHTML(nombrePsicologo(s.psicologo))}</small>
                 </td>
                 <td>
-                    <span class="d-inline-block text-truncate" style="max-width: 250px;" title="${escapeHTML(RegistroSesion.resumenNotas(s.notasAnotaciones, 400))}">
+                    <span class="d-inline-block text-truncate" style="max-width: 280px;" title="${escapeHTML(RegistroSesion.resumenNotas(s.notasAnotaciones, 400))}">
                         ${escapeHTML(RegistroSesion.resumenNotas(s.notasAnotaciones))}
                     </span>
                 </td>
-                <td>${badgeHTML}</td>
+                <td>${generarBadgeEstado(s.estadoEstudiante)}</td>
                 <td class="text-center">${criticoHTML}</td>
                 <td class="text-center">
                     <div class="acciones">
                         <button class="btn-accion btn-ver" title="Ver detalle de la sesión" onclick="verDetalleSesion(${s.idSesion})">
                             <i class="bi bi-eye"></i>
+                        </button>
+                        <button class="btn-accion btn-editar" title="Editar la sesión" onclick="abrirEditarSesion(${s.idSesion})">
+                            <i class="bi bi-pencil-square"></i>
+                        </button>
+                        <button class="btn-accion btn-eliminar" title="Eliminar la sesión" onclick="eliminarSesion(${s.idSesion})">
+                            <i class="bi bi-trash3"></i>
                         </button>
                     </div>
                 </td>
@@ -531,33 +525,108 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
 
-    window.abrirEditarSesion = function (idSesion) {
-        const s = estado.sesiones.find(item => Number(item.idSesion) === Number(idSesion));
-        if (!s) return;
+    function psicologoDeLaCuenta() {
+        const id = idPsicologoDeSesion();
+        const psi = id ? estado.psicologos.find(p => Number(p.idPsicologo) === Number(id)) : null;
+        return psi ? { id: psi.idPsicologo, nombre: nombrePsicologo(psi) } : null;
+    }
 
-        estado.sesionEnEdicion = s.idSesion;
+    function opcionesPsicologoParaRegistro(idActual) {
+        const propio = psicologoDeLaCuenta();
+        if (propio) return { psicologo: propio, psicologos: null };
+        // El administrador no tiene psicólogo propio: elige a quién atribuir la sesión
+        const lista = estado.psicologos.map(p => ({ id: p.idPsicologo, nombre: nombrePsicologo(p) }));
+        const actual = lista.find(p => Number(p.id) === Number(idActual)) || lista[0] || null;
+        return { psicologo: actual, psicologos: lista };
+    }
 
-        const titulo = document.querySelector('#modalNuevoRegistroLabel span');
-        if (titulo) titulo.textContent = 'Editar Registro de Sesión';
+    function citasParaVincular(idEstudiante) {
+        const ahora = new Date();
+        return estado.citas
+            .filter(c => Number(c.estudiante?.idEstudiante) === Number(idEstudiante))
+            .filter(c => String(c.estadoConfirmacion ?? '').toUpperCase() !== 'CANCELADA')
+            .filter(c => new Date(c.fechaHoraCita) <= ahora)
+            .sort((a, b) => String(b.fechaHoraCita).localeCompare(String(a.fechaHoraCita)))
+            .map(c => {
+                const fecha = fechaDeCita(c);
+                return { id: c.idCita, fecha, texto: `Cita #${c.idCita} · ${formatearFechaDisplay(fecha)} · ${horaDeCita(c)}` };
+            });
+    }
 
-        const fechaInput = el('fechaCitaSeg');
-        if (fechaInput) fechaInput.value = formatearFechaISO(s.fechaAtencion);
-        if (el('estadoCitaSeg')) el('estadoCitaSeg').value = s.estadoEstudiante || 'Seguimiento';
-        if (el('psicologoCitaSeg')) el('psicologoCitaSeg').value = s.psicologo?.idPsicologo ?? '';
-        if (el('marcadorCriticoSeg')) el('marcadorCriticoSeg').value = s.marcadorCritico || 'NO';
-        if (el('citaVinculadaSeg')) {
-            el('citaVinculadaSeg').value = s.cita?.idCita ? `CIT-${s.cita.idCita}` : '';
-            el('citaVinculadaSeg').dataset.manual = '1';
+    async function trasGuardarSesion(mensaje) {
+        const expediente = estado.expedienteSeleccionado;
+        await cargarSesionesExpediente();
+        renderTablaHistorial();
+        renderListaEstudiantes();
+        const badge = el('detBadgeEstado');
+        if (badge && expediente) {
+            badge.className = '';
+            badge.innerHTML = generarBadgeEstado(estadoDeTarjeta(expediente));
         }
-        if (el('citaVinculadaSegAyuda')) el('citaVinculadaSegAyuda').textContent = '';
-        actualizarAyudaFecha();
-        if (el('procesoCitaSeg')) el('procesoCitaSeg').value = s.tipoProceso || '';
-        if (el('observacionCitaSeg')) el('observacionCitaSeg').value = s.notasAnotaciones || '';
+        Notif.exito(mensaje, 'Seguimiento actualizado');
+    }
 
-        const modal = bootstrap.Modal.getOrCreateInstance(el('modalNuevoRegistro'));
-        modal.show();
+    function abrirRegistroManual(sesionExistente) {
+        const expediente = estado.expedienteSeleccionado;
+        if (!expediente) {
+            Notif.informar('Selecciona primero un estudiante.');
+            return;
+        }
+        const est = expediente.estudiante || {};
+        const editando = Boolean(sesionExistente);
+        const { psicologo, psicologos } = opcionesPsicologoParaRegistro(sesionExistente?.psicologo?.idPsicologo);
+        if (!psicologo) {
+            Notif.advertencia('No se encontró el psicólogo de tu cuenta para registrar la sesión.', 'Falta el psicólogo');
+            return;
+        }
+        const citas = citasParaVincular(est.idEstudiante);
+        const citaActual = sesionExistente?.cita?.idCita;
+        if (citaActual && !citas.some(c => Number(c.id) === Number(citaActual))) {
+            citas.unshift({ id: citaActual, fecha: formatearFechaISO(sesionExistente.fechaAtencion), texto: `Cita #${citaActual}` });
+        }
+
+        RegistroSesion.abrir({
+            modo: 'manual',
+            estudiante: { nombre: nombreEstudiante(est), carnet: est.codigoCarnet, iniciales: obtenerIniciales(est.nombres, est.apellidos) },
+            psicologo,
+            psicologos,
+            citasDisponibles: citas,
+            estadoInicial: estadoDeTarjeta(expediente) || 'Seguimiento',
+            claveBorrador: editando ? null : `manual_${expediente.idExpediente}`,
+            inicial: editando ? {
+                fecha: formatearFechaISO(sesionExistente.fechaAtencion),
+                idCita: citaActual || '',
+                tipo: sesionExistente.tipoProceso,
+                estado: sesionExistente.estadoEstudiante,
+                critico: sesionExistente.marcadorCritico === 'SI',
+                notas: sesionExistente.notasAnotaciones || '',
+                idPsicologo: sesionExistente.psicologo?.idPsicologo
+            } : {},
+            guardar: async (datos) => {
+                const payload = {
+                    expediente: { idExpediente: Number(expediente.idExpediente) },
+                    psicologo: { idPsicologo: Number(datos.idPsicologo || psicologo.id) },
+                    fechaAtencion: datos.fechaAtencion,
+                    tipoProceso: datos.tipoProceso,
+                    estadoEstudiante: datos.estadoEstudiante,
+                    marcadorCritico: datos.marcadorCritico,
+                    notasAnotaciones: datos.notasAnotaciones
+                };
+                if (datos.idCita) payload.cita = { idCita: Number(datos.idCita) };
+                if (editando) {
+                    await SeguimientosService.actualizar(sesionExistente.idSesion, payload);
+                } else {
+                    await SeguimientosService.crear(payload);
+                }
+                await trasGuardarSesion(editando ? 'Los cambios de la sesión se guardaron.' : 'La sesión quedó registrada en el seguimiento del caso.');
+            }
+        });
+    }
+
+    window.abrirEditarSesion = function (idSesion) {
+        const sesion = estado.sesiones.find(item => Number(item.idSesion) === Number(idSesion));
+        if (sesion) abrirRegistroManual(sesion);
     };
-
 
     window.eliminarSesion = async function (idSesion) {
         const confirmado = await Notif.confirmarEliminar(
@@ -787,27 +856,6 @@ REGLAS ESTRICTAS DE FORMATO Y EXTENSIÓN:
     }
 
 
-    function extraerIdCita(textoCita) {
-        const match = String(textoCita ?? '').match(/\d+/);
-        return match ? parseInt(match[0], 10) : null;
-    }
-
-    function restaurarTituloModal() {
-        const titulo = document.querySelector('#modalNuevoRegistroLabel span');
-        if (titulo) titulo.textContent = 'Agregar Registro de Sesión';
-    }
-
-    function resetearFormulario() {
-        const form = el('formNuevoRegistro');
-        if (form) form.reset();
-        const fechaInput = el('fechaCitaSeg');
-        if (fechaInput) fechaInput.value = SeguimientosValidaciones.hoyLocal();
-        limpiarErrores();
-        estado.sesionEnEdicion = null;
-        restaurarTituloModal();
-        prepararNuevoRegistro();
-    }
-
     async function recargarSesiones() {
         try {
             estado.sesiones = (await SeguimientosService.listar()) ?? [];
@@ -816,106 +864,26 @@ REGLAS ESTRICTAS DE FORMATO Y EXTENSIÓN:
         }
     }
 
-    async function manejarSubmitRegistro(e) {
-        e.preventDefault();
-        limpiarErrores();
-
-        if (!estado.expedienteSeleccionado) {
-            Notif.informar('Seleccione primero un estudiante para registrar su seguimiento.');
-            return;
-        }
-
-        const datos = {
-            idExpediente: estado.expedienteSeleccionado.idExpediente,
-            fecha: el('fechaCitaSeg').value,
-            estado: el('estadoCitaSeg').value,
-            idPsicologo: el('psicologoCitaSeg').value,
-            marcadorCritico: el('marcadorCriticoSeg').value,
-            citaTexto: el('citaVinculadaSeg').value,
-            proceso: el('procesoCitaSeg').value.trim(),
-            observaciones: el('observacionCitaSeg').value.trim()
-        };
-
-        const validacion = SeguimientosValidaciones.validarSeguimiento(datos);
-        if (!validacion.valido) {
-            mostrarErrores(validacion.errores);
-            return;
-        }
-        
-        const btnSubmit = e.target.querySelector('button[type="submit"]');
-        if (btnSubmit) {
-            btnSubmit.disabled = true;
-            btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Guardando...';
-        }
-
-        const idCita = extraerIdCita(datos.citaTexto);
-        const payload = {
-            expediente: { idExpediente: Number(datos.idExpediente) },
-            psicologo: { idPsicologo: Number(datos.idPsicologo) },
-            fechaAtencion: formatearFechaISO(datos.fecha),
-            tipoProceso: datos.proceso,
-            estadoEstudiante: datos.estado,
-            notasAnotaciones: datos.observaciones,
-            marcadorCritico: datos.marcadorCritico
-        };
-        
-        if (idCita) {
-            payload.cita = { idCita: idCita };
-        }
-
-        try {
-            if (estado.sesionEnEdicion) {
-                await SeguimientosService.actualizar(estado.sesionEnEdicion, payload);
-            } else {
-                await SeguimientosService.crear(payload);
-            }
-
-            if (estado.expedienteSeleccionado) {
-                await cargarSesionesExpediente(estado.expedienteSeleccionado.idExpediente);
-            }
-
-            resetearFormulario();
-
-            if (document.activeElement) {
-                document.activeElement.blur();
-            }
-            const modal = bootstrap.Modal.getInstance(el('modalNuevoRegistro'));
-            if (modal) modal.hide();
-
-            renderTablaHistorial();
-            renderListaEstudiantes();
-
-            const badge = el('detBadgeEstado');
-            if (badge && estado.expedienteSeleccionado) {
-                badge.className = '';
-                badge.innerHTML = generarBadgeEstado(estadoDeTarjeta(estado.expedienteSeleccionado));
-            }
-
-            Notif.exito('¡Registro de sesión guardado exitosamente!');
-        } catch (error) {
-            Notif.error(mensajeErrorAmigable(error), 'No se pudo guardar el registro');
-        } finally {
-            if (btnSubmit) {
-                btnSubmit.disabled = false;
-                btnSubmit.innerHTML = '<i class="bi bi-check-lg"></i> Guardar Registro';
-            }
-        }
-    }
-
-
     async function cargarDatos() {
+        const idEstudianteUrl = Number(new URLSearchParams(window.location.search).get('estudiante')) || null;
+        // Si vienen desde Citas o Estudiantes se muestra de una vez que se está abriendo el caso, no la lista general
+        if (idEstudianteUrl) mostrarVista('cargando');
+
+        // Todo se pide a la vez; psicólogos y citas pueden terminar después sin bloquear la apertura del caso
+        const pendientesSecundarios = Promise.all([
+            SeguimientosService.listarPsicologos().catch(() => []),
+            SeguimientosService.listarCitas().catch(() => [])
+        ]);
+        const sesionesListas = cargarSesionesExpediente();
+
         try {
-            const [expedientes, psicologos, citas, usuario] = await Promise.all([
+            const [expedientes, usuario] = await Promise.all([
                 SeguimientosService.listarExpedientes(),
-                SeguimientosService.listarPsicologos(),
-                SeguimientosService.listarCitas().catch(() => []),
                 typeof verificarSesion === 'function' ? verificarSesion() : Promise.resolve(null)
             ]);
             estado.expedientes = expedientes ?? [];
-            estado.psicologos = psicologos ?? [];
-            estado.citas = citas ?? [];
             estado.usuarioSesion = usuario;
-            await cargarMisEstudiantes(usuario);
+            await Promise.all([cargarMisEstudiantes(usuario), sesionesListas]);
             estado.apiDisponible = true;
         } catch (error) {
             const status = error?.status;
@@ -933,12 +901,41 @@ REGLAS ESTRICTAS DE FORMATO Y EXTENSIÓN:
             }
             Notif.error(mensaje);
         }
-        renderListaEstudiantes();
 
-        const idEstudianteUrl = new URLSearchParams(window.location.search).get('estudiante');
-        if (idEstudianteUrl && estado.expedientes.some(exp => Number(exp.estudiante?.idEstudiante) === Number(idEstudianteUrl))) {
+        if (idEstudianteUrl) {
             history.replaceState(null, document.title, window.location.pathname);
-            await window.abrirDetalleEstudiante(Number(idEstudianteUrl));
+            let existe = estado.expedientes.some(exp => Number(exp.estudiante?.idEstudiante) === idEstudianteUrl);
+            if (!existe && estado.apiDisponible) {
+                try {
+                    await SeguimientosService.abrirExpediente(idEstudianteUrl);
+                    // Se vuelve a pedir la lista para tener los datos completos del estudiante
+                    estado.expedientes = (await SeguimientosService.listarExpedientes()) ?? [];
+                    existe = estado.expedientes.some(exp => Number(exp.estudiante?.idEstudiante) === idEstudianteUrl);
+                } catch (error) {
+                    Notif.error(mensajeErrorAmigable(error), 'No se pudo abrir el seguimiento');
+                }
+            }
+            if (existe) {
+                const [psicologos, citas] = await Promise.race([
+                    pendientesSecundarios,
+                    new Promise(resolve => setTimeout(() => resolve([null, null]), 1500))
+                ]);
+                if (psicologos) estado.psicologos = psicologos;
+                if (citas) estado.citas = citas;
+                await window.abrirDetalleEstudiante(idEstudianteUrl);
+            } else {
+                mostrarVista('lista');
+            }
+        }
+
+        const [psicologos, citas] = await pendientesSecundarios;
+        estado.psicologos = psicologos ?? [];
+        estado.citas = citas ?? [];
+        renderListaEstudiantes();
+        if (estado.expedienteSeleccionado) {
+            const elPsicologo = el('detPsicologo');
+            const propio = psicologoDeLaCuenta();
+            if (elPsicologo && propio) elPsicologo.textContent = propio.nombre;
         }
     }
 
@@ -963,17 +960,12 @@ REGLAS ESTRICTAS DE FORMATO Y EXTENSIÓN:
                     expediente: { idExpediente: Number(expediente.idExpediente) },
                     psicologo: { idPsicologo: Number(idPsicologo) },
                     fechaAtencion: SeguimientosValidaciones.hoyLocal(),
-                    ...datos
+                    tipoProceso: datos.tipoProceso,
+                    estadoEstudiante: datos.estadoEstudiante,
+                    marcadorCritico: datos.marcadorCritico,
+                    notasAnotaciones: datos.notasAnotaciones
                 });
-                await cargarSesionesExpediente(expediente.idExpediente);
-                renderTablaHistorial();
-                renderListaEstudiantes();
-                const badge = el('detBadgeEstado');
-                if (badge) {
-                    badge.className = '';
-                    badge.innerHTML = generarBadgeEstado(estadoDeTarjeta(expediente));
-                }
-                Notif.exito('La sesión quedó guardada en el seguimiento del caso.', 'Sesión registrada');
+                await trasGuardarSesion('La sesión quedó guardada en el seguimiento del caso.');
             }
         });
     }
@@ -981,52 +973,30 @@ REGLAS ESTRICTAS DE FORMATO Y EXTENSIÓN:
     function iniciar() {
         cargarDatos();
         el('btnAbrirSesion')?.addEventListener('click', abrirSesionSinCita);
+        el('btnRegistroManual')?.addEventListener('click', () => abrirRegistroManual(null));
+        el('ordenCasos')?.addEventListener('change', (e) => {
+            estado.ordenCasos = e.target.value;
+            renderListaEstudiantes();
+        });
+        document.querySelectorAll('.casos-chips .caso-chip').forEach((chip) => {
+            chip.addEventListener('click', () => {
+                estado.filtroCaso = chip.dataset.filtro;
+                document.querySelectorAll('.casos-chips .caso-chip').forEach(c => c.classList.toggle('activo', c === chip));
+                renderListaEstudiantes();
+            });
+        });
+        [['buscarHistorialInput', 'texto', 'input'], ['filtroHistorialTipo', 'tipo', 'change'], ['filtroHistorialEstado', 'estado', 'change'], ['ordenHistorial', 'orden', 'change']]
+            .forEach(([id, clave, evento]) => {
+                el(id)?.addEventListener(evento, (e) => {
+                    estado.historial[clave] = e.target.value;
+                    renderTablaHistorial();
+                });
+            });
 
         el('buscarSeguimientoInput')?.addEventListener('input', renderListaEstudiantes);
         el('btnVolverLista')?.addEventListener('click', volverALista);
         el('btnGenerarResumenIA')?.addEventListener('click', generarResumenConIA);
         el('btnGuardarResumen')?.addEventListener('click', guardarResumen);
-        el('formNuevoRegistro')?.addEventListener('submit', manejarSubmitRegistro);
-
-        el('fechaCitaSeg')?.addEventListener('change', () => {
-            actualizarAyudaFecha();
-            autocompletarCita();
-        });
-        el('psicologoCitaSeg')?.addEventListener('change', autocompletarCita);
-        el('citaVinculadaSeg')?.addEventListener('input', (e) => {
-            e.target.dataset.manual = '1';
-            const ayuda = el('citaVinculadaSegAyuda');
-            if (ayuda) ayuda.textContent = '';
-        });
-
-        const btnLimpiarModal = el('btnLimpiarModal');
-        if (btnLimpiarModal) {
-            btnLimpiarModal.addEventListener('click', () => {
-                resetearFormulario();
-            });
-        }
-
-        document.querySelectorAll('#formNuevoRegistro input, #formNuevoRegistro select, #formNuevoRegistro textarea')
-            .forEach(campo => {
-                campo.addEventListener('input', () => {
-                    if (campo.classList.contains('is-invalid')) {
-                        campo.classList.remove('is-invalid');
-                        const fb = campo.nextElementSibling;
-                        if (fb && fb.classList.contains('invalid-feedback')) fb.remove();
-                    }
-                });
-            });
-
-        const modalRegistro = el('modalNuevoRegistro');
-        if (modalRegistro) {
-            modalRegistro.addEventListener('show.bs.modal', () => {
-                if (!estado.sesionEnEdicion) prepararNuevoRegistro();
-            });
-            modalRegistro.addEventListener('hidden.bs.modal', () => {
-                resetearFormulario();
-            });
-        }
-
         const hamburgerBtn = el('hamburgerBtn');
         const sidebar = document.querySelector('.sidebar');
         const overlay = el('sidebarOverlay');
