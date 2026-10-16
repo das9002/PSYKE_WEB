@@ -50,6 +50,15 @@
             return datos && datos.ticket;
         },
 
+        async presencia(idsUsuarios) {
+            const ids = Array.from(new Set((idsUsuarios || []).filter(id => id !== null && id !== undefined)));
+            if (!ids.length) return [];
+            const lotes = [];
+            for (let i = 0; i < ids.length; i += 150) lotes.push(ids.slice(i, i + 150));
+            const respuestas = await Promise.all(lotes.map(lote => peticionApi(`/mensajes/presencia?ids=${lote.join(',')}`)));
+            return respuestas.flat().filter(Boolean);
+        },
+
         async notificaciones() {
             return await peticionApi('/notificaciones');
         },

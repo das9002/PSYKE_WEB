@@ -18,6 +18,17 @@ const EstudiantesService = {
         return peticionApi('/estudiantes/mis-estudiantes');
     },
 
+    listarExpedientes() {
+        return listarTodo('/expedientes');
+    },
+
+    abrirExpediente(idEstudiante) {
+        return peticionApi('/expedientes', {
+            method: 'POST',
+            body: JSON.stringify({ estudiante: { idEstudiante: Number(idEstudiante) } })
+        });
+    },
+
     crear(estudiante) {
         return peticionApi('/estudiantes', {
             method: 'POST',

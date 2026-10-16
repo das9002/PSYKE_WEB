@@ -63,6 +63,20 @@ const CitasService = {
         return peticionApi('/citas/resumen');
     },
 
+    solicitudesCancelacion() {
+        return peticionApi('/citas/solicitudes-cancelacion');
+    },
+
+    responderCancelacion(id, aceptar, respuesta) {
+        if (!esIdValido(id)) {
+            return Promise.reject(crearErrorValidacion({ id: 'Se requiere el identificador de la cita.' }));
+        }
+        return peticionApi(`/citas/${id}/solicitud-cancelacion`, {
+            method: 'PUT',
+            body: JSON.stringify({ aceptar: Boolean(aceptar), respuesta: respuesta || null })
+        });
+    },
+
     obtenerPorId(id) {
         if (!esIdValido(id)) {
             return Promise.reject(crearErrorValidacion({ id: 'Se requiere el identificador de la cita.' }));

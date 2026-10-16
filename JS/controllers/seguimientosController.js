@@ -449,11 +449,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 </td>
                 <td>
                     <div class="fw-bold text-dark">${escapeHTML(s.tipoProceso ?? '')}</div>
+                    ${s.cita?.idCita ? `<small class="text-primary fw-semibold d-block">Cita #${escapeHTML(s.cita.idCita)}</small>` : '<small class="text-muted fw-semibold d-block">Sin cita previa</small>'}
                     <small class="text-muted"><i class="bi bi-person me-1"></i>${escapeHTML(nombrePsicologo(s.psicologo))}</small>
                 </td>
                 <td>
-                    <span class="d-inline-block text-truncate" style="max-width: 250px;" title="${escapeHTML(s.notasAnotaciones)}">
-                        ${escapeHTML(s.notasAnotaciones)}
+                    <span class="d-inline-block text-truncate" style="max-width: 250px;" title="${escapeHTML(RegistroSesion.resumenNotas(s.notasAnotaciones, 400))}">
+                        ${escapeHTML(RegistroSesion.resumenNotas(s.notasAnotaciones))}
                     </span>
                 </td>
                 <td>${badgeHTML}</td>
@@ -476,7 +477,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!s) return;
 
         const est = s.expediente?.estudiante || {};
-        const cita = s.cita?.idCita ? `CIT-${s.cita.idCita}` : 'Sin cita vinculada';
+        const cita = s.cita?.idCita ? `Cita #${s.cita.idCita}` : 'Atención sin cita previa';
         const marcador = s.marcadorCritico === 'SI' ? 'SÍ - Requiere intervención urgente' : 'NO - Caso regular';
 
         const modalEl = document.createElement('div');
@@ -509,8 +510,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             <div class="col-md-4"><strong>Marcador crítico:</strong><br>${escapeHTML(marcador)}</div>
                             <div class="col-md-4"><strong>Tipo de proceso:</strong><br>${escapeHTML(s.tipoProceso ?? '')}</div>
                             <div class="col-12">
-                                <strong>Observaciones y notas clínicas:</strong>
-                                <p class="text-muted mb-0 mt-1" style="white-space: pre-line;">${escapeHTML(s.notasAnotaciones ?? '')}</p>
+                                <strong>Notas de la sesión:</strong>
+                                <div class="mt-2">${RegistroSesion.htmlNotas(s.notasAnotaciones)}</div>
                             </div>
                         </div>
                     </div>
@@ -662,10 +663,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const estSesion = s.estadoEstudiante || 'Regular';
                 const critico = s.marcadorCritico === 'SI' ? 'SÍ (Crítico)' : 'NO';
                 // Limitar notas por sesión a un tamaño seguro (máx. 140 caracteres)
-                let notas = (s.notasAnotaciones || 'Sin notas registradas').trim();
-                if (notas.length > 140) {
-                    notas = notas.slice(0, 137) + '...';
-                }
+                let notas = s.notasAnotaciones ? RegistroSesion.resumenNotas(s.notasAnotaciones, 140) : 'Sin notas registradas';
                 return `Sesión ${num} (${fecha}): ${tipo} | Est: ${estSesion} | Crítico: ${critico}\nNotas: ${notas}`;
             }).join('\n\n') + avisoCondensado;
         } else {
@@ -944,8 +942,45 @@ REGLAS ESTRICTAS DE FORMATO Y EXTENSIÓN:
         }
     }
 
+    function abrirSesionSinCita() {
+        const expediente = estado.expedienteSeleccionado;
+        if (!expediente) {
+            Notif.informar('Selecciona primero un estudiante.');
+            return;
+        }
+        const idPsicologo = idPsicologoDeSesion() ?? obtenerUltimaSesion(expediente.idExpediente)?.psicologo?.idPsicologo;
+        if (!idPsicologo) {
+            Notif.advertencia('No se encontró el psicólogo de tu cuenta para registrar la sesión.', 'Falta el psicólogo');
+            return;
+        }
+        const est = expediente.estudiante || {};
+        RegistroSesion.abrir({
+            estudiante: { nombre: nombreEstudiante(est), carnet: est.codigoCarnet, iniciales: obtenerIniciales(est.nombres, est.apellidos) },
+            estadoInicial: estadoDeTarjeta(expediente) || 'Seguimiento',
+            claveBorrador: `expediente_${expediente.idExpediente}`,
+            guardar: async (datos) => {
+                await SeguimientosService.crear({
+                    expediente: { idExpediente: Number(expediente.idExpediente) },
+                    psicologo: { idPsicologo: Number(idPsicologo) },
+                    fechaAtencion: SeguimientosValidaciones.hoyLocal(),
+                    ...datos
+                });
+                await cargarSesionesExpediente(expediente.idExpediente);
+                renderTablaHistorial();
+                renderListaEstudiantes();
+                const badge = el('detBadgeEstado');
+                if (badge) {
+                    badge.className = '';
+                    badge.innerHTML = generarBadgeEstado(estadoDeTarjeta(expediente));
+                }
+                Notif.exito('La sesión quedó guardada en el seguimiento del caso.', 'Sesión registrada');
+            }
+        });
+    }
+
     function iniciar() {
         cargarDatos();
+        el('btnAbrirSesion')?.addEventListener('click', abrirSesionSinCita);
 
         el('buscarSeguimientoInput')?.addEventListener('input', renderListaEstudiantes);
         el('btnVolverLista')?.addEventListener('click', volverALista);

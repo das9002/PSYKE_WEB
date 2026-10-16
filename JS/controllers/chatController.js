@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let miUsuarioId = null;
     let socket = null;
     let estadoConexion = 'desconectado';
+    const presencia = new Map();
     let temporizadorRespaldo = null;
     let sincronizando = false;
     let ultimoAvisoEscribiendo = 0;
@@ -321,6 +322,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (estado === 'conectado') {
                 detenerRespaldo();
                 resincronizar(true);
+                cargarPresencia();
             } else if (estado === 'desconectado' || estado === 'no-disponible') {
                 iniciarRespaldo();
             }
@@ -339,6 +341,7 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'mensaje_eliminado': return eliminarMensajeLocal(evento);
             case 'leidos': return aplicarLeidos(evento);
             case 'escribiendo': return mostrarEscribiendo(evento.emisorId);
+            case 'presencia': return actualizarPresencia(evento);
             case 'error': return manejarErrorSocket(evento);
             case 'notificacion': return recibirNotificacion(evento.notificacion);
             default: return undefined;
@@ -469,6 +472,52 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    async function cargarPresencia() {
+        if (!patientsData.length) return;
+        try {
+            const lista = await MensajesService.presencia(patientsData.map(p => p.userId));
+            lista.forEach(p => presencia.set(Number(p.idUsuario), { enLinea: Boolean(p.enLinea), ultimaConexion: p.ultimaConexion || null }));
+        } catch (e) { }
+        refrescarListas();
+        actualizarEstadoCabecera();
+    }
+
+    function actualizarPresencia(evento) {
+        const anterior = presencia.get(Number(evento.idUsuario));
+        presencia.set(Number(evento.idUsuario), {
+            enLinea: Boolean(evento.enLinea),
+            ultimaConexion: evento.ultimaConexion || (anterior && anterior.ultimaConexion) || null
+        });
+        if (pacientePorUsuario(evento.idUsuario)) {
+            refrescarListas();
+            actualizarEstadoCabecera();
+        }
+    }
+
+    function estaEnLinea(paciente) {
+        const estado = paciente && presencia.get(Number(paciente.userId));
+        return Boolean(estado && estado.enLinea);
+    }
+
+    function textoUltimaConexion(fechaTexto) {
+        const fecha = fechaTexto ? new Date(fechaTexto) : null;
+        if (!fecha || isNaN(fecha.getTime())) return 'Desconectado';
+        const minutos = Math.floor((Date.now() - fecha.getTime()) / 60000);
+        if (minutos < 1) return 'Últ. vez hace un momento';
+        if (minutos < 60) return `Últ. vez hace ${minutos} min`;
+        const hora = fecha.toLocaleTimeString('es-SV', { hour: 'numeric', minute: '2-digit' });
+        const hoy = new Date();
+        const ayer = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - 1);
+        if (fecha.toDateString() === hoy.toDateString()) return `Últ. vez hoy a las ${hora}`;
+        if (fecha.toDateString() === ayer.toDateString()) return `Últ. vez ayer a las ${hora}`;
+        return `Últ. vez el ${fecha.toLocaleDateString('es-SV', { day: 'numeric', month: 'short' })}`;
+    }
+
+    setInterval(() => {
+        const paciente = patientsData.find(p => p.id === activeChatId);
+        if (paciente && !estaEnLinea(paciente)) actualizarEstadoCabecera();
+    }, 60000);
+
     function textoEstadoConexion() {
         if (estadoConexion === 'conectado') return { texto: 'Chat en tiempo real', clase: '' };
         if (estadoConexion === 'conectando') return { texto: 'Conectando…', clase: 'offline' };
@@ -485,10 +534,18 @@ document.addEventListener('DOMContentLoaded', () => {
             estado.className = 'chat-active-status';
             return;
         }
-        const { texto, clase } = textoEstadoConexion();
         const carnet = paciente.carnet ? `Carnet: ${paciente.carnet} · ` : '';
-        estado.textContent = `${carnet}${texto}`;
-        estado.className = `chat-active-status ${clase}`.trim();
+        if (estadoConexion !== 'conectado') {
+            const { texto, clase } = textoEstadoConexion();
+            estado.textContent = `${carnet}${texto}`;
+            estado.className = `chat-active-status ${clase}`.trim();
+            return;
+        }
+        const datos = presencia.get(Number(paciente.userId));
+        const enLinea = Boolean(datos && datos.enLinea);
+        const texto = !datos ? '' : enLinea ? 'En línea' : textoUltimaConexion(datos.ultimaConexion);
+        estado.textContent = `${carnet}${texto}`.replace(/ · $/, '');
+        estado.className = `chat-active-status ${enLinea ? '' : 'offline'}`.trim();
     }
 
     window.addEventListener('focus', () => {
@@ -818,6 +875,7 @@ document.addEventListener('DOMContentLoaded', () => {
             item.innerHTML = `
                 <div class="chat-avatar-wrapper">
                     ${avatarHTML(p)}
+                    ${estaEnLinea(p) ? '<span class="chat-status-dot online" title="En línea"></span>' : ''}
                 </div>
                 <div class="chat-patient-info">
                     <div class="chat-patient-header">
@@ -1119,6 +1177,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             await cargarPacientes();
+            cargarPresencia();
             cargarMisEstudiantesYRefrescar();
             await cargarResumen(false);
         } catch (error) {

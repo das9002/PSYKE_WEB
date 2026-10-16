@@ -20,6 +20,7 @@
     <link rel="stylesheet" href="../css/styleAlertas.css">
     <link rel="stylesheet" href="../css/stylenotificacionChat.css">
     <link rel="stylesheet" href="../css/styleTipografia.css">
+    <link rel="stylesheet" href="../css/styleRegistroSesion.css">
     <link rel="icon" href="../img/Logo0.png" crossorigin>
     <script>
         (function () {
@@ -160,23 +161,32 @@
                 </div>
             </div>
 
-            <div class="citas-filter-nav mb-4">
-                <button class="nav-link-custom active" data-filter="todas" title="Citas de las últimas 2 semanas y próximas">
-                    <i class="bi bi-grid-fill"></i> Recientes
+            <div class="citas-filter-nav mb-3">
+                <button class="nav-link-custom" data-filter="hoy">
+                    <i class="bi bi-sun"></i> Hoy
+                </button>
+                <button class="nav-link-custom active" data-filter="proximas">
+                    <i class="bi bi-calendar-check"></i> Próximas
                 </button>
                 <button class="nav-link-custom" data-filter="pendientes">
-                    <i class="bi bi-clock-history"></i> Pendientes
+                    <i class="bi bi-clock-history"></i> Por confirmar
+                </button>
+                <button class="nav-link-custom" data-filter="solicitudes">
+                    <i class="bi bi-envelope-exclamation"></i> Solicitudes
+                    <span class="contador-tab" id="contadorSolicitudesTab" hidden>0</span>
+                </button>
+                <button class="nav-link-custom" data-filter="realizadas">
+                    <i class="bi bi-check2-all"></i> Realizadas
                 </button>
                 <button class="nav-link-custom" data-filter="canceladas">
                     <i class="bi bi-x-circle"></i> Canceladas
                 </button>
-                <button class="nav-link-custom" data-filter="proximas">
-                    <i class="bi bi-calendar-check"></i> Próximas
-                </button>
-                <button class="nav-link-custom" data-filter="historial" title="Citas de hace más de 2 semanas">
-                    <i class="bi bi-archive"></i> Historial
+                <button class="nav-link-custom" data-filter="todas">
+                    <i class="bi bi-grid-fill"></i> Todas
                 </button>
             </div>
+
+            <div class="aviso-solicitudes mb-3" id="avisoSolicitudesCancelacion" hidden></div>
 
             <div class="table-card">
 
@@ -212,7 +222,7 @@
                         <thead>
                             <tr>
                                 <th style="width: 20px;"></th>
-                                <th>N°</th>
+                                <th>Cita</th>
                                 <th>Estudiante</th>
                                 <th>Carnet</th>
                                 <th>Psicólogo Asignado</th>
@@ -453,6 +463,7 @@
     <script src="../JS/componentes/componentesSeleccion.js"></script>
     <script src="../JS/services/recordatoriosService.js"></script>
     <script src="../JS/componentes/recordatorios.js"></script>
+    <script src="../JS/componentes/registroSesion.js"></script>
     <script src="../JS/controllers/citasController.js"></script>
     <script>
         (function () {

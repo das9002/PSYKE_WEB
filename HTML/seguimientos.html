@@ -19,6 +19,7 @@
     <link rel="stylesheet" href="../css/styleAlertas.css">
     <link rel="stylesheet" href="../css/stylenotificacionChat.css">
     <link rel="stylesheet" href="../css/styleTipografia.css">
+    <link rel="stylesheet" href="../css/styleRegistroSesion.css">
     <link rel="icon" href="../img/Logo0.png" crossorigin>
     <script>
         (function () {
@@ -186,9 +187,14 @@
                             </h5>
                             <span class="text-muted small">Registro cronológico de intervenciones y notas psicopedagógicas</span>
                         </div>
-                        <button class="btn-nuevo-registro" data-bs-toggle="modal" data-bs-target="#modalNuevoRegistro">
-                            <i class="bi bi-plus-lg"></i> Nuevo Registro de Cita
-                        </button>
+                        <div class="d-flex gap-2 flex-wrap">
+                            <button type="button" class="btn-abrir-sesion" id="btnAbrirSesion" title="El estudiante llegó sin cita y lo vas a atender ahora">
+                                <i class="bi bi-door-open"></i> Abrir sesión sin cita
+                            </button>
+                            <button class="btn-nuevo-registro" data-bs-toggle="modal" data-bs-target="#modalNuevoRegistro" title="Registrar una sesión pasada">
+                                <i class="bi bi-plus-lg"></i> Registro manual
+                            </button>
+                        </div>
                     </div>
 
                     <div class="table-responsive">
@@ -325,6 +331,7 @@
     <script src="../JS/services/sesionService.js"></script>
     <script src="../JS/componentes/navbar.js"></script>
     <script src="../JS/validaciones/seguimientosValidaciones.js"></script>
+    <script src="../JS/componentes/registroSesion.js"></script>
     <script src="../JS/controllers/seguimientosController.js"></script>
     <script>
         (function () {

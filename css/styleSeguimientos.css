@@ -545,3 +545,28 @@ html.dark-mode #btnGenerarResumenIA:hover {
     background-color: #3b82f6 !important;
     color: #ffffff !important;
 }
+
+.btn-abrir-sesion {
+    background: #ecfdf5;
+    color: #047857;
+    border: 1px solid #a7f3d0;
+    border-radius: 10px;
+    padding: 8px 18px;
+    font-weight: 700;
+    font-size: 0.9rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+}
+
+.btn-abrir-sesion:hover {
+    background: #d1fae5;
+    transform: translateY(-1px);
+}
+
+html.dark-mode .btn-abrir-sesion {
+    background: rgba(16, 185, 129, 0.15);
+    border-color: rgba(16, 185, 129, 0.4);
+    color: #6ee7b7;
+}

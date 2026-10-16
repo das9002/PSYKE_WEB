@@ -136,11 +136,25 @@
                     <select id="filtroSeccionEst" class="form-select" aria-label="Filtrar por sección">
                         <option value="">Todas las secciones</option>
                     </select>
+                    <select id="filtroEspecialidadEst" class="form-select" aria-label="Filtrar por especialidad">
+                        <option value="">Todas las especialidades</option>
+                    </select>
                     <select id="filtroEstadoEst" class="form-select" aria-label="Filtrar por estado">
                         <option value="">Todos los estados</option>
                         <option value="Estable">Estable</option>
                         <option value="Seguimiento">Seguimiento</option>
                         <option value="Prioritario">Prioritario</option>
+                    </select>
+                    <select id="filtroSeguimientoEst" class="form-select" aria-label="Filtrar por seguimiento" hidden>
+                        <option value="">Con y sin seguimiento</option>
+                        <option value="con">Con seguimiento abierto</option>
+                        <option value="sin">Sin seguimiento</option>
+                    </select>
+                    <select id="ordenEstudiantes" class="form-select" aria-label="Ordenar estudiantes">
+                        <option value="nombre">Ordenar por apellido</option>
+                        <option value="carnet">Ordenar por carnet</option>
+                        <option value="grado">Ordenar por grado y sección</option>
+                        <option value="prioridad">Prioritarios primero</option>
                     </select>
                     <button type="button" class="btn-limpiar-filtros" id="btnLimpiarFiltrosEst" hidden>
                         <i class="bi bi-x-circle"></i> Limpiar filtros
