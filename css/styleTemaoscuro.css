@@ -648,3 +648,182 @@ html.dark-mode #indicadorPaginaRespondidos {
     color: #f3f4f6 !important;
 }
 
+/* =========================================================
+   CARDS DE ESTADÍSTICAS EN MODO OSCURO (INICIO, CITAS, PSICÓLOGOS, CASOS TRANSFERIDOS)
+   ========================================================= */
+
+/* 1. CITAS: Fondo #172746 | Letras #93C5FD */
+html.dark-mode .card-dashboard.card-citas,
+html.dark-mode .card-citas {
+    background-color: #172746 !important;
+    background: #172746 !important;
+    border: 1px solid rgba(147, 197, 253, 0.25) !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35) !important;
+}
+html.dark-mode .card-dashboard.card-citas .stat-header,
+html.dark-mode .card-citas .stat-header {
+    background: rgba(147, 197, 253, 0.08) !important;
+    border-bottom: 1px solid rgba(147, 197, 253, 0.18) !important;
+}
+html.dark-mode .card-dashboard.card-citas .stat-header,
+html.dark-mode .card-dashboard.card-citas .stat-header *,
+html.dark-mode .card-dashboard.card-citas .stat-header span,
+html.dark-mode .card-dashboard.card-citas .stat-header i,
+html.dark-mode .card-dashboard.card-citas h1,
+html.dark-mode .card-dashboard.card-citas h2,
+html.dark-mode .card-dashboard.card-citas .stat-number,
+html.dark-mode .card-dashboard.card-citas .stat-label,
+html.dark-mode .card-dashboard.card-citas p,
+html.dark-mode .card-dashboard.card-citas small,
+html.dark-mode .card-dashboard.card-citas .text-muted,
+html.dark-mode .card-citas .stat-header,
+html.dark-mode .card-citas .stat-header *,
+html.dark-mode .card-citas h1,
+html.dark-mode .card-citas h2,
+html.dark-mode .card-citas p,
+html.dark-mode .card-citas small,
+html.dark-mode .card-citas .text-muted {
+    color: #93C5FD !important;
+}
+
+/* 2. RIESGO ALTO: Fondo #321E2B | Letras #FCA5A5 */
+html.dark-mode .card-dashboard.card-riesgo-alto,
+html.dark-mode .card-dashboard.card-riesgo,
+html.dark-mode .card-riesgo-alto,
+html.dark-mode .card-riesgo {
+    background-color: #321E2B !important;
+    background: #321E2B !important;
+    border: 1px solid rgba(252, 165, 165, 0.25) !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35) !important;
+}
+html.dark-mode .card-dashboard.card-riesgo-alto .stat-header,
+html.dark-mode .card-dashboard.card-riesgo .stat-header,
+html.dark-mode .card-riesgo-alto .stat-header {
+    background: rgba(252, 165, 165, 0.08) !important;
+    border-bottom: 1px solid rgba(252, 165, 165, 0.18) !important;
+}
+html.dark-mode .card-dashboard.card-riesgo-alto .stat-header,
+html.dark-mode .card-dashboard.card-riesgo-alto .stat-header *,
+html.dark-mode .card-dashboard.card-riesgo-alto .stat-header span,
+html.dark-mode .card-dashboard.card-riesgo-alto .stat-header i,
+html.dark-mode .card-dashboard.card-riesgo-alto h1,
+html.dark-mode .card-dashboard.card-riesgo-alto h2,
+html.dark-mode .card-dashboard.card-riesgo-alto .stat-number,
+html.dark-mode .card-dashboard.card-riesgo-alto .stat-label,
+html.dark-mode .card-dashboard.card-riesgo-alto p,
+html.dark-mode .card-dashboard.card-riesgo-alto small,
+html.dark-mode .card-dashboard.card-riesgo-alto .text-muted,
+html.dark-mode .card-riesgo-alto .stat-header,
+html.dark-mode .card-riesgo-alto .stat-header *,
+html.dark-mode .card-riesgo-alto h1,
+html.dark-mode .card-riesgo-alto h2,
+html.dark-mode .card-riesgo-alto p,
+html.dark-mode .card-riesgo-alto small,
+html.dark-mode .card-riesgo-alto .text-muted {
+    color: #FCA5A5 !important;
+}
+
+/* 3. SEGUIMIENTO: Fondo #332C23 | Letras #FCD34D */
+html.dark-mode .card-dashboard.card-seguimiento,
+html.dark-mode .card-seguimiento {
+    background-color: #332C23 !important;
+    background: #332C23 !important;
+    border: 1px solid rgba(252, 211, 77, 0.25) !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35) !important;
+}
+html.dark-mode .card-dashboard.card-seguimiento .stat-header,
+html.dark-mode .card-seguimiento .stat-header {
+    background: rgba(252, 211, 77, 0.08) !important;
+    border-bottom: 1px solid rgba(252, 211, 77, 0.18) !important;
+}
+html.dark-mode .card-dashboard.card-seguimiento .stat-header,
+html.dark-mode .card-dashboard.card-seguimiento .stat-header *,
+html.dark-mode .card-dashboard.card-seguimiento .stat-header span,
+html.dark-mode .card-dashboard.card-seguimiento .stat-header i,
+html.dark-mode .card-dashboard.card-seguimiento h1,
+html.dark-mode .card-dashboard.card-seguimiento h2,
+html.dark-mode .card-dashboard.card-seguimiento .stat-number,
+html.dark-mode .card-dashboard.card-seguimiento .stat-label,
+html.dark-mode .card-dashboard.card-seguimiento p,
+html.dark-mode .card-dashboard.card-seguimiento small,
+html.dark-mode .card-dashboard.card-seguimiento .text-muted,
+html.dark-mode .card-seguimiento .stat-header,
+html.dark-mode .card-seguimiento .stat-header *,
+html.dark-mode .card-seguimiento h1,
+html.dark-mode .card-seguimiento h2,
+html.dark-mode .card-seguimiento p,
+html.dark-mode .card-seguimiento small,
+html.dark-mode .card-seguimiento .text-muted {
+    color: #FCD34D !important;
+}
+
+/* 4. ESTUDIANTE: Fondo #1F2937 | Letras #CBD5E1 */
+html.dark-mode .card-dashboard.card-estudiante,
+html.dark-mode .card-estudiante {
+    background-color: #1F2937 !important;
+    background: #1F2937 !important;
+    border: 1px solid rgba(203, 213, 225, 0.25) !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35) !important;
+}
+html.dark-mode .card-dashboard.card-estudiante .stat-header,
+html.dark-mode .card-estudiante .stat-header {
+    background: rgba(203, 213, 225, 0.08) !important;
+    border-bottom: 1px solid rgba(203, 213, 225, 0.18) !important;
+}
+html.dark-mode .card-dashboard.card-estudiante .stat-header,
+html.dark-mode .card-dashboard.card-estudiante .stat-header *,
+html.dark-mode .card-dashboard.card-estudiante .stat-header span,
+html.dark-mode .card-dashboard.card-estudiante .stat-header i,
+html.dark-mode .card-dashboard.card-estudiante h1,
+html.dark-mode .card-dashboard.card-estudiante h2,
+html.dark-mode .card-dashboard.card-estudiante .stat-number,
+html.dark-mode .card-dashboard.card-estudiante .stat-label,
+html.dark-mode .card-dashboard.card-estudiante p,
+html.dark-mode .card-dashboard.card-estudiante small,
+html.dark-mode .card-dashboard.card-estudiante .text-muted,
+html.dark-mode .card-estudiante .stat-header,
+html.dark-mode .card-estudiante .stat-header *,
+html.dark-mode .card-estudiante h1,
+html.dark-mode .card-estudiante h2,
+html.dark-mode .card-estudiante p,
+html.dark-mode .card-estudiante small,
+html.dark-mode .card-estudiante .text-muted {
+    color: #CBD5E1 !important;
+}
+
+/* Anular gradientes estridentes de cabeceras en modo oscuro para estas tarjetas */
+html.dark-mode .card-dashboard.card-citas .stat-header,
+html.dark-mode .card-dashboard.card-citas .stat-header.blue,
+html.dark-mode .card-dashboard.card-citas .stat-header.yellow,
+html.dark-mode .card-dashboard.card-citas .stat-header.green,
+html.dark-mode .card-dashboard.card-citas .stat-header.red,
+html.dark-mode .card-dashboard.card-riesgo-alto .stat-header,
+html.dark-mode .card-dashboard.card-riesgo-alto .stat-header.red,
+html.dark-mode .card-dashboard.card-riesgo-alto .stat-header.blue,
+html.dark-mode .card-dashboard.card-seguimiento .stat-header,
+html.dark-mode .card-dashboard.card-seguimiento .stat-header.yellow,
+html.dark-mode .card-dashboard.card-seguimiento .stat-header.green,
+html.dark-mode .card-dashboard.card-estudiante .stat-header,
+html.dark-mode .card-dashboard.card-estudiante .stat-header.blue,
+html.dark-mode .card-dashboard.card-estudiante .stat-header.green {
+    background-image: none !important;
+}
+
+/* Efectos hover sutiles en modo oscuro */
+html.dark-mode .card-dashboard.card-citas:hover {
+    border-color: rgba(147, 197, 253, 0.45) !important;
+    box-shadow: 0 6px 20px rgba(23, 39, 70, 0.6) !important;
+}
+html.dark-mode .card-dashboard.card-riesgo-alto:hover {
+    border-color: rgba(252, 165, 165, 0.45) !important;
+    box-shadow: 0 6px 20px rgba(50, 30, 43, 0.6) !important;
+}
+html.dark-mode .card-dashboard.card-seguimiento:hover {
+    border-color: rgba(252, 211, 77, 0.45) !important;
+    box-shadow: 0 6px 20px rgba(51, 44, 35, 0.6) !important;
+}
+html.dark-mode .card-dashboard.card-estudiante:hover {
+    border-color: rgba(203, 213, 225, 0.45) !important;
+    box-shadow: 0 6px 20px rgba(31, 41, 55, 0.6) !important;
+}
+
