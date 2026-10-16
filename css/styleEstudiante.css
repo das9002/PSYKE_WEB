@@ -538,3 +538,28 @@ html.dark-mode .btn-recordatorio {
     background-color: rgba(14, 165, 233, 0.15);
     color: #38bdf8;
 }
+
+
+.btn-seguimiento {
+    background-color: #f1f5f9;
+    color: #64748b;
+}
+
+.btn-seguimiento.activo {
+    background-color: #ede9fe;
+    color: #6d28d9;
+}
+
+.filtros-estudiantes .form-select[hidden] {
+    display: none;
+}
+
+html.dark-mode .btn-seguimiento {
+    background-color: rgba(148, 163, 184, 0.15);
+    color: #cbd5e1;
+}
+
+html.dark-mode .btn-seguimiento.activo {
+    background-color: rgba(139, 92, 246, 0.2);
+    color: #c4b5fd;
+}

@@ -6,7 +6,8 @@ document.addEventListener('DOMContentLoaded', () => {
         estudiantes: [],
         psicologos: [],
         expedientes: [],
-        filtro: 'todas',
+        filtro: 'proximas',
+        solicitudes: [],
         textoBusqueda: '',
         rangoFechas: null,
         misEstudiantes: null,
@@ -266,14 +267,10 @@ document.addEventListener('DOMContentLoaded', () => {
         return { expediente: nuevo, creado: true };
     }
 
-    window.abrirSeguimiento = async function (idEstudiante) {
+    // Seguimiento abre el caso (y lo crea si todavía no existe), así que aquí solo se navega
+    window.abrirSeguimiento = function (idEstudiante) {
         if (!idEstudiante) return;
-        try {
-            await asegurarExpediente(idEstudiante);
-            window.location.href = `seguimientos.html?estudiante=${encodeURIComponent(idEstudiante)}`;
-        } catch (error) {
-            Notif.error(mensajeErrorAmigable(error), 'No se pudo abrir el seguimiento');
-        }
+        window.location.href = `seguimientos.html?estudiante=${encodeURIComponent(idEstudiante)}`;
     };
 
     function estadoCita(cita) {
@@ -300,6 +297,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function colorBarraEstado(estadoVal) {
+        if (estadoVal === 'EN_CURSO') return 'azul';
         if (estadoVal === 'CONFIRMADA' || estadoVal === 'REALIZADA') return 'verde';
         if (estadoVal === 'PENDIENTE') return 'amarillo';
         return 'rojo';
@@ -311,7 +309,8 @@ document.addEventListener('DOMContentLoaded', () => {
             CONFIRMADA: ['confirmada', 'bi-check-circle-fill', 'Confirmada'],
             REALIZADA: ['realizada', 'bi-check2-all', 'Realizada'],
             PENDIENTE: ['pendiente', 'bi-clock-history', 'Pendiente'],
-            CANCELADA: ['cancelada', 'bi-x-circle-fill', 'Cancelada']
+            CANCELADA: ['cancelada', 'bi-x-circle-fill', 'Cancelada'],
+            EN_CURSO: ['en-curso', 'bi-broadcast', 'En curso']
         };
         const [clase, icono, texto] = mapa[e] || ['pendiente', 'bi-question-circle', e || 'Sin estado'];
         return `<span class="badge-cita-estado ${clase}"><i class="bi ${icono}"></i> ${escapeHTML(texto)}</span>`;
@@ -327,8 +326,41 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
-    const ESTADO_POR_PESTANA = { pendientes: 'PENDIENTE', canceladas: 'CANCELADA' };
-    const DIAS_RECIENTES = 14;
+    const ESTADO_POR_PESTANA = { pendientes: 'PENDIENTE', realizadas: 'REALIZADA', canceladas: 'CANCELADA' };
+    const DURACION_CITA_MIN = 30;
+
+    function inicioDeCita(cita) {
+        return new Date(`${fechaCita(cita)}T${horaCita(cita) || '00:00'}:00`);
+    }
+
+    // El estado que ve el psicólogo: una cita activa está "en curso" durante su media hora
+    function estadoVisible(cita) {
+        const est = estadoCita(cita);
+        if (est !== 'PENDIENTE' && est !== 'CONFIRMADA') return est;
+        const inicio = inicioDeCita(cita).getTime();
+        if (isNaN(inicio) || Date.now() < inicio) return est;
+        return Date.now() < inicio + DURACION_CITA_MIN * 60000 ? 'EN_CURSO' : 'REALIZADA';
+    }
+
+    function yaEmpezo(cita) {
+        const inicio = inicioDeCita(cita).getTime();
+        return !isNaN(inicio) && Date.now() >= inicio;
+    }
+
+    function solicitudPendiente(cita) {
+        return String(cita.solicitudCancelacion?.estado || '').toUpperCase() === 'PENDIENTE';
+    }
+
+    function etiquetaDia(fechaISO) {
+        if (!fechaISO) return 'Sin fecha';
+        const hoy = hoyISO();
+        if (fechaISO === hoy) return 'Hoy';
+        if (fechaISO === desplazarDias(hoy, 1)) return 'Mañana';
+        if (fechaISO === desplazarDias(hoy, -1)) return 'Ayer';
+        const fecha = new Date(`${fechaISO}T00:00:00`);
+        const texto = fecha.toLocaleDateString('es-SV', { weekday: 'long', day: 'numeric', month: 'long', year: fecha.getFullYear() === new Date().getFullYear() ? undefined : 'numeric' });
+        return texto.charAt(0).toUpperCase() + texto.slice(1);
+    }
 
     function desplazarDias(fechaISO, dias) {
         const [a, m, d] = fechaISO.split('-').map(Number);
@@ -341,15 +373,21 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!ayuda) return;
         let texto = '';
         if (estado.rangoFechas) {
-            texto = 'Mostrando las citas del rango de fechas elegido.';
-        } else if (estado.filtro === 'historial') {
-            texto = `Citas de hace más de ${DIAS_RECIENTES} días.`;
+            texto = 'Mostrando las citas del rango de fechas elegido, de la más cercana a la más lejana.';
+        } else if (estado.filtro === 'hoy') {
+            texto = 'Citas de hoy en orden de hora. Desde la hora de la cita puedes registrar la sesión.';
         } else if (estado.filtro === 'proximas') {
-            texto = 'Citas de hoy en adelante.';
+            texto = 'Citas de hoy en adelante, ordenadas de la más cercana a la más lejana.';
         } else if (estado.filtro === 'pendientes') {
-            texto = 'Todas las citas que aún esperan confirmación.';
+            texto = 'Citas que todavía esperan tu confirmación.';
+        } else if (estado.filtro === 'solicitudes') {
+            texto = 'Estudiantes que pidieron cancelar su cita desde la app. Si no respondes antes de la hora, la cita se cancela sola.';
+        } else if (estado.filtro === 'realizadas') {
+            texto = 'Citas que ya se realizaron, de la más reciente a la más antigua.';
+        } else if (estado.filtro === 'canceladas') {
+            texto = 'Citas canceladas, de la más reciente a la más antigua.';
         } else {
-            texto = `Se ocultan las citas de hace más de ${DIAS_RECIENTES} días. Están en la pestaña Historial.`;
+            texto = 'Todas las citas, de la más reciente a la más antigua. Una cita pasa sola a realizada 30 minutos después de su hora.';
         }
         ayuda.innerHTML = `<i class="bi bi-info-circle"></i> ${escapeHTML(texto)}`;
     }
@@ -361,11 +399,12 @@ document.addEventListener('DOMContentLoaded', () => {
             return null;
         }
 
+        const ascendente = ['hoy', 'proximas', 'pendientes'].includes(estado.filtro);
         const filtros = {
             page: estado.paginaActual - 1,
             size: estado.limitePorPagina,
             sortBy: 'fechaHoraCita',
-            direction: estado.filtro === 'proximas' ? 'asc' : 'desc'
+            direction: ascendente ? 'asc' : 'desc'
         };
         const estadoFinal = estadoPestana || estadoSelect;
         if (estadoFinal) filtros.estado = estadoFinal;
@@ -374,12 +413,10 @@ document.addEventListener('DOMContentLoaded', () => {
             filtros.desde = estado.rangoFechas.desde;
             filtros.hasta = estado.rangoFechas.hasta;
             filtros.direction = 'asc';
-        } else if (estado.filtro === 'proximas') {
+        } else if (estado.filtro === 'hoy') {
+            filtros.fecha = hoyISO();
+        } else if (estado.filtro === 'proximas' || estado.filtro === 'pendientes') {
             filtros.desde = hoyISO();
-        } else if (estado.filtro === 'historial') {
-            filtros.hasta = desplazarDias(hoyISO(), -(DIAS_RECIENTES + 1));
-        } else if (estado.filtro !== 'pendientes') {
-            filtros.desde = desplazarDias(hoyISO(), -DIAS_RECIENTES);
         }
 
         if (estado.textoBusqueda) filtros.busqueda = estado.textoBusqueda;
@@ -416,10 +453,18 @@ document.addEventListener('DOMContentLoaded', () => {
         if (el('contadorMostrados')) el('contadorMostrados').textContent = totalItems;
 
         if (citasPagina.length === 0) {
-            const hayFiltros = estado.filtro !== 'todas' || estado.rangoFechas || estado.filtroEstado || estado.textoBusqueda;
+            const mensajesVacios = {
+                hoy: 'No tienes citas para hoy.',
+                proximas: 'No hay citas próximas.',
+                pendientes: 'No hay citas esperando confirmación.',
+                solicitudes: 'No hay solicitudes de cancelación pendientes.',
+                realizadas: 'Todavía no hay citas realizadas.',
+                canceladas: 'No hay citas canceladas.'
+            };
+            const hayFiltros = estado.rangoFechas || estado.filtroEstado || estado.textoBusqueda;
             const mensaje = hayFiltros
                 ? 'No se encontraron citas con esos filtros.'
-                : 'No hay citas registradas en el sistema';
+                : (mensajesVacios[estado.filtro] || 'No hay citas registradas en el sistema');
             tbody.innerHTML = `
                 <tr>
                     <td colspan="8" class="text-center py-4 text-muted">
@@ -432,23 +477,36 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        citasPagina.forEach((cita, indiceRelativo) => {
-            const indiceGlobal = inicio + indiceRelativo;
+        let diaAnterior = null;
+        citasPagina.forEach((cita) => {
             const id = idCita(cita);
-            const est = estadoCita(cita);
+            const est = estadoVisible(cita);
             const nombre = nombreEstudiante(cita);
             const hora = horaCita(cita);
             const hora12 = formatearHora12(hora);
+            const dia = fechaCita(cita);
 
+            if (dia !== diaAnterior) {
+                diaAnterior = dia;
+                const grupo = document.createElement('tr');
+                grupo.className = `fila-grupo-dia${dia === hoyISO() ? ' hoy' : ''}`;
+                grupo.innerHTML = `<td colspan="8"><i class="bi bi-calendar-event"></i> ${escapeHTML(etiquetaDia(dia))}</td>`;
+                tbody.appendChild(grupo);
+            }
+
+            const activa = est === 'PENDIENTE' || est === 'CONFIRMADA' || est === 'EN_CURSO';
             const esNueva = Number(id) > estado.marcaNuevas && !estado.creadasPorMi.has(Number(id));
             const puedeRecordar = (est === 'PENDIENTE' || est === 'CONFIRMADA') && !yaPaso(fechaCita(cita), hora);
+            const puedeRegistrarSesion = est !== 'CANCELADA' && yaEmpezo(cita) && !cita.tieneSesion;
+            const pideCancelar = solicitudPendiente(cita) && activa;
             const tr = document.createElement('tr');
             tr.dataset.idCita = id;
             if (esNueva) tr.classList.add('cita-nueva');
+            if (est === 'EN_CURSO') tr.classList.add('cita-en-curso');
             if (estado.citaResaltada && Number(id) === estado.citaResaltada) tr.classList.add('cita-resaltada');
             tr.innerHTML = `
                 <td><div class="barra-estado ${colorBarraEstado(est)}"></div></td>
-                <td class="fw-bold text-muted">#${indiceGlobal + 1}</td>
+                <td class="fw-bold text-muted text-nowrap">#${escapeHTML(id)}</td>
                 <td>
                     <div class="d-flex align-items-center gap-2">
                         <div class="student-avatar-badge">${escapeHTML(iniciales(nombre))}</div>
@@ -459,14 +517,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td class="text-muted">${escapeHTML(carnetEstudiante(cita)) || '—'}</td>
                 <td>${escapeHTML(nombrePsicologo(cita))}</td>
                 <td>
-                    <span class="d-inline-flex align-items-center gap-1">
-                        <i class="bi bi-calendar3 text-muted"></i> ${escapeHTML(formatearFechaLegible(fechaCita(cita)))}
-                        ${hora12 ? `&nbsp;·&nbsp;<i class="bi bi-clock text-muted"></i> ${escapeHTML(hora12)}` : ''}
+                    <span class="d-inline-flex align-items-center gap-1 text-nowrap">
+                        <i class="bi bi-clock text-muted"></i> ${escapeHTML(hora12 || '—')}
                     </span>
+                    <div class="small text-muted">${escapeHTML(formatearFechaLegible(fechaCita(cita)))}</div>
                 </td>
-                <td>${badgeEstado(est)}</td>
+                <td>
+                    ${badgeEstado(est)}
+                    ${pideCancelar ? `<button type="button" class="pill-solicitud" onclick="revisarSolicitudCancelacion(${id})" title="Ver el motivo y responder"><i class="bi bi-envelope-exclamation"></i> Pide cancelar</button>` : ''}
+                    ${cita.tieneSesion ? '<div class="pill-sesion"><i class="bi bi-journal-check"></i> Sesión registrada</div>' : ''}
+                </td>
                 <td class="text-center">
-                    <div class="d-flex justify-content-center gap-1">
+                    <div class="d-flex justify-content-center gap-1 flex-wrap">
+                        ${puedeRegistrarSesion ? `
+                        <button class="btn-accion-table btn-sesion" onclick="registrarSesionCita(${id})" title="Registrar la sesión de esta cita">
+                            <i class="bi bi-journal-plus"></i>
+                        </button>` : ''}
                         <button class="btn-accion-table btn-ver" onclick="verExpediente(${id})" title="Ver detalle de la cita">
                             <i class="bi bi-eye"></i>
                         </button>
@@ -477,9 +543,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         <button class="btn-accion-table btn-recordatorio" onclick="enviarRecordatorioCita(${id})" title="Enviar recordatorio al estudiante">
                             <i class="bi bi-bell"></i>
                         </button>` : ''}
+                        ${activa ? `
                         <button class="btn-accion-table btn-editar" onclick="abrirModalEditarCita(${id})" title="Reprogramar / Editar cita">
                             <i class="bi bi-pencil-square"></i>
-                        </button>
+                        </button>` : ''}
                         <button class="btn-accion-table btn-transferir" onclick="abrirModalTransferirCaso(${id})" title="Transferir caso del estudiante">
                             <i class="bi bi-arrow-left-right"></i>
                         </button>
@@ -487,7 +554,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <button class="btn-accion-table btn-confirmar" onclick="confirmarCita(${id})" title="Confirmar cita">
                             <i class="bi bi-check-circle-fill"></i>
                         </button>` : ''}
-                        ${est !== 'CANCELADA' ? `
+                        ${est === 'PENDIENTE' || est === 'CONFIRMADA' ? `
                         <button class="btn-accion-table btn-cancelar" onclick="cancelarCita(${id})" title="Cancelar cita">
                             <i class="bi bi-x-circle"></i>
                         </button>` : ''}
@@ -767,9 +834,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const hora12 = formatearHora12(hora);
         const idEstudianteCita = cita.estudiante?.idEstudiante ?? cita.estudiante?.id;
 
-        const esMomentoCita = yaPaso(fechaCita(cita), hora) && estadoCita(cita) !== 'CANCELADA';
+        const est = estadoVisible(cita);
+        const esMomentoCita = yaEmpezo(cita) && est !== 'CANCELADA';
+        const solicitud = cita.solicitudCancelacion;
 
-        el('expedienteModalTitulo').textContent = 'Detalle de la Cita';
+        el('expedienteModalTitulo').textContent = `Detalle de la cita #${id}`;
         el('expedienteModalBody').innerHTML = `
             <div class="d-flex align-items-center gap-3 mb-4">
                 <div class="student-avatar-badge" style="width: 50px; height: 50px; font-size: 1.2rem;">${escapeHTML(iniciales(nombre))}</div>
@@ -790,8 +859,16 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
             <div class="card p-3 mb-3 border-0 bg-light">
                 <h6 class="fw-bold mb-2 text-dark"><i class="bi bi-flag-fill me-2 text-primary"></i>Estado de la Cita</h6>
-                <div>${badgeEstado(estadoCita(cita))}</div>
+                <div>${badgeEstado(est)}</div>
             </div>
+            ${solicitud ? `
+            <div class="card p-3 mb-3 border-0 solicitud-detalle ${String(solicitud.estado).toLowerCase()}">
+                <h6 class="fw-bold mb-2"><i class="bi bi-envelope-exclamation me-2"></i>Solicitud de cancelación del estudiante
+                    · ${escapeHTML({ PENDIENTE: 'por responder', ACEPTADA: 'aceptada', RECHAZADA: 'rechazada' }[String(solicitud.estado).toUpperCase()] || '')}</h6>
+                <p class="small mb-1"><strong>Motivo:</strong> ${escapeHTML(solicitud.motivo || '')}</p>
+                ${solicitud.respuesta ? `<p class="small mb-0"><strong>Tu respuesta:</strong> ${escapeHTML(solicitud.respuesta)}</p>` : ''}
+                ${solicitudPendiente(cita) ? `<div class="mt-2"><button type="button" class="btn btn-sm btn-warning fw-semibold" onclick="revisarSolicitudCancelacion(${id})">Responder solicitud</button></div>` : ''}
+            </div>` : ''}
             <div class="card p-3 mb-3 border-0 bg-light">
                 <h6 class="fw-bold mb-2 text-dark"><i class="bi bi-chat-left-text me-2 text-primary"></i>Motivo de Consulta</h6>
                 <p class="small text-muted mb-0" style="line-height: 1.6;">${escapeHTML(motivoCita(cita)) || 'Sin motivo registrado.'}</p>
@@ -802,16 +879,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 </button>
             </div>
 
-            ${esMomentoCita ? `
+            ${cita.tieneSesion ? `
+            <div class="card p-3 border-0 bg-success bg-opacity-10 mb-3">
+                <h6 class="fw-bold text-success mb-1"><i class="bi bi-journal-check me-2"></i>La sesión de esta cita ya está registrada</h6>
+                <p class="small text-muted mb-0">Puedes verla en el seguimiento del caso.</p>
+            </div>` : esMomentoCita ? `
             <div class="card p-3 border-primary bg-primary bg-opacity-10 mb-3" id="boxSesionNotas">
-                <h6 class="fw-bold text-primary mb-2"><i class="bi bi-journal-check me-2"></i>Registrar Notas de Sesión</h6>
-                <textarea class="form-control mb-2" id="inputNotasSesion" rows="3" placeholder="Escriba las observaciones y notas relevantes de la sesión realizada..."></textarea>
+                <h6 class="fw-bold text-primary mb-1"><i class="bi bi-journal-plus me-2"></i>${est === 'EN_CURSO' ? 'La cita está en curso' : 'Registrar la sesión'}</h6>
+                <p class="small text-muted mb-2">Anota el motivo, lo que observaste, los acuerdos y los próximos pasos. Quedará en el seguimiento del caso.</p>
                 <div class="d-flex justify-content-end">
-                    <button type="button" class="btn btn-primary btn-sm" onclick="guardarNotasSesion(${idEstudianteCita}, ${id})">
-                        <i class="bi bi-save me-1"></i> Guardar Sesión en Seguimiento
+                    <button type="button" class="btn btn-primary btn-sm" onclick="registrarSesionCita(${id})">
+                        <i class="bi bi-journal-plus me-1"></i> Registrar sesión
                     </button>
                 </div>
-            </div>` : ''}`;
+            </div>` : `
+            <div class="card p-3 border-0 bg-light mb-3">
+                <p class="small text-muted mb-0"><i class="bi bi-info-circle me-1"></i>Podrás registrar la sesión desde la hora de la cita.</p>
+            </div>`}`;
 
         const modal = new bootstrap.Modal(el('modalExpediente'));
         modal.show();
@@ -844,11 +928,65 @@ document.addEventListener('DOMContentLoaded', () => {
         actualizarMetricas();
     }
 
+    async function cargarSolicitudesCancelacion() {
+        try {
+            const lista = await CitasService.solicitudesCancelacion();
+            estado.solicitudes = Array.isArray(lista) ? lista : [];
+        } catch (error) {
+            estado.solicitudes = [];
+        }
+        pintarAvisoSolicitudes();
+        return estado.solicitudes;
+    }
+
+    function pintarAvisoSolicitudes() {
+        const total = estado.solicitudes.length;
+        const contador = el('contadorSolicitudesTab');
+        if (contador) {
+            contador.textContent = total;
+            contador.hidden = total === 0;
+        }
+        const aviso = el('avisoSolicitudesCancelacion');
+        if (!aviso) return;
+        if (!total || estado.filtro === 'solicitudes') {
+            aviso.hidden = true;
+            return;
+        }
+        aviso.hidden = false;
+        aviso.innerHTML = `
+            <i class="bi bi-envelope-exclamation-fill"></i>
+            <div class="flex-grow-1">
+                <strong>${total === 1 ? 'Un estudiante pidió cancelar su cita' : `${total} estudiantes pidieron cancelar su cita`}</strong>
+                <span>Revisa el motivo y acepta o rechaza la solicitud.</span>
+            </div>
+            <button type="button" class="btn btn-sm btn-warning fw-semibold" id="btnVerSolicitudes">Revisar</button>`;
+        el('btnVerSolicitudes').addEventListener('click', () => {
+            document.querySelector('.citas-filter-nav .nav-link-custom[data-filter="solicitudes"]')?.click();
+        });
+    }
+
     async function recargarCitas({ conResumen = true } = {}) {
         const numeroSolicitud = ++estado.solicitudActual;
         actualizarAyudaPeriodo();
-        const filtros = construirFiltros();
         if (conResumen) cargarResumen();
+        cargarSolicitudesCancelacion();
+
+        if (estado.filtro === 'solicitudes') {
+            mostrarCargandoTabla();
+            const lista = await cargarSolicitudesCancelacion();
+            if (numeroSolicitud !== estado.solicitudActual) return;
+            const texto = (estado.textoBusqueda || '').toLowerCase();
+            estado.citas = texto
+                ? lista.filter(c => `${nombreEstudiante(c)} ${carnetEstudiante(c)} ${nombrePsicologo(c)}`.toLowerCase().includes(texto))
+                : lista;
+            estado.totalElementos = estado.citas.length;
+            estado.totalPaginas = 1;
+            estado.paginaActual = 1;
+            renderTabla();
+            return;
+        }
+
+        const filtros = construirFiltros();
 
         if (!filtros) {
             estado.citas = [];
@@ -951,55 +1089,96 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    window.guardarNotasSesion = async function (idEstudiante, idCitaTarget) {
-        const notas = el('inputNotasSesion')?.value.trim();
-        if (!notas) {
-            Notif.advertencia('Escribe las notas o el resumen de la sesión antes de guardar.', 'Faltan las notas');
-            return;
-        }
+    window.cargarCitas = recargarCitas;
 
-        const cita = estado.citas.find(c => Number(idCita(c)) === Number(idCitaTarget));
-        if (!cita) return;
+    function buscarCitaCargada(id) {
+        return estado.citas.find(c => Number(idCita(c)) === Number(id))
+            || estado.solicitudes.find(c => Number(idCita(c)) === Number(id));
+    }
 
-        if (!yaPaso(fechaCita(cita), horaCita(cita))) {
-            Notif.advertencia('Solo puedes registrar la sesión cuando ya pasó la fecha y hora de la cita.', 'Aún no es la cita');
-            return;
-        }
+    window.revisarSolicitudCancelacion = async function (id) {
+        const cita = buscarCitaCargada(id);
+        if (!cita || !solicitudPendiente(cita)) return;
+        const solicitud = cita.solicitudCancelacion || {};
+        const hora12 = formatearHora12(horaCita(cita));
 
+        const resultado = await Swal.fire({
+            title: 'Solicitud de cancelación',
+            html: `
+                <div class="solicitud-cancelacion-modal text-start">
+                    <p class="mb-2"><strong>${escapeHTML(nombreEstudiante(cita))}</strong> pidió cancelar la cita <strong>#${escapeHTML(id)}</strong>
+                    del ${escapeHTML(formatearFechaLegible(fechaCita(cita)))}${hora12 ? ` a las ${escapeHTML(hora12)}` : ''}.</p>
+                    <div class="solicitud-motivo"><span>Motivo del estudiante</span>${escapeHTML(solicitud.motivo || 'Sin motivo')}</div>
+                    <label class="form-label small fw-semibold mt-3" for="respuestaCancelacion">Comentario para el estudiante (opcional)</label>
+                    <textarea id="respuestaCancelacion" class="form-control" rows="3" maxlength="300" placeholder="Ej.: Está bien, la reprogramamos la próxima semana."></textarea>
+                </div>`,
+            showCancelButton: true,
+            showDenyButton: true,
+            confirmButtonText: '<i class="bi bi-check2"></i> Aceptar cancelación',
+            denyButtonText: '<i class="bi bi-x"></i> Rechazar',
+            cancelButtonText: 'Decidir después',
+            reverseButtons: true,
+            focusConfirm: false,
+            customClass: { popup: 'psyke-alerta', confirmButton: 'psyke-alerta-confirmar', denyButton: 'psyke-alerta-rechazar', cancelButton: 'psyke-alerta-cancelar' },
+            preConfirm: () => Swal.getPopup().querySelector('#respuestaCancelacion').value.trim(),
+            preDeny: () => Swal.getPopup().querySelector('#respuestaCancelacion').value.trim()
+        });
+
+        if (!resultado.isConfirmed && !resultado.isDenied) return;
+        const aceptar = resultado.isConfirmed;
         try {
-            const { expediente } = await asegurarExpediente(idEstudiante);
-            const idExpediente = expediente?.idExpediente ?? expediente?.id;
-            if (!idExpediente) {
-                Notif.error('No se pudo encontrar ni crear el seguimiento de caso del estudiante.');
-                return;
-            }
-
-            await CitasService.registrarSesion({
-                expediente: { idExpediente: Number(idExpediente) },
-                psicologo: { idPsicologo: Number(cita.psicologo?.idPsicologo ?? idPsicologoPorDefecto()) },
-                cita: { idCita: Number(idCitaTarget) },
-                fechaAtencion: fechaCita(cita),
-                tipoProceso: 'Sesión de seguimiento',
-                estadoEstudiante: 'Seguimiento',
-                notasAnotaciones: notas,
-                marcadorCritico: 'NO'
-            });
-
-            if (estadoCita(cita) !== 'REALIZADA') {
-                await CitasService.cambiarEstado(idCitaTarget, 'REALIZADA', cita);
-            }
+            await CitasService.responderCancelacion(id, aceptar, typeof resultado.value === 'string' ? resultado.value : '');
             await recargarCitas();
-
-            const modalInstance = bootstrap.Modal.getInstance(el('modalExpediente'));
-            if (modalInstance) modalInstance.hide();
-
-            Notif.exito('Las notas se guardaron en el seguimiento del caso y la cita quedó como realizada.', 'Sesión registrada');
+            Notif.exito(aceptar
+                ? `La cita de ${nombreEstudiante(cita)} quedó cancelada y se le avisó en la app.`
+                : `Se le avisó a ${nombreEstudiante(cita)} que la cita sigue en pie.`,
+                aceptar ? 'Cancelación aceptada' : 'Solicitud rechazada');
         } catch (error) {
-            Notif.error(mensajeErrorAmigable(error), 'No se pudo guardar la sesión');
+            Notif.error(mensajeErrorAmigable(error), 'No se pudo responder la solicitud');
         }
     };
 
-    window.cargarCitas = recargarCitas;
+    window.registrarSesionCita = async function (id) {
+        const cita = buscarCitaCargada(id);
+        if (!cita) return;
+        if (!yaEmpezo(cita)) {
+            Notif.advertencia('Podrás registrar la sesión desde la hora de la cita.', 'Aún no es la cita');
+            return;
+        }
+        const idEstudiante = cita.estudiante?.idEstudiante ?? cita.estudiante?.id;
+        const modalDetalle = bootstrap.Modal.getInstance(el('modalExpediente'));
+        if (modalDetalle) modalDetalle.hide();
+
+        const nombre = nombreEstudiante(cita);
+        RegistroSesion.abrir({
+            estudiante: { nombre, carnet: carnetEstudiante(cita), iniciales: iniciales(nombre) },
+            cita: { numero: id, fechaTexto: `${formatearFechaLegible(fechaCita(cita))} · ${formatearHora12(horaCita(cita))}` },
+            claveBorrador: `cita_${id}`,
+            guardar: async (datos) => {
+                const { expediente } = await asegurarExpediente(idEstudiante);
+                const idExpediente = expediente?.idExpediente ?? expediente?.id;
+                if (!idExpediente) throw new Error('No se pudo encontrar ni crear el seguimiento de caso del estudiante.');
+
+                await CitasService.registrarSesion({
+                    expediente: { idExpediente: Number(idExpediente) },
+                    psicologo: { idPsicologo: Number(cita.psicologo?.idPsicologo ?? idPsicologoPorDefecto()) },
+                    cita: { idCita: Number(id) },
+                    fechaAtencion: fechaCita(cita),
+                    tipoProceso: datos.tipoProceso,
+                    estadoEstudiante: datos.estadoEstudiante,
+                    marcadorCritico: datos.marcadorCritico,
+                    notasAnotaciones: datos.notasAnotaciones
+                });
+                if (estadoCita(cita) !== 'REALIZADA') {
+                    try {
+                        await CitasService.cambiarEstado(id, 'REALIZADA', cita);
+                    } catch (e) { }
+                }
+                await recargarCitas();
+                Notif.exito('La sesión quedó guardada en el seguimiento del caso.', 'Sesión registrada');
+            }
+        });
+    };
 
     async function ejecutarCancelacionCita(idCitaTarget) {
         try {
@@ -1347,7 +1526,7 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.classList.add('active');
             estado.paginaActual = 1;
             estado.filtro = btn.dataset.filter;
-            if (estado.rangoFechas && ['todas', 'proximas', 'historial'].includes(estado.filtro)) {
+            if (estado.rangoFechas && ['todas', 'hoy', 'proximas', 'solicitudes'].includes(estado.filtro)) {
                 estado.rangoFechas = null;
                 selectores.filtroFechas?.limpiar();
             }

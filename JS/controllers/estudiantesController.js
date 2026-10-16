@@ -16,7 +16,8 @@ document.addEventListener('DOMContentLoaded', () => {
         contrasenaTemporal: '',
         vista: 'todos',
         misEstudiantes: null,
-        filtros: { texto: '', grado: '', seccion: '', estadoClinico: '' }
+        filtros: { texto: '', grado: '', seccion: '', especialidad: '', estadoClinico: '', seguimiento: '', orden: 'nombre' },
+        conSeguimiento: null
     };
 
     function esAdmin() {
@@ -191,6 +192,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="acciones">
                         <button class="btn-accion btn-ver" onclick="abrirModalVer(${id})" title="Ver Expediente">
                             <i class="bi bi-eye"></i>
+                        </button>
+                        <button class="btn-accion btn-seguimiento ${tieneSeguimiento(est) ? 'activo' : ''}" onclick="abrirSeguimientoEstudiante(${id})" title="${tieneSeguimiento(est) ? 'Ver el seguimiento del caso' : 'Abrir el seguimiento del caso'}">
+                            <i class="bi bi-journal-medical"></i>
                         </button>
                         <button class="btn-accion btn-recordatorio" onclick="enviarRecordatorioEstudiante(${id})" title="Enviar recordatorio">
                             <i class="bi bi-bell"></i>
@@ -582,6 +586,29 @@ document.addEventListener('DOMContentLoaded', () => {
         aplicarFiltros(false);
     }
 
+    async function cargarSeguimientos() {
+        try {
+            const expedientes = await EstudiantesService.listarExpedientes();
+            estado.conSeguimiento = new Set((Array.isArray(expedientes) ? expedientes : [])
+                .map(exp => Number(exp.estudiante?.idEstudiante ?? exp.idEstudiante))
+                .filter(Boolean));
+        } catch (error) {
+            estado.conSeguimiento = null;
+        }
+        const filtro = el('filtroSeguimientoEst');
+        if (filtro) filtro.hidden = !estado.conSeguimiento;
+        aplicarFiltros(false);
+    }
+
+    function tieneSeguimiento(est) {
+        return Boolean(estado.conSeguimiento && estado.conSeguimiento.has(Number(idEstudiante(est))));
+    }
+
+    // Seguimiento abre el caso (y lo crea si todavía no existe), así que aquí solo se navega
+    window.abrirSeguimientoEstudiante = function (id) {
+        window.location.href = `seguimientos.html?estudiante=${encodeURIComponent(id)}`;
+    };
+
     function normalizarTexto(valor) {
         return String(valor ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
     }
@@ -624,8 +651,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const secciones = [...new Set(lista.map(nombreSeccion).filter(Boolean).map(String))].sort(ordenNatural);
         llenarFiltroSelect(el('filtroGradoEst'), grados, 'Todos los grados');
         llenarFiltroSelect(el('filtroSeccionEst'), secciones, 'Todas las secciones');
+        const especialidades = [...new Set(lista.map(nombreEspecialidad).filter(Boolean).map(String))].sort(ordenNatural);
+        llenarFiltroSelect(el('filtroEspecialidadEst'), especialidades, 'Todas las especialidades');
         estado.filtros.grado = el('filtroGradoEst')?.value || '';
         estado.filtros.seccion = el('filtroSeccionEst')?.value || '';
+        estado.filtros.especialidad = el('filtroEspecialidadEst')?.value || '';
     }
 
     function coincideTexto(est, texto) {
@@ -651,7 +681,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function aplicarFiltros(reiniciarPagina = true) {
-        const { texto, grado, seccion, estadoClinico } = estado.filtros;
+        const { texto, grado, seccion, especialidad, estadoClinico, seguimiento, orden } = estado.filtros;
         const textoNormal = normalizarTexto(texto);
         const lista = listaEstudiantes();
         const propios = lista.filter(esMiEstudiante);
@@ -661,18 +691,33 @@ document.addEventListener('DOMContentLoaded', () => {
             coincideTexto(est, textoNormal) &&
             (!grado || String(nombreGrado(est)) === grado) &&
             (!seccion || String(nombreSeccion(est)) === seccion) &&
-            (!estadoClinico || estadoClinicoAFormulario(est.estadoClinico ?? est.estado ?? 'Normal') === estadoClinico)
+            (!especialidad || String(nombreEspecialidad(est)) === especialidad) &&
+            (!estadoClinico || estadoClinicoAFormulario(est.estadoClinico ?? est.estado ?? 'Normal') === estadoClinico) &&
+            (!seguimiento || !estado.conSeguimiento || (seguimiento === 'con') === tieneSeguimiento(est))
         );
+
+        const criterios = {
+            nombre: (a, b) => ordenNatural(`${a.apellidos} ${a.nombres}`, `${b.apellidos} ${b.nombres}`),
+            carnet: (a, b) => ordenNatural(a.codigoCarnet, b.codigoCarnet),
+            grado: (a, b) => ordenNatural(nombreGrado(a), nombreGrado(b)) || ordenNatural(nombreSeccion(a), nombreSeccion(b)) || ordenNatural(a.apellidos, b.apellidos),
+            prioridad: (a, b) => {
+                const peso = { Prioritario: 0, Seguimiento: 1, Estable: 2 };
+                const pa = peso[estadoClinicoAFormulario(a.estadoClinico ?? a.estado ?? 'Normal')] ?? 3;
+                const pb = peso[estadoClinicoAFormulario(b.estadoClinico ?? b.estado ?? 'Normal')] ?? 3;
+                return pa - pb || ordenNatural(a.apellidos, b.apellidos);
+            }
+        };
+        filtrados.sort(criterios[orden] || criterios.nombre);
 
         const contadorMios = el('contadorMios');
         const contadorTodos = el('contadorTodos');
         if (contadorMios) contadorMios.textContent = propios.length;
         if (contadorTodos) contadorTodos.textContent = lista.length;
 
-        const hayFiltros = Boolean(grado || seccion || estadoClinico);
+        const hayFiltros = Boolean(grado || seccion || especialidad || estadoClinico || seguimiento);
         const btnLimpiar = el('btnLimpiarFiltrosEst');
         if (btnLimpiar) btnLimpiar.hidden = !(hayFiltros || textoNormal);
-        [['filtroGradoEst', grado], ['filtroSeccionEst', seccion], ['filtroEstadoEst', estadoClinico]].forEach(([id, valor]) => {
+        [['filtroGradoEst', grado], ['filtroSeccionEst', seccion], ['filtroEspecialidadEst', especialidad], ['filtroEstadoEst', estadoClinico], ['filtroSeguimientoEst', seguimiento]].forEach(([id, valor]) => {
             el(id)?.classList.toggle('con-valor', Boolean(valor));
         });
 
@@ -682,7 +727,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function enlazarFiltros() {
-        const enlaces = [['filtroGradoEst', 'grado'], ['filtroSeccionEst', 'seccion'], ['filtroEstadoEst', 'estadoClinico']];
+        const enlaces = [['filtroGradoEst', 'grado'], ['filtroSeccionEst', 'seccion'], ['filtroEspecialidadEst', 'especialidad'], ['filtroEstadoEst', 'estadoClinico'], ['filtroSeguimientoEst', 'seguimiento'], ['ordenEstudiantes', 'orden']];
         enlaces.forEach(([id, clave]) => {
             el(id)?.addEventListener('change', (e) => {
                 estado.filtros[clave] = e.target.value;
@@ -691,8 +736,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         el('btnLimpiarFiltrosEst')?.addEventListener('click', () => {
-            estado.filtros = { texto: '', grado: '', seccion: '', estadoClinico: '' };
-            enlaces.forEach(([id]) => { const s = el(id); if (s) s.value = ''; });
+            estado.filtros = { texto: '', grado: '', seccion: '', especialidad: '', estadoClinico: '', seguimiento: '', orden: 'nombre' };
+            enlaces.forEach(([id, clave]) => { const s = el(id); if (s) s.value = estado.filtros[clave]; });
             const buscar = el('buscarEstudianteInput');
             if (buscar) buscar.value = '';
             aplicarFiltros();
@@ -970,6 +1015,7 @@ document.addEventListener('DOMContentLoaded', () => {
         llenarFiltrosCatalogo();
         enlazarFiltros();
         aplicarFiltros();
+        cargarSeguimientos();
 
         if (buscar) {
             buscar.addEventListener('input', (e) => {

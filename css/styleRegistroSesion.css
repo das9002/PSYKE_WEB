@@ -1,0 +1,281 @@
+/* Registro de sesión (citas y seguimiento) */
+.registro-sesion-modal .modal-content {
+    border: none;
+    border-radius: 20px;
+    overflow: hidden;
+}
+
+.rs-cabecera {
+    background: linear-gradient(135deg, rgba(47, 109, 246, 0.08), rgba(47, 109, 246, 0.02));
+    border-bottom: 1px solid rgba(47, 109, 246, 0.12);
+}
+
+.rs-avatar {
+    width: 48px;
+    height: 48px;
+    font-size: 1.1rem;
+}
+
+.rs-etiqueta {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #2F6DF6;
+}
+
+.rs-cronometro {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: #ECFDF5;
+    color: #047857;
+    font-size: 0.85rem;
+    white-space: nowrap;
+}
+
+.rs-punto {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #10B981;
+    animation: rs-latido 1.4s ease-in-out infinite;
+}
+
+@keyframes rs-latido {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.7); }
+}
+
+.rs-aviso-borrador {
+    padding: 10px 14px;
+    margin-bottom: 14px;
+    border-radius: 12px;
+    background: #EFF6FF;
+    color: #1E40AF;
+    font-size: 0.88rem;
+}
+
+.rs-estados {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.rs-estado {
+    flex: 1;
+    min-width: 110px;
+    padding: 8px 10px;
+    border-radius: 12px;
+    border: 1.5px solid #E2E8F0;
+    background: #FFFFFF;
+    color: #475569;
+    font-weight: 700;
+    font-size: 0.86rem;
+    transition: all 0.15s ease;
+}
+
+.rs-estado.estable.activo { border-color: #22C55E; background: #F0FDF4; color: #15803D; }
+.rs-estado.seguimiento.activo { border-color: #F5C451; background: #FFFBEB; color: #B45309; }
+.rs-estado.prioritario.activo { border-color: #E95A5A; background: #FEF2F2; color: #B91C1C; }
+
+.rs-switch {
+    padding-top: 6px;
+}
+
+.rs-secciones {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 12px;
+}
+
+.rs-seccion {
+    border: 1px solid #E2E8F0;
+    border-radius: 14px;
+    padding: 10px 12px 12px;
+    background: #FBFCFE;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.rs-seccion:focus-within {
+    border-color: #93B4FB;
+    box-shadow: 0 0 0 3px rgba(47, 109, 246, 0.12);
+}
+
+.rs-seccion-cabecera {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+
+.rs-seccion-titulo {
+    flex: 1;
+    border: none;
+    background: transparent;
+    font-weight: 800;
+    font-size: 0.92rem;
+    color: #0F172A;
+    padding: 2px 0;
+}
+
+.rs-seccion-titulo:focus {
+    outline: none;
+    border-bottom: 1px dashed #93B4FB;
+}
+
+.rs-quitar {
+    border: none;
+    background: transparent;
+    color: #94A3B8;
+    padding: 4px 6px;
+    border-radius: 8px;
+}
+
+.rs-quitar:hover {
+    background: #FEE2E2;
+    color: #DC2626;
+}
+
+.rs-seccion-texto {
+    width: 100%;
+    border: none;
+    resize: vertical;
+    background: transparent;
+    font-size: 0.92rem;
+    line-height: 1.5;
+    color: #334155;
+    min-height: 74px;
+}
+
+.rs-seccion-texto:focus {
+    outline: none;
+}
+
+.rs-agregar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-top: 14px;
+}
+
+.rs-sugerencia {
+    border: 1px dashed #CBD5E1;
+    background: transparent;
+    color: #475569;
+    border-radius: 999px;
+    padding: 4px 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.rs-sugerencia:hover {
+    border-color: #2F6DF6;
+    color: #2F6DF6;
+}
+
+.rs-sugerencia.personalizada {
+    border-style: solid;
+}
+
+.rs-error {
+    margin: 12px 0 0;
+    padding: 10px 14px;
+    border-radius: 12px;
+    background: #FEF2F2;
+    color: #B91C1C;
+    font-size: 0.88rem;
+}
+
+/* Notas guardadas por secciones */
+.notas-duracion {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 8px;
+    padding: 2px 10px;
+    border-radius: 999px;
+    background: #F1F5F9;
+    color: #475569;
+    font-size: 0.78rem;
+    font-weight: 600;
+}
+
+.notas-libre {
+    white-space: pre-line;
+    color: #475569;
+}
+
+.notas-seccion {
+    padding: 10px 14px;
+    margin-bottom: 8px;
+    border-left: 3px solid #2F6DF6;
+    border-radius: 0 12px 12px 0;
+    background: #F8FAFF;
+}
+
+.notas-seccion h6 {
+    margin: 0 0 4px;
+    font-size: 0.82rem;
+    font-weight: 800;
+    color: #1E3A8A;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.notas-seccion p {
+    margin: 0;
+    white-space: pre-line;
+    color: #334155;
+    font-size: 0.92rem;
+}
+
+html.dark-mode .rs-cabecera { background: rgba(47, 109, 246, 0.12); border-color: rgba(148, 163, 184, 0.15); }
+html.dark-mode .rs-seccion { background: #0F172A; border-color: #1E293B; }
+html.dark-mode .rs-seccion-titulo { color: #E2E8F0; }
+html.dark-mode .rs-seccion-texto { color: #CBD5E1; }
+html.dark-mode .rs-estado { background: #0F172A; border-color: #334155; color: #CBD5E1; }
+html.dark-mode .rs-estado.estable.activo { background: rgba(34, 197, 94, 0.15); color: #86EFAC; }
+html.dark-mode .rs-estado.seguimiento.activo { background: rgba(245, 196, 81, 0.15); color: #FCD34D; }
+html.dark-mode .rs-estado.prioritario.activo { background: rgba(233, 90, 90, 0.15); color: #FCA5A5; }
+html.dark-mode .rs-cronometro { background: rgba(16, 185, 129, 0.15); color: #6EE7B7; }
+html.dark-mode .rs-aviso-borrador { background: rgba(59, 130, 246, 0.15); color: #93C5FD; }
+html.dark-mode .notas-seccion { background: rgba(47, 109, 246, 0.08); }
+html.dark-mode .notas-seccion h6 { color: #93C5FD; }
+html.dark-mode .notas-seccion p, html.dark-mode .notas-libre { color: #CBD5E1; }
+html.dark-mode .notas-duracion { background: #1E293B; color: #CBD5E1; }
+
+.rs-cronometro.manual {
+    background: #EEF2FF;
+    color: #4338CA;
+}
+
+.rs-fijo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 12px;
+    border-radius: 10px;
+    background: #F1F5F9;
+    color: #0F172A;
+    font-weight: 600;
+    min-height: 38px;
+}
+
+.rs-duracion {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    max-width: 360px;
+}
+
+.rs-duracion .input-group {
+    max-width: 140px;
+}
+
+html.dark-mode .rs-cronometro.manual { background: rgba(99, 102, 241, 0.18); color: #C7D2FE; }
+html.dark-mode .rs-fijo { background: #1E293B; color: #E2E8F0; }

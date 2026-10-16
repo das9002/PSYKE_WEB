@@ -19,6 +19,7 @@
     <link rel="stylesheet" href="../css/styleAlertas.css">
     <link rel="stylesheet" href="../css/stylenotificacionChat.css">
     <link rel="stylesheet" href="../css/styleTipografia.css">
+    <link rel="stylesheet" href="../css/styleRegistroSesion.css">
     <link rel="icon" href="../img/Logo0.png" crossorigin>
     <script>
         (function () {
@@ -111,9 +112,24 @@
                     <p class="text-muted small mb-0">Seleccione un estudiante para revisar su historial de casos, evolución y sesiones.</p>
                 </div>
 
-                <div class="search-box-container mb-4">
-                    <i class="bi bi-search search-icon"></i>
-                    <input id="buscarSeguimientoInput" class="form-control" placeholder="Buscar estudiante por nombre, carnet o grado...">
+                <div class="casos-filtros mb-4">
+                    <div class="search-box-container casos-buscar">
+                        <i class="bi bi-search search-icon"></i>
+                        <input id="buscarSeguimientoInput" class="form-control" placeholder="Buscar estudiante por nombre, carnet o grado...">
+                    </div>
+                    <div class="casos-chips" role="tablist" aria-label="Filtrar casos">
+                        <button type="button" class="caso-chip activo" data-filtro="">Todos <span id="contadorCasosTodos"></span></button>
+                        <button type="button" class="caso-chip prioritario" data-filtro="Prioritario"><i class="bi bi-star-fill"></i> Prioritarios <span id="contadorCasosPrioritario"></span></button>
+                        <button type="button" class="caso-chip seguimiento" data-filtro="Seguimiento"><i class="bi bi-eye"></i> En seguimiento <span id="contadorCasosSeguimiento"></span></button>
+                        <button type="button" class="caso-chip estable" data-filtro="Estable"><i class="bi bi-emoji-smile"></i> Estables <span id="contadorCasosEstable"></span></button>
+                        <button type="button" class="caso-chip critico" data-filtro="critico"><i class="bi bi-exclamation-triangle-fill"></i> Críticos <span id="contadorCasosCritico"></span></button>
+                    </div>
+                    <select id="ordenCasos" class="form-select casos-orden" aria-label="Ordenar casos">
+                        <option value="actividad">Actividad más reciente</option>
+                        <option value="prioridad">Prioritarios primero</option>
+                        <option value="nombre">Por apellido</option>
+                        <option value="cita">Próxima cita</option>
+                    </select>
                 </div>
 
                 <div class="row g-3" id="listaEstudiantesSeguimiento">
@@ -122,6 +138,16 @@
                 <div id="noResultsSeguimiento" class="text-center py-5 d-none text-muted">
                     <i class="bi bi-person-x fs-1 mb-2 d-block opacity-50"></i>
                     <p class="mb-0 fw-semibold">No se encontraron estudiantes en seguimiento que coincidan con la búsqueda.</p>
+                </div>
+            </div>
+
+            <div id="vista-cargando-caso" class="container-fluid p-0 d-none">
+                <div class="caso-cargando">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <div>
+                        <strong>Abriendo el seguimiento del caso…</strong>
+                        <span>Cargando el historial del estudiante.</span>
+                    </div>
                 </div>
             </div>
 
@@ -186,16 +212,45 @@
                             </h5>
                             <span class="text-muted small">Registro cronológico de intervenciones y notas psicopedagógicas</span>
                         </div>
-                        <button class="btn-nuevo-registro" data-bs-toggle="modal" data-bs-target="#modalNuevoRegistro">
-                            <i class="bi bi-plus-lg"></i> Nuevo Registro de Cita
-                        </button>
+                        <div class="d-flex gap-2 flex-wrap">
+                            <button type="button" class="btn-abrir-sesion" id="btnAbrirSesion" title="El estudiante llegó sin cita y lo vas a atender ahora">
+                                <i class="bi bi-door-open"></i> Abrir sesión sin cita
+                            </button>
+                            <button type="button" class="btn-nuevo-registro" id="btnRegistroManual" title="Registrar una sesión que ya pasó">
+                                <i class="bi bi-plus-lg"></i> Registro manual
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="historial-filtros mb-3">
+                        <div class="search-box-container historial-buscar">
+                            <i class="bi bi-search search-icon"></i>
+                            <input id="buscarHistorialInput" class="form-control" placeholder="Buscar en las notas o el tipo de sesión...">
+                        </div>
+                        <select id="filtroHistorialTipo" class="form-select" aria-label="Filtrar sesiones">
+                            <option value="">Todas las sesiones</option>
+                            <option value="con_cita">Con cita</option>
+                            <option value="sin_cita">Sin cita previa</option>
+                            <option value="critico">Solo casos críticos</option>
+                        </select>
+                        <select id="filtroHistorialEstado" class="form-select" aria-label="Filtrar por estado">
+                            <option value="">Todos los estados</option>
+                            <option value="Prioritario">Prioritario</option>
+                            <option value="Seguimiento">Seguimiento</option>
+                            <option value="Estable">Estable</option>
+                        </select>
+                        <select id="ordenHistorial" class="form-select" aria-label="Ordenar sesiones">
+                            <option value="recientes">Más recientes primero</option>
+                            <option value="antiguas">Más antiguas primero</option>
+                        </select>
+                        <span class="historial-contador" id="contadorHistorial"></span>
                     </div>
 
                     <div class="table-responsive">
                         <table class="table align-middle mb-0">
                             <thead>
                                 <tr>
-                                    <th style="width: 12%;">Fecha</th>
+                                    <th style="width: 14%;">Fecha</th>
                                     <th style="width: 22%;">Proceso / Sesión</th>
                                     <th style="width: 30%;">Observación y Evolución</th>
                                     <th style="width: 13%;">Estado</th>
@@ -215,101 +270,6 @@
 
     </div>
 
-    <div class="modal fade" id="modalNuevoRegistro" tabindex="-1" aria-labelledby="modalNuevoRegistroLabel">
-        <div class="modal-dialog modal-dialog-centered modal-lg">
-            <div class="modal-content">
-
-                <div class="modal-header">
-                    <h4 class="modal-title fw-bold d-flex align-items-center gap-2" id="modalNuevoRegistroLabel">
-                        <i class="bi bi-journal-plus text-primary"></i>
-                        <span>Agregar Registro de Sesión</span>
-                    </h4>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-                </div>
-
-                <form id="formNuevoRegistro">
-                    <div class="modal-body">
-                        <div class="row g-3">
-
-                            <div class="col-md-4">
-                                <label for="fechaCitaSeg" class="custom-form-label">
-                                    <i class="bi bi-calendar3 text-primary me-1"></i> Fecha de Atención <span class="text-danger">*</span>
-                                </label>
-                                <input type="date" class="form-control" id="fechaCitaSeg" required>
-                                <small class="form-text text-muted" id="fechaCitaSegAyuda"></small>
-                            </div>
-
-                            <div class="col-md-4">
-                                <label for="estadoCitaSeg" class="custom-form-label">
-                                    <i class="bi bi-shield-check text-primary me-1"></i> Estado / Progreso <span class="text-danger">*</span>
-                                </label>
-                                <select class="form-select" id="estadoCitaSeg" required>
-                                    <option value="Prioritario">⭐ Prioritario (Caso crítico)</option>
-                                    <option value="Seguimiento" selected>▲ Seguimiento (Proceso activo)</option>
-                                    <option value="Estable">● Estable (Controlado)</option>
-                                </select>
-                            </div>
-
-                            <div class="col-md-4">
-                                <label for="citaVinculadaSeg" class="custom-form-label">
-                                    <i class="bi bi-calendar2-check text-primary me-1"></i> Cita Vinculada (Opcional)
-                                </label>
-                                <input type="text" class="form-control" id="citaVinculadaSeg" placeholder="Ej. CIT-104" maxlength="20">
-                                <small class="form-text text-muted" id="citaVinculadaSegAyuda"></small>
-                            </div>
-
-                            <div class="col-md-6">
-                                <label for="psicologoCitaSeg" class="custom-form-label">
-                                    <i class="bi bi-person-badge-fill text-primary me-1"></i> Psicólogo a Cargo <span class="text-danger">*</span>
-                                </label>
-                                <select class="form-select" id="psicologoCitaSeg" required>
-                                    <option value="">Seleccionar psicólogo</option>
-                                </select>
-                            </div>
-
-                            <div class="col-md-6">
-                                <label for="marcadorCriticoSeg" class="custom-form-label">
-                                    <i class="bi bi-exclamation-triangle-fill text-primary me-1"></i> Marcador Crítico (SES_marcador_critico)
-                                </label>
-                                <select class="form-select" id="marcadorCriticoSeg">
-                                    <option value="NO" selected>NO — Caso regular</option>
-                                    <option value="SI">SÍ — Requiere intervención urgente</option>
-                                </select>
-                            </div>
-
-                            <div class="col-12">
-                                <label for="procesoCitaSeg" class="custom-form-label">
-                                    <i class="bi bi-tag-fill text-primary me-1"></i> Tipo de Proceso / Intervención <span class="text-danger">*</span>
-                                </label>
-                                <input type="text" class="form-control" id="procesoCitaSeg" placeholder="Ej. Sesión 2 - Técnicas de relajación y hábitos de estudio" maxlength="200" required>
-                            </div>
-
-                            <div class="col-12">
-                                <label for="observacionCitaSeg" class="custom-form-label">
-                                    <i class="bi bi-chat-square-text text-primary me-1"></i> Observación y Notas Clínicas <span class="text-danger">*</span>
-                                </label>
-                                <textarea class="form-control" id="observacionCitaSeg" rows="4" maxlength="4000"
-                                    placeholder="Detalle los avances observados, respuestas emocionales, tareas asignadas y recomendaciones..." required></textarea>
-                            </div>
-
-                        </div>
-                    </div>
-
-                    <div class="modal-footer justify-content-end gap-2">
-                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="submit" class="btn btn-primary-custom d-flex align-items-center gap-1">
-                            <i class="bi bi-check-lg"></i> Guardar Registro
-                        </button>
-                        <button type="button" class="btn btn-outline-secondary" id="btnLimpiarModal">
-                            <i class="bi bi-arrow-counterclockwise"></i> Limpiar
-                        </button>
-                    </div>
-                </form>
-
-            </div>
-        </div>
-    </div>
-
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"
         integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
         crossorigin="anonymous"></script>
@@ -325,6 +285,7 @@
     <script src="../JS/services/sesionService.js"></script>
     <script src="../JS/componentes/navbar.js"></script>
     <script src="../JS/validaciones/seguimientosValidaciones.js"></script>
+    <script src="../JS/componentes/registroSesion.js"></script>
     <script src="../JS/controllers/seguimientosController.js"></script>
     <script>
         (function () {

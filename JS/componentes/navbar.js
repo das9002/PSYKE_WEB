@@ -2,6 +2,23 @@
     'use strict';
 
     const BUTTON_SELECTOR = '.btn-user-profile';
+    const ENLACE_PSICOLOGOS = 'a[href$="psicologos.html"]';
+
+    // El apartado de Psicólogos es solo para el administrador: se oculta desde el inicio para que no parpadee
+    (function ocultarPsicologosHastaSaberElRol() {
+        const estilo = document.createElement('style');
+        estilo.textContent = `html:not(.rol-admin) ${ENLACE_PSICOLOGOS} { display: none !important; }`;
+        document.head.appendChild(estilo);
+    })();
+
+    function aplicarPermisosDeMenu(rol) {
+        const esAdmin = rol === 'ADMIN';
+        document.documentElement.classList.toggle('rol-admin', esAdmin);
+        const enPaginaPsicologos = /\/psicologos\.html$/i.test(window.location.pathname);
+        if (!esAdmin && enPaginaPsicologos) {
+            window.location.replace(pageLink('inicio.html'));
+        }
+    }
     const MENU_ID = 'profileDropdownMenu';
 
     let usuarioCache = null;
@@ -153,6 +170,7 @@
             window.location.replace(resolveLoginPage());
             return;
         }
+        aplicarPermisosDeMenu(usuario.rol);
 
         const nombreUsuario = usuario.nombre || 'Usuario';
 

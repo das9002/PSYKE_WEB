@@ -118,6 +118,7 @@
 
     function cerrarSesionGlobal(opciones) {
         var voluntario = Boolean(opciones && opciones.voluntario);
+        var porInactividad = Boolean(opciones && opciones.motivo === 'inactividad');
         if (sesionCerradaEnCurso) return;
         sesionCerradaEnCurso = true;
         usuarioSesion = null;
@@ -127,6 +128,8 @@
         if (typeof Notif !== 'undefined') {
             if (voluntario) {
                 Notif.exito('Has salido de tu cuenta de forma segura.', 'Sesión cerrada');
+            } else if (porInactividad) {
+                Notif.advertencia('Tu sesión se cerró porque pasaron 15 minutos sin actividad. Inicia sesión nuevamente.', 'Sesión cerrada por inactividad');
             } else {
                 Notif.error('Tu sesión ha expirado. Inicia sesión nuevamente.', 'Sesión expirada');
             }
@@ -301,7 +304,120 @@
         const datos = await sesionPendiente;
         usuarioSesion = datos || null;
         sesionPendiente = null;
+        if (usuarioSesion) iniciarControlDeInactividad();
         return usuarioSesion;
+    }
+
+    // ===== Cierre de sesión por inactividad =====
+    // La sesión dura 15 minutos, pero mientras la persona usa el sistema se renueva sola.
+    // Solo se cierra si pasan 15 minutos sin mover el mouse, escribir, hacer clic o desplazarse.
+    var LIMITE_INACTIVIDAD_MS = 15 * 60 * 1000;
+    var AVISO_ANTES_MS = 60 * 1000;
+    var RENOVAR_CADA_MS = 4 * 60 * 1000;
+    var CLAVE_ACTIVIDAD = 'psyke_ultima_actividad';
+    var controlIniciado = false;
+    var ultimaActividad = Date.now();
+    var ultimaRenovacion = Date.now();
+    var avisoAbierto = false;
+    var renovando = false;
+
+    function leerActividadCompartida() {
+        try {
+            var valor = Number(global.localStorage.getItem(CLAVE_ACTIVIDAD));
+            if (valor > ultimaActividad) ultimaActividad = valor;
+        } catch (e) { }
+        return ultimaActividad;
+    }
+
+    function marcarActividad() {
+        var ahora = Date.now();
+        if (ahora - ultimaActividad < 5000) return;
+        ultimaActividad = ahora;
+        // Compartido entre pestañas: si trabaja en otra pestaña, esta tampoco se cierra
+        try { global.localStorage.setItem(CLAVE_ACTIVIDAD, String(ahora)); } catch (e) { }
+    }
+
+    async function renovarSesion() {
+        if (renovando) return;
+        renovando = true;
+        try {
+            var respuesta = await authFetch('/renovar', { method: 'POST' });
+            if (respuesta.ok) ultimaRenovacion = Date.now();
+        } catch (e) {
+        } finally {
+            renovando = false;
+        }
+    }
+
+    async function cerrarPorInactividad() {
+        try { await authFetch('/logout', { method: 'POST' }); } catch (e) { }
+        if (typeof global.Swal !== 'undefined' && global.Swal.isVisible && global.Swal.isVisible()) global.Swal.close();
+        cerrarSesionGlobal({ motivo: 'inactividad' });
+    }
+
+    async function mostrarAvisoInactividad() {
+        avisoAbierto = true;
+        if (typeof global.Swal === 'undefined') return;
+        var resultado = await global.Swal.fire({
+            icon: 'warning',
+            title: '¿Sigues ahí?',
+            html: 'Por seguridad, tu sesión se cerrará en <strong id="segundosInactividad">60</strong> segundos por inactividad.',
+            confirmButtonText: 'Seguir conectado',
+            allowOutsideClick: false,
+            timer: AVISO_ANTES_MS,
+            timerProgressBar: true,
+            customClass: { popup: 'psyke-alerta', confirmButton: 'psyke-alerta-confirmar' },
+            didOpen: function () {
+                var contador = document.getElementById('segundosInactividad');
+                var intervalo = setInterval(function () {
+                    var restante = Math.max(0, Math.ceil((leerActividadCompartida() + LIMITE_INACTIVIDAD_MS - Date.now()) / 1000));
+                    if (contador) contador.textContent = restante;
+                    if (!avisoAbierto) clearInterval(intervalo);
+                }, 1000);
+            }
+        });
+        avisoAbierto = false;
+        if (resultado && resultado.isConfirmed) {
+            ultimaActividad = 0;
+            marcarActividad();
+            renovarSesion();
+        }
+    }
+
+    function revisarInactividad() {
+        if (sesionCerradaEnCurso) return;
+        var inactivo = Date.now() - leerActividadCompartida();
+        if (inactivo >= LIMITE_INACTIVIDAD_MS) {
+            cerrarPorInactividad();
+            return;
+        }
+        if (inactivo >= LIMITE_INACTIVIDAD_MS - AVISO_ANTES_MS) {
+            if (!avisoAbierto) mostrarAvisoInactividad();
+            return;
+        }
+        if (avisoAbierto && typeof global.Swal !== 'undefined') {
+            avisoAbierto = false;
+            global.Swal.close();
+        }
+        // Hubo actividad desde la última renovación: se pide un token nuevo antes de que venza
+        if (ultimaActividad > ultimaRenovacion && Date.now() - ultimaRenovacion >= RENOVAR_CADA_MS) {
+            renovarSesion();
+        }
+    }
+
+    function iniciarControlDeInactividad() {
+        if (controlIniciado) return;
+        controlIniciado = true;
+        ultimaActividad = Date.now();
+        ultimaRenovacion = Date.now();
+        try { global.localStorage.setItem(CLAVE_ACTIVIDAD, String(ultimaActividad)); } catch (e) { }
+        ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'wheel'].forEach(function (evento) {
+            global.addEventListener(evento, marcarActividad, { passive: true, capture: true });
+        });
+        document.addEventListener('visibilitychange', function () {
+            if (document.visibilityState === 'visible') revisarInactividad();
+        });
+        setInterval(revisarInactividad, 15000);
     }
 
     async function listarTodo(ruta, tamano) {

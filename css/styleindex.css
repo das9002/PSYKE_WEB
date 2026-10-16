@@ -259,6 +259,15 @@ h1 {
         background-color 0.2s ease;
 }
 
+.container input:-webkit-autofill,
+.container input:-webkit-autofill:hover,
+.container input:-webkit-autofill:focus,
+.container input:-webkit-autofill:active {
+    -webkit-text-fill-color: #ffffff;
+    caret-color: #ffffff;
+    transition: background-color 9999s ease-in-out 0s;
+}
+
 .container input::placeholder {
     color: rgba(255, 255, 255, 0.55);
 }

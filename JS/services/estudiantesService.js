@@ -18,6 +18,10 @@ const EstudiantesService = {
         return peticionApi('/estudiantes/mis-estudiantes');
     },
 
+    listarExpedientes() {
+        return listarTodo('/expedientes');
+    },
+
     crear(estudiante) {
         return peticionApi('/estudiantes', {
             method: 'POST',
