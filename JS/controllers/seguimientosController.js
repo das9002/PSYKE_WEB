@@ -540,17 +540,29 @@ document.addEventListener('DOMContentLoaded', () => {
         return { psicologo: actual, psicologos: lista };
     }
 
-    function citasParaVincular(idEstudiante) {
-        const ahora = new Date();
+    // Citas del estudiante que se pueden vincular (de hoy o anteriores, sin sesión), la más cercana a ahora primero
+    function citasParaVincular(idEstudiante, idCitaActual) {
+        const ahora = Date.now();
+        const finDeHoy = new Date();
+        finDeHoy.setHours(23, 59, 59, 999);
+        const hoy = formatearFechaISO(new Date());
         return estado.citas
             .filter(c => Number(c.estudiante?.idEstudiante) === Number(idEstudiante))
             .filter(c => String(c.estadoConfirmacion ?? '').toUpperCase() !== 'CANCELADA')
-            .filter(c => new Date(c.fechaHoraCita) <= ahora)
-            .sort((a, b) => String(b.fechaHoraCita).localeCompare(String(a.fechaHoraCita)))
+            .filter(c => !c.tieneSesion || Number(c.idCita) === Number(idCitaActual))
+            .filter(c => new Date(c.fechaHoraCita).getTime() <= finDeHoy.getTime())
+            .sort((a, b) => Math.abs(new Date(a.fechaHoraCita).getTime() - ahora) - Math.abs(new Date(b.fechaHoraCita).getTime() - ahora))
             .map(c => {
                 const fecha = fechaDeCita(c);
-                return { id: c.idCita, fecha, texto: `Cita #${c.idCita} · ${formatearFechaDisplay(fecha)} · ${horaDeCita(c)}` };
+                const dia = fecha === hoy ? 'Hoy' : formatearFechaDisplay(fecha);
+                return { id: c.idCita, fecha, texto: `Cita #${c.idCita} · ${dia} · ${horaDeCita(c)}` };
             });
+    }
+
+    async function recargarCitasDelCaso() {
+        try {
+            estado.citas = (await SeguimientosService.listarCitas()) ?? estado.citas;
+        } catch (error) { }
     }
 
     async function trasGuardarSesion(mensaje) {
@@ -579,8 +591,9 @@ document.addEventListener('DOMContentLoaded', () => {
             Notif.advertencia('No se encontró el psicólogo de tu cuenta para registrar la sesión.', 'Falta el psicólogo');
             return;
         }
-        const citas = citasParaVincular(est.idEstudiante);
         const citaActual = sesionExistente?.cita?.idCita;
+        const citas = citasParaVincular(est.idEstudiante, citaActual);
+        const citaCercana = editando ? null : citas[0];
         if (citaActual && !citas.some(c => Number(c.id) === Number(citaActual))) {
             citas.unshift({ id: citaActual, fecha: formatearFechaISO(sesionExistente.fechaAtencion), texto: `Cita #${citaActual}` });
         }
@@ -601,7 +614,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 critico: sesionExistente.marcadorCritico === 'SI',
                 notas: sesionExistente.notasAnotaciones || '',
                 idPsicologo: sesionExistente.psicologo?.idPsicologo
-            } : {},
+            } : (citaCercana ? { idCita: citaCercana.id, fecha: citaCercana.fecha } : {}),
             guardar: async (datos) => {
                 const payload = {
                     expediente: { idExpediente: Number(expediente.idExpediente) },
@@ -618,7 +631,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     await SeguimientosService.crear(payload);
                 }
-                await trasGuardarSesion(editando ? 'Los cambios de la sesión se guardaron.' : 'La sesión quedó registrada en el seguimiento del caso.');
+                if (datos.idCita || citaActual) await recargarCitasDelCaso();
+                const mensaje = editando
+                    ? 'Los cambios de la sesión se guardaron.'
+                    : (datos.idCita ? 'La sesión quedó registrada y la cita pasó a realizada.' : 'La sesión quedó registrada en el seguimiento del caso.');
+                await trasGuardarSesion(mensaje);
             }
         });
     }
@@ -637,6 +654,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             await SeguimientosService.eliminar(idSesion);
+            await recargarCitasDelCaso();
             estado.sesiones = estado.sesiones.filter(item => Number(item.idSesion) !== Number(idSesion));
             renderTablaHistorial();
             renderListaEstudiantes();

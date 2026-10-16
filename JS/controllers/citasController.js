@@ -347,6 +347,15 @@ document.addEventListener('DOMContentLoaded', () => {
         return !isNaN(inicio) && Date.now() >= inicio;
     }
 
+    // La sesión se puede registrar desde el mismo día de la cita, aunque todavía no sea la hora
+    function puedeRegistrarse(cita) {
+        const inicio = inicioDeCita(cita);
+        if (isNaN(inicio.getTime())) return false;
+        const finDelDia = new Date(inicio);
+        finDelDia.setHours(0, 0, 0, 0);
+        return Date.now() >= finDelDia.getTime();
+    }
+
     function solicitudPendiente(cita) {
         return String(cita.solicitudCancelacion?.estado || '').toUpperCase() === 'PENDIENTE';
     }
@@ -497,7 +506,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const activa = est === 'PENDIENTE' || est === 'CONFIRMADA' || est === 'EN_CURSO';
             const esNueva = Number(id) > estado.marcaNuevas && !estado.creadasPorMi.has(Number(id));
             const puedeRecordar = (est === 'PENDIENTE' || est === 'CONFIRMADA') && !yaPaso(fechaCita(cita), hora);
-            const puedeRegistrarSesion = est !== 'CANCELADA' && yaEmpezo(cita) && !cita.tieneSesion;
+            const puedeRegistrarSesion = est !== 'CANCELADA' && puedeRegistrarse(cita) && !cita.tieneSesion;
             const pideCancelar = solicitudPendiente(cita) && activa;
             const tr = document.createElement('tr');
             tr.dataset.idCita = id;
@@ -835,7 +844,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const idEstudianteCita = cita.estudiante?.idEstudiante ?? cita.estudiante?.id;
 
         const est = estadoVisible(cita);
-        const esMomentoCita = yaEmpezo(cita) && est !== 'CANCELADA';
+        const esMomentoCita = puedeRegistrarse(cita) && est !== 'CANCELADA';
         const solicitud = cita.solicitudCancelacion;
 
         el('expedienteModalTitulo').textContent = `Detalle de la cita #${id}`;
@@ -1141,8 +1150,8 @@ document.addEventListener('DOMContentLoaded', () => {
     window.registrarSesionCita = async function (id) {
         const cita = buscarCitaCargada(id);
         if (!cita) return;
-        if (!yaEmpezo(cita)) {
-            Notif.advertencia('Podrás registrar la sesión desde la hora de la cita.', 'Aún no es la cita');
+        if (!puedeRegistrarse(cita)) {
+            Notif.advertencia('Podrás registrar la sesión el día de la cita.', 'Aún no es la cita');
             return;
         }
         const idEstudiante = cita.estudiante?.idEstudiante ?? cita.estudiante?.id;
@@ -1169,13 +1178,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     marcadorCritico: datos.marcadorCritico,
                     notasAnotaciones: datos.notasAnotaciones
                 });
-                if (estadoCita(cita) !== 'REALIZADA') {
-                    try {
-                        await CitasService.cambiarEstado(id, 'REALIZADA', cita);
-                    } catch (e) { }
-                }
                 await recargarCitas();
-                Notif.exito('La sesión quedó guardada en el seguimiento del caso.', 'Sesión registrada');
+                Notif.exito('La sesión quedó guardada en el seguimiento del caso y la cita pasó a realizada.', 'Sesión registrada');
             }
         });
     };
